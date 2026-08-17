@@ -848,3 +848,54 @@ a { color: inherit; text-decoration: none; }
   user-select: all;
   word-break: break-all;
 }
+
+/* ---------- mobile posting flow ---------- */
+
+.postphotos { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; }
+.postphotos img {
+  height: 130px; width: auto; border-radius: 4px;
+  border: 1px solid var(--rule); flex: none;
+}
+.posthint { margin: 0 0 16px; font-size: 13.5px; color: var(--ink-2); max-width: 60ch; }
+
+.postfields { display: flex; flex-direction: column; gap: 10px; }
+.postfield {
+  display: flex; flex-direction: column; gap: 7px;
+  width: 100%; text-align: left; font: inherit; color: inherit;
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 5px; padding: 14px 16px; cursor: pointer;
+}
+.postfield:hover { border-color: var(--ink-3); }
+.postfield-done { border-color: var(--sage); background: var(--sage-soft); }
+.postfield-head { display: flex; align-items: center; gap: 10px; }
+.postfield-step {
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: var(--ink); color: var(--ground);
+  font-family: var(--mono); font-size: 11px;
+}
+.postfield-done .postfield-step { background: var(--sage); color: var(--ground); }
+.postfield-label { font-weight: 650; font-size: 14.5px; }
+.postfield-action {
+  margin-left: auto; font-family: var(--mono);
+  font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.postfield-done .postfield-action { color: var(--sage); }
+.postfield-value {
+  font-size: 13.5px; line-height: 1.5; color: var(--ink-2);
+  white-space: pre-wrap; word-break: break-word;
+}
+.postfield-long { max-height: 108px; overflow: hidden; position: relative; }
+
+.postactions {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap; margin-top: 20px;
+}
+.postactions .button { text-decoration: none; display: inline-block; }
+
+@media (max-width: 620px) {
+  .shell { padding: 0 14px 60px; }
+  .postactions { position: sticky; bottom: 12px; }
+  .postactions .button { flex: 1; text-align: center; }
+}

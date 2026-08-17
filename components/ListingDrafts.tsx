@@ -100,6 +100,11 @@ export default function ListingDrafts({
               <span className="draftcard-net">
                 {usd(net)} net <span className="muted">at {usd(listing.price)}</span>
               </span>
+              {/* The phone flow is the one that works on iOS, where nothing can
+                  fill another app's form. */}
+              <a className="copy" href={`/post/${listing.id}`}>
+                Post on phone
+              </a>
             </div>
 
             <div className="field">

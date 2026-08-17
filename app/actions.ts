@@ -187,3 +187,22 @@ export async function createPairingCode(): Promise<
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+/** The seller posted it by hand on their phone; record that it's live. */
+export async function markListed(listingId: string) {
+  const supabase = await supabaseServer();
+
+  const { data: listing } = await supabase
+    .from("listings")
+    .update({ status: "live", posted_at: new Date().toISOString(), posted_via: "manual" })
+    .eq("id", listingId)
+    .select("item_id")
+    .maybeSingle();
+
+  if (listing) {
+    await supabase.from("items").update({ status: "listed" }).eq("id", listing.item_id);
+    revalidatePath(`/items/${listing.item_id}`);
+  }
+
+  revalidatePath("/");
+}
