@@ -3,14 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "closet.db");
+const DB_PATH = path.join(DATA_DIR, "threader.db");
 
 // Next's dev server re-evaluates modules on hot reload; without this you leak
 // a file handle per edit until SQLite starts refusing to open.
-const cache = globalThis as unknown as { __closetDb?: DatabaseSync };
+const cache = globalThis as unknown as { __threaderDb?: DatabaseSync };
 
 export function db(): DatabaseSync {
-  if (cache.__closetDb) return cache.__closetDb;
+  if (cache.__threaderDb) return cache.__threaderDb;
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const conn = new DatabaseSync(DB_PATH);
@@ -19,7 +19,7 @@ export function db(): DatabaseSync {
   conn.exec(fs.readFileSync(path.join(process.cwd(), "lib", "schema.sql"), "utf8"));
   migrate(conn);
 
-  cache.__closetDb = conn;
+  cache.__threaderDb = conn;
   return conn;
 }
 

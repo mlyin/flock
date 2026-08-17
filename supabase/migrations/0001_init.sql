@@ -1,4 +1,4 @@
--- Closet — multi-tenant schema.
+-- Threader — multi-tenant schema.
 --
 -- Two things changed moving off SQLite, and both are deliberate:
 --

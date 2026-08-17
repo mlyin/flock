@@ -4,8 +4,8 @@ next-env.d.ts
 *.tsbuildinfo
 
 # local data — this is your actual inventory, not source
-data/closet.db
-data/closet.db-*
+data/threader.db
+data/threader.db-*
 photos/inbox/*
 !photos/inbox/.gitkeep
 photos/items/*

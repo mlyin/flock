@@ -15,7 +15,7 @@ export default function Nav() {
   return (
     <header className="topbar">
       <Link href="/" className="brandmark">
-        <strong>Closet</strong>
+        <strong>Threader</strong>
         <span>Stage 01 · photo intake</span>
       </Link>
       <nav className="navlinks">

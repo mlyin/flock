@@ -1,4 +1,4 @@
-# Closet
+# Threader
 
 Personal resale operations tool. One catalog, five channels, and an honest answer to
 "what did I actually net."
@@ -16,7 +16,7 @@ npm run seed                 # 30 fixture garments
 npm run dev                  # http://localhost:3737
 ```
 
-`npm run reset` wipes and reseeds. The database is a single file at `data/closet.db` —
+`npm run reset` wipes and reseeds. The database is a single file at `data/threader.db` —
 delete it and start over any time.
 
 The API key is only needed for photo identification; the dashboard runs without one.

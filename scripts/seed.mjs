@@ -13,7 +13,7 @@ import path from "node:path";
 import { computeFees } from "../lib/fees.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const DB_PATH = path.join(ROOT, "data", "closet.db");
+const DB_PATH = path.join(ROOT, "data", "threader.db");
 const EMPTY = process.argv.includes("--empty");
 const RESET = process.argv.includes("--reset") || EMPTY;
 

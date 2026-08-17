@@ -1,4 +1,4 @@
-# Closet — working notes
+# Threader — working notes
 
 Personal resale operations tool. One person's clothing inventory, listed across five
 marketplaces, with an honest net-proceeds figure.
@@ -69,7 +69,7 @@ the audit trail when a brand comes back wrong, and the signal for judging qualit
 
 ## Not in git
 
-`data/closet.db` and `photos/` are gitignored — they're the actual inventory, not source.
+`data/threader.db` and `photos/` are gitignored — they're the actual inventory, not source.
 A fresh clone gets the code and an empty closet; run `npm run seed` for fixtures.
 
 ## Where this is going

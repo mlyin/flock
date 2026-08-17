@@ -3,7 +3,7 @@ import Nav from "@/components/Nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Closet",
+  title: "Threader",
   description: "Inventory, listings, and what you actually netted.",
 };
 
