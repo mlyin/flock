@@ -194,15 +194,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     else missing.push("package size");
 
     await wait(600);
-    const blocked = validationErrors();
+    let blocked = validationErrors();
 
+    /**
+     * Depop's flow is several steps: Continue advances, it doesn't publish. So
+     * walk forward one step at a time, re-checking validation between each,
+     * and stop the moment the page objects to anything.
+     *
+     * Capped at four steps. If Depop adds a step we don't understand, this
+     * stalls rather than clicking unknown buttons on a listing page.
+     */
     if (autoSubmit && blocked.length === 0) {
-      const submit = [...document.querySelectorAll("button")].find((b) =>
-        /^(continue|next|publish|list it)$/i.test(b.textContent?.trim() ?? "")
-      );
-      if (submit) {
-        submit.click();
-        filled.push("submitted");
+      for (let step = 0; step < 4; step += 1) {
+        const advance = [...document.querySelectorAll("button")].find(
+          (b) =>
+            /^(continue|next|publish|list it|post)$/i.test(b.textContent?.trim() ?? "") &&
+            !b.disabled &&
+            b.offsetParent !== null
+        );
+        if (!advance) break;
+
+        const label = advance.textContent.trim();
+        advance.click();
+        filled.push(`clicked ${label}`);
+
+        await wait(2200); // let the next step mount
+        blocked = validationErrors();
+        if (blocked.length > 0) break; // the new step wants something from you
       }
     }
 

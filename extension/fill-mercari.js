@@ -82,8 +82,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       missing.push(`photos (${error.message})`);
     }
 
+    // Mercari also steps rather than publishing in one click.
+    if (message.autoSubmit) {
+      for (let step = 0; step < 4; step += 1) {
+        const advance = [...document.querySelectorAll("button")].find(
+          (b) =>
+            /^(continue|next|list|publish|post)$/i.test(b.textContent?.trim() ?? "") &&
+            !b.disabled &&
+            b.offsetParent !== null
+        );
+        if (!advance) break;
+        const label = advance.textContent.trim();
+        advance.click();
+        filled.push(`clicked ${label}`);
+        await new Promise((r) => setTimeout(r, 2200));
+      }
+    }
+
     banner(filled, missing);
-    sendResponse({ filled, missing });
+    sendResponse({ filled, missing, blocked: [] });
   })();
   return true;
 });
