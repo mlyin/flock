@@ -108,29 +108,22 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             {item.sale && <span>sold on {CHANNEL_LABEL[item.sale.channel]}</span>}
           </div>
 
-          {unreviewed && (
-            <>
-              <div className="sectionhead">
-                <h2>Unreviewed draft</h2>
-                <p>Read from the photos by {inference?.model ?? "the model"}. Correct anything wrong.</p>
-              </div>
-              <ReviewForm item={item} confidence={confidence} questions={fields.questions ?? []} />
-            </>
-          )}
-
-          {!unreviewed && item.flaws.length > 0 && (
-            <>
-              <div className="sectionhead">
-                <h2>Noted flaws</h2>
-                <p>Disclose these in the listing copy — returns cost more than the honesty does.</p>
-              </div>
-              <ul className="flaws">
-                {item.flaws.map((flaw) => (
-                  <li key={flaw}>{flaw}</li>
-                ))}
-              </ul>
-            </>
-          )}
+          {/* Always editable. A confirmed item still needs correcting — a wrong
+              size or a missing package size shouldn't require starting over. */}
+          <div className="sectionhead">
+            <h2>{unreviewed ? "Unreviewed draft" : "Details"}</h2>
+            <p>
+              {unreviewed
+                ? `Read from the photos by ${inference?.model ?? "the model"}. Correct anything wrong.`
+                : "Change anything and save."}
+            </p>
+          </div>
+          <ReviewForm
+            item={item}
+            confidence={confidence}
+            questions={fields.questions ?? []}
+            reviewed={!unreviewed}
+          />
 
           {!unreviewed && (
             <ListingDrafts

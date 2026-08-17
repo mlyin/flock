@@ -41,10 +41,12 @@ export default function ReviewForm({
   item,
   confidence,
   questions,
+  reviewed = false,
 }: {
   item: ItemFull;
   confidence: Confidence;
   questions: string[];
+  reviewed?: boolean;
 }) {
   const flaws = item.flaws;
 
@@ -129,10 +131,12 @@ export default function ReviewForm({
 
       <div className="review-actions">
         <button type="submit" className="button">
-          Confirm details
+          {reviewed ? "Save changes" : "Confirm details"}
         </button>
         <span className="muted">
-          Nothing is listed anywhere yet — this only accepts the record.
+          {reviewed
+            ? "Re-generate the listing copy afterwards so it picks up the change."
+            : "Nothing is listed anywhere yet — this only accepts the record."}
         </span>
       </div>
     </form>
