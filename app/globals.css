@@ -950,3 +950,5 @@ a { color: inherit; text-decoration: none; }
 }
 .routes p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
 .routes b { color: var(--ink); font-weight: 650; }
+
+.fillbtn { font-size: 10.5px; padding: 6px 12px; }

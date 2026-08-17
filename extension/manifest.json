@@ -29,5 +29,12 @@
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://getthreader.com/*", "http://localhost:3737/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

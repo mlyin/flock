@@ -105,12 +105,28 @@ async function attachPhotos(urls) {
   return true;
 }
 
-/** Anything Depop is complaining about, in its own words. */
+/**
+ * Anything Depop is complaining about, in its own words.
+ *
+ * Must only read *rendered* text. An earlier version walked every element and
+ * matched Depop's bundled translation JSON inside a <script> tag, which put ten
+ * kilobytes of their i18n file into the banner.
+ */
 function validationErrors() {
-  return [...document.querySelectorAll("*")]
-    .filter((el) => el.children.length === 0 && /this field is required|required/i.test(el.textContent ?? ""))
+  const seen = new Set();
+
+  return [...document.querySelectorAll("p, span, div, label")]
+    .filter((el) => {
+      if (el.children.length > 0) return false; // leaf nodes only
+      if (el.closest("script, style, noscript, template")) return false;
+      const text = el.textContent?.trim() ?? "";
+      if (text.length === 0 || text.length > 80) return false; // real messages are short
+      if (!/required|invalid|please (fill|enter|select)/i.test(text)) return false;
+      return el.offsetParent !== null; // and actually visible
+    })
     .map((el) => el.textContent.trim())
-    .slice(0, 6);
+    .filter((text) => !seen.has(text) && seen.add(text))
+    .slice(0, 4);
 }
 
 function banner(filled, missing, blocked) {

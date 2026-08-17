@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createBasicListings, prepareListings } from "@/app/actions";
 import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
 import { usd } from "@/lib/money";
+import FillButton from "./FillButton";
 
 export type DraftedListing = {
   id: string;
@@ -126,6 +127,9 @@ export default function ListingDrafts({
               <a className="copy" href={`/post/${listing.id}`}>
                 Post step by step
               </a>
+              {listing.channel !== "ebay" && (
+                <FillButton listingId={listing.id} channel={listing.channel} />
+              )}
             </div>
 
             <div className="field">
