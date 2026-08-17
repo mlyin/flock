@@ -7,6 +7,7 @@ import { LISTABLE } from "@/lib/listing";
 import { usd, shortDate, daysSince } from "@/lib/money";
 import { daysListedFor, getItem, signPhotos } from "@/lib/data";
 import { latestInference } from "@/lib/intake";
+import { supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,9 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
   const days = daysListedFor(item);
   const held = daysSince(item.acquired_at);
   const signed = await signPhotos(item.photos.map((p) => p.storage_path));
+
+  const supabase = await supabaseServer();
+  const { data: profile } = await supabase.from("profiles").select("ship_line1").maybeSingle();
 
   const unreviewed = item.review_state === "unreviewed";
   const inference = unreviewed ? await latestInference(item.id) : null;
@@ -128,6 +132,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           {!unreviewed && (
             <ListingDrafts
               itemId={item.id}
+              addressSet={Boolean(profile?.ship_line1)}
               listings={item.listings
                 .filter((l) => LISTABLE.includes(l.channel))
                 .map((l) => ({

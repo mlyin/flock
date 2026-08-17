@@ -43,9 +43,11 @@ function Copy({ text, label }: { text: string; label: string }) {
 export default function ListingDrafts({
   itemId,
   listings,
+  addressSet = true,
 }: {
   itemId: string;
   listings: DraftedListing[];
+  addressSet?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +90,19 @@ export default function ListingDrafts({
               only route that works on a phone, where nothing can fill another app&apos;s form.
             </p>
           </div>
+        </div>
+      )}
+
+      {listings.length > 0 && !addressSet && (
+        <div className="notice notice-warn">
+          <strong>No ship-from address yet</strong>
+          <p>
+            Depop and Mercari both refuse a listing until your account has one.{" "}
+            <Link href="/settings" className="link">
+              Add it once in Settings
+            </Link>{" "}
+            and the extension enters it for you from then on.
+          </p>
         </div>
       )}
 

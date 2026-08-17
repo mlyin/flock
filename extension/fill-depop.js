@@ -193,6 +193,60 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       filled.push("package size");
     else missing.push("package size");
 
+    // Depop blocks the listing until the account has a ship-from address.
+    // It lives behind an "Add new shipping address" link that opens a form.
+    if (p.address?.ship_line1 && /add new shipping address/i.test(document.body.innerText)) {
+      const opener = [...document.querySelectorAll("button, a")].find((el) =>
+        /add new shipping address/i.test(el.textContent ?? "")
+      );
+      if (opener) {
+        opener.click();
+        await wait(1200);
+
+        const ADDRESS = [
+          [/^(first and last name|full name|name)$/i, p.address.ship_name],
+          [/^(address line 1|address 1|address)$/i, p.address.ship_line1],
+          [/^address line 2/i, p.address.ship_line2],
+          [/^(city|suburb)$/i, p.address.ship_city],
+          [/^(state|state\/province\/region|state or county|province|county)$/i, p.address.ship_state],
+          [/^(zip or postal code|postal code|postcode|zip code)$/i, p.address.ship_postcode],
+          [/^phone/i, p.address.ship_phone],
+        ];
+
+        let entered = 0;
+        for (const [pattern, value] of ADDRESS) {
+          if (!value) continue;
+          const label = [...document.querySelectorAll("label")].find((l) =>
+            pattern.test(l.textContent?.trim() ?? "")
+          );
+          const input =
+            (label?.getAttribute("for") && document.getElementById(label.getAttribute("for"))) ||
+            label?.parentElement?.querySelector("input");
+          if (input) {
+            setNativeValue(input, value);
+            entered += 1;
+          }
+        }
+
+        if (entered > 0) {
+          const save = [...document.querySelectorAll("button")].find((b) =>
+            /^(save address|save)$/i.test(b.textContent?.trim() ?? "")
+          );
+          if (save) {
+            save.click();
+            await wait(1800);
+            filled.push(`shipping address (${entered} fields)`);
+          } else {
+            missing.push("shipping address (no save button)");
+          }
+        } else {
+          missing.push("shipping address (fields not found)");
+        }
+      }
+    } else if (!p.address?.ship_line1) {
+      missing.push("shipping address — set it in Threader → Settings");
+    }
+
     await wait(600);
     let blocked = validationErrors();
 

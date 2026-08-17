@@ -282,3 +282,34 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
   revalidatePath(`/items/${itemId}`);
   return { ok: true };
 }
+
+/** The seller's ship-from address, stored once and filled into every marketplace. */
+export async function saveShippingAddress(formData: FormData) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const text = (key: string) => {
+    const raw = formData.get(key);
+    const value = typeof raw === "string" ? raw.trim() : "";
+    return value === "" ? null : value;
+  };
+
+  await supabase
+    .from("profiles")
+    .update({
+      ship_name: text("ship_name"),
+      ship_line1: text("ship_line1"),
+      ship_line2: text("ship_line2"),
+      ship_city: text("ship_city"),
+      ship_state: text("ship_state"),
+      ship_postcode: text("ship_postcode"),
+      ship_country: text("ship_country"),
+      ship_phone: text("ship_phone"),
+    })
+    .eq("id", user.id);
+
+  revalidatePath("/settings");
+}
