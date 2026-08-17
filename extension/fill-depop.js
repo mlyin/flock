@@ -1,19 +1,46 @@
 /**
  * Fills Depop's sell form.
  *
- * Fields are found by their visible label text, not by class name. Depop is a
- * React app that ships new hashed class names constantly; the words "Category"
- * and "Package size" change far less often than the markup around them. When
- * something stops filling, the label is the thing to check.
+ * Selectors below were read off the live page, not guessed. Every control has a
+ * stable id, and every dropdown is a text input with role=combobox whose
+ * aria-controls names its own menu:
  *
- * Auto-submit is opt-in and only fires when nothing is left blank. Clicking
- * Continue on an incomplete form just trips Depop's own validation, so
- * "submitted" would mean "failed" — worse than stopping.
+ *   #group-input          Category      → #group-menu
+ *   #brand-input          Brand         → #brand-menu
+ *   #condition-input      Condition     → #condition-menu
+ *   #colour-input         Colour        → #colour-menu
+ *   #shippingMethods-input Package size → #shippingMethods-menu
+ *   #description          Description   (textarea)
+ *   #priceAmount__input   Item price    (number)
+ *   #upload-input__input  Photos        (file)
+ *
+ * Scoping option lookup to the field's own menu matters: every menu on the page
+ * renders its options into the DOM at once, so a global [role=option] search
+ * will happily pick a colour when you asked for a condition.
  */
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** React overwrites plain value assignment; go through the native setter. */
+const FIELD = {
+  photos: "upload-input__input",
+  description: "description",
+  price: "priceAmount__input",
+  category: "group-input",
+  brand: "brand-input",
+  condition: "condition-input",
+  colour: "colour-input",
+  packageSize: "shippingMethods-input",
+};
+
+/** Depop's wording, not ours. Case matters — these are matched exactly first. */
+const CONDITION = {
+  nwt: "Brand new with tags",
+  excellent: "Used - Excellent",
+  good: "Used - Good",
+  fair: "Used - Fair",
+};
+
+/** React tracks input state internally; a plain assignment gets overwritten. */
 function setNativeValue(el, value) {
   const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
@@ -21,74 +48,51 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-/** Walk up from a label to the control it describes. */
-function fieldByLabel(text) {
-  const labels = [...document.querySelectorAll("label, span, div, p")].filter(
-    (el) =>
-      el.textContent?.trim().toLowerCase() === text.toLowerCase() &&
-      el.children.length === 0
-  );
-
-  for (const label of labels) {
-    const forId = label.getAttribute("for");
-    if (forId) {
-      const byId = document.getElementById(forId);
-      if (byId) return byId;
-    }
-    // Otherwise the control is usually the next interactive thing after the label.
-    let node = label.parentElement;
-    for (let depth = 0; node && depth < 4; depth += 1, node = node.parentElement) {
-      const control = node.querySelector("select, input:not([type=file]), [role=combobox], [role=button]");
-      if (control) return control;
-    }
-  }
-  return null;
-}
-
-/** Depop's dropdowns are custom widgets; open, then click the matching option. */
-async function chooseOption(control, wanted) {
-  if (!control || !wanted) return false;
-
-  if (control.tagName === "SELECT") {
-    const match = [...control.options].find(
-      (o) => o.textContent.trim().toLowerCase() === String(wanted).toLowerCase()
-    );
-    if (!match) return false;
-    control.value = match.value;
-    control.dispatchEvent(new Event("change", { bubbles: true }));
-    return true;
-  }
-
-  control.click();
-  await wait(450);
-
-  const option = [...document.querySelectorAll('[role=option], li, [role=menuitem]')].find(
-    (el) => el.textContent?.trim().toLowerCase() === String(wanted).toLowerCase()
-  );
-  if (!option) {
-    document.body.click(); // close the menu we opened
-    return false;
-  }
-  option.click();
-  await wait(250);
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null || value === "") return false;
+  setNativeValue(el, String(value));
   return true;
 }
 
-/** Depop suggests categories as plain chips — cheapest reliable win on the page. */
-function pickSuggestedCategory(preferred) {
-  const chips = [...document.querySelectorAll("button")].filter((b) => /\s\/\s/.test(b.textContent ?? ""));
-  if (chips.length === 0) return false;
+/**
+ * Type into a combobox and pick from its own menu.
+ * Falls back from exact match to prefix match to first option — Depop filters
+ * as you type, so the first remaining option is usually the right one.
+ */
+async function combo(id, wanted, { acceptFirst = true } = {}) {
+  const input = document.getElementById(id);
+  if (!input || !wanted) return false;
 
-  const chip = preferred
-    ? chips.find((c) => c.textContent.trim().toLowerCase() === preferred.toLowerCase()) ?? chips[0]
-    : chips[0];
+  input.focus();
+  setNativeValue(input, String(wanted));
+  await wait(800); // the menu is populated async
 
-  chip.click();
-  return chip.textContent.trim();
+  const menu = document.getElementById(input.getAttribute("aria-controls") ?? "");
+  const options = [...(menu ?? input.parentElement ?? document).querySelectorAll("[role=option]")];
+  if (options.length === 0) return false;
+
+  const want = String(wanted).trim().toLowerCase();
+  const text = (o) => o.textContent.trim().toLowerCase();
+
+  const target =
+    options.find((o) => text(o) === want) ??
+    options.find((o) => text(o).startsWith(want)) ??
+    options.find((o) => text(o).includes(want)) ??
+    (acceptFirst ? options[0] : null);
+
+  if (!target) {
+    input.blur();
+    return false;
+  }
+
+  target.click();
+  await wait(350);
+  return true;
 }
 
 async function attachPhotos(urls) {
-  const input = document.querySelector('input[type="file"]');
+  const input = document.getElementById(FIELD.photos);
   if (!input || urls.length === 0) return false;
 
   const transfer = new DataTransfer();
@@ -102,30 +106,28 @@ async function attachPhotos(urls) {
 
   input.files = transfer.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
+  await wait(2500); // uploads have to finish before Continue will accept
   return true;
 }
 
 /**
- * Anything Depop is complaining about, in its own words.
- *
- * Must only read *rendered* text. An earlier version walked every element and
- * matched Depop's bundled translation JSON inside a <script> tag, which put ten
- * kilobytes of their i18n file into the banner.
+ * Only rendered text. An earlier version walked every element and matched
+ * Depop's bundled translation JSON inside a <script>, putting ten kilobytes of
+ * their i18n file into the banner.
  */
 function validationErrors() {
   const seen = new Set();
-
   return [...document.querySelectorAll("p, span, div, label")]
     .filter((el) => {
-      if (el.children.length > 0) return false; // leaf nodes only
+      if (el.children.length > 0) return false;
       if (el.closest("script, style, noscript, template")) return false;
       const text = el.textContent?.trim() ?? "";
-      if (text.length === 0 || text.length > 80) return false; // real messages are short
+      if (!text || text.length > 80) return false;
       if (!/required|invalid|please (fill|enter|select)/i.test(text)) return false;
-      return el.offsetParent !== null; // and actually visible
+      return el.offsetParent !== null;
     })
     .map((el) => el.textContent.trim())
-    .filter((text) => !seen.has(text) && seen.add(text))
+    .filter((t) => !seen.has(t) && seen.add(t))
     .slice(0, 4);
 }
 
@@ -139,8 +141,9 @@ function banner(filled, missing, blocked) {
   el.innerHTML = `
     <strong style="font-weight:650;white-space:nowrap">Threader filled ${filled.length}</strong>
     <span style="opacity:.8">
-      ${missing.length ? `Couldn't fill: ${missing.join(", ")}. ` : ""}
-      ${blocked.length ? `Depop still wants: ${blocked.join(" · ")}.` : "Looks complete — review it and publish."}
+      ${filled.length ? filled.join(", ") + ". " : ""}
+      ${missing.length ? `Skipped: ${missing.join(", ")}. ` : ""}
+      ${blocked.length ? `Depop wants: ${blocked.join(" · ")}.` : ""}
     </span>
     <button id="threader-close" style="margin-left:auto;background:none;border:1px solid #5C635E;
       color:inherit;padding:6px 11px;border-radius:3px;cursor:pointer;font:inherit">Dismiss</button>`;
@@ -153,23 +156,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   (async () => {
     const p = message.payload;
+    const item = p.item ?? {};
     const autoSubmit = Boolean(message.autoSubmit);
     const filled = [];
     const missing = [];
 
-    const description = fieldByLabel("Description") ?? document.querySelector("textarea");
-    if (description) {
-      setNativeValue(description, p.description || "");
-      filled.push("description");
-    } else missing.push("description");
-
-    const price =
-      fieldByLabel("Item price") ?? document.querySelector('input[name="price"], input[id*="price" i]');
-    if (price) {
-      setNativeValue(price, String(p.price ?? ""));
-      filled.push("price");
-    } else missing.push("price");
-
+    // Photos first: uploads take time, and Continue won't accept without them.
     try {
       if (await attachPhotos(p.photos || [])) filled.push("photos");
       else missing.push("photos");
@@ -177,113 +169,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       missing.push(`photos (${error.message})`);
     }
 
-    const category = pickSuggestedCategory(p.item?.depop_category);
-    if (category) filled.push(`category (${category})`);
+    if (setText(FIELD.description, p.description)) filled.push("description");
+    else missing.push("description");
+
+    if (setText(FIELD.price, p.price)) filled.push("price");
+    else missing.push("price");
+
+    // Category has no value from us yet, so let Depop's own filtering decide
+    // from the garment type rather than forcing a guess.
+    const categoryGuess = item.depop_category || item.category;
+    if (await combo(FIELD.category, categoryGuess)) filled.push("category");
     else missing.push("category");
 
-    // Depop's condition wording differs from ours.
-    const CONDITION = { nwt: "Brand new", excellent: "Like new", good: "Used - excellent", fair: "Used - fair" };
-    if (await chooseOption(fieldByLabel("Condition"), CONDITION[p.item?.condition])) filled.push("condition");
+    if (await combo(FIELD.condition, CONDITION[item.condition], { acceptFirst: false }))
+      filled.push("condition");
     else missing.push("condition");
 
-    if (p.item?.brand && (await chooseOption(fieldByLabel("Brand"), p.item.brand))) filled.push("brand");
-    else if (p.item?.brand) missing.push("brand");
+    if (item.brand && (await combo(FIELD.brand, item.brand))) filled.push("brand");
+    else if (item.brand) missing.push("brand");
 
-    if (p.item?.package_size && (await chooseOption(fieldByLabel("Package size"), p.item.package_size)))
-      filled.push("package size");
+    if (item.color && (await combo(FIELD.colour, item.color))) filled.push("colour");
+
+    if (await combo(FIELD.packageSize, item.package_size)) filled.push("package size");
     else missing.push("package size");
 
-    // Depop blocks the listing until the account has a ship-from address.
-    // It lives behind an "Add new shipping address" link that opens a form.
-    if (p.address?.line1 && /add new shipping address/i.test(document.body.innerText)) {
-      const opener = [...document.querySelectorAll("button, a")].find((el) =>
-        /add new shipping address/i.test(el.textContent ?? "")
-      );
-      if (opener) {
-        opener.click();
-        await wait(1200);
-
-        const ADDRESS = [
-          [/^(first and last name|full name|name)$/i, p.address.name],
-          [/^(address line 1|address 1|address)$/i, p.address.line1],
-          [/^address line 2/i, p.address.line2],
-          [/^(city|suburb)$/i, p.address.city],
-          [/^(state|state\/province\/region|state or county|province|county)$/i, p.address.state],
-          [/^(zip or postal code|postal code|postcode|zip code)$/i, p.address.postcode],
-          [/^phone/i, p.address.phone],
-        ];
-
-        let entered = 0;
-        for (const [pattern, value] of ADDRESS) {
-          if (!value) continue;
-          const label = [...document.querySelectorAll("label")].find((l) =>
-            pattern.test(l.textContent?.trim() ?? "")
-          );
-          const input =
-            (label?.getAttribute("for") && document.getElementById(label.getAttribute("for"))) ||
-            label?.parentElement?.querySelector("input");
-          if (input) {
-            setNativeValue(input, value);
-            entered += 1;
-          }
-        }
-
-        if (entered > 0) {
-          const save = [...document.querySelectorAll("button")].find((b) =>
-            /^(save address|save)$/i.test(b.textContent?.trim() ?? "")
-          );
-          if (save) {
-            save.click();
-            await wait(1800);
-            filled.push(`shipping address (${entered} fields)`);
-          } else {
-            missing.push("shipping address (no save button)");
-          }
-        } else {
-          missing.push("shipping address (fields not found)");
-        }
-      }
-    } else if (!p.address?.line1) {
-      missing.push("shipping address — set it in Threader → Settings");
-    }
-
-    await wait(600);
+    await wait(700);
     let blocked = validationErrors();
 
-    /**
-     * Depop's flow is several steps: Continue advances, it doesn't publish. So
-     * walk forward one step at a time, re-checking validation between each,
-     * and stop the moment the page objects to anything.
-     *
-     * Capped at four steps. If Depop adds a step we don't understand, this
-     * stalls rather than clicking unknown buttons on a listing page.
-     */
-    // Say out loud why we stopped. "Nothing happened" is the least useful
-    // possible outcome, and there are three different reasons for it.
-    if (!autoSubmit) {
-      missing.push("auto-submit is off — tick it in the extension popup");
-    } else if (blocked.length > 0) {
-      missing.push("auto-submit held back — Depop is showing errors");
-    }
-
-    // Dump the form's real structure so selector fixes stop being guesswork.
-    console.log(
-      "[Threader] fields on this page:\n" +
-        [...document.querySelectorAll("label")]
-          .map((l) => {
-            const forId = l.getAttribute("for");
-            const control =
-              (forId && document.getElementById(forId)) ||
-              l.parentElement?.querySelector("input,select,textarea,[role=combobox]");
-            return `  ${l.textContent?.trim()} => ${control ? control.tagName : "NONE"}`;
-          })
-          .join("\n") +
-        "\n[Threader] buttons:\n" +
-        [...document.querySelectorAll("button")]
-          .filter((b) => b.offsetParent)
-          .map((b) => `  ${b.textContent?.trim().slice(0, 40)}${b.disabled ? " [disabled]" : ""}`)
-          .join("\n")
-    );
+    if (!autoSubmit) missing.push("auto-submit off — tick it in the popup");
 
     if (autoSubmit && blocked.length === 0) {
       for (let step = 0; step < 4; step += 1) {
@@ -299,9 +212,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         advance.click();
         filled.push(`clicked ${label}`);
 
-        await wait(2200); // let the next step mount
+        await wait(2500);
         blocked = validationErrors();
-        if (blocked.length > 0) break; // the new step wants something from you
+        if (blocked.length > 0) break;
       }
     }
 
