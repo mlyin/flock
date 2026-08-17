@@ -38,10 +38,20 @@ export type Listing = {
   item_id: string;
   channel: Channel;
   url: string | null;
+  title: string | null;
+  description: string | null;
   price: number;
   shipping_price: number;
   status: string;
   posted_at: string | null;
+  /** Channel-specific extras: eBay specifics and category, Depop tags, price band. */
+  draft: {
+    category?: string;
+    specifics?: Record<string, string>;
+    tags?: string[];
+    price?: { low: number; suggested: number; high: number; reasoning: string };
+  } | null;
+  drafted_by: string | null;
 };
 
 export type Photo = {

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReviewForm from "@/components/ReviewForm";
+import ListingDrafts from "@/components/ListingDrafts";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, computeFees, projectedNet } from "@/lib/fees";
+import { LISTABLE } from "@/lib/listing";
 import { usd, shortDate, daysSince } from "@/lib/money";
 import { daysListedFor, getItem, signPhotos } from "@/lib/data";
 import { latestInference } from "@/lib/intake";
@@ -130,10 +132,26 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             </>
           )}
 
-          {item.listings.length > 0 && (
+          {!unreviewed && (
+            <ListingDrafts
+              itemId={item.id}
+              listings={item.listings
+                .filter((l) => LISTABLE.includes(l.channel))
+                .map((l) => ({
+                  id: l.id,
+                  channel: l.channel,
+                  title: l.title,
+                  description: l.description,
+                  price: l.price,
+                  draft: l.draft,
+                }))}
+            />
+          )}
+
+          {item.listings.some((l) => l.status !== "draft") && (
             <>
               <div className="sectionhead">
-                <h2>Listings</h2>
+                <h2>Live listings</h2>
                 <p>One row per channel. Net is what you&apos;d clear at that price.</p>
               </div>
               <div className="tablewrap">
@@ -150,7 +168,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
                     </tr>
                   </thead>
                   <tbody>
-                    {item.listings.map((listing) => (
+                    {item.listings.filter((l) => l.status !== "draft").map((listing) => (
                       <tr key={listing.id}>
                         <td style={{ fontWeight: 600 }}>{CHANNEL_LABEL[listing.channel]}</td>
                         <td className="cell-sku">{CHANNEL_ACCESS[listing.channel]}</td>
