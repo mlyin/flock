@@ -60,7 +60,7 @@ function setText(id, value) {
  * Falls back from exact match to prefix match to first option — Depop filters
  * as you type, so the first remaining option is usually the right one.
  */
-async function combo(id, wanted, { acceptFirst = true } = {}) {
+async function combo(id, wanted, { acceptFirst = true, exact = false } = {}) {
   const input = document.getElementById(id);
   if (!input || !wanted) return false;
 
@@ -75,11 +75,15 @@ async function combo(id, wanted, { acceptFirst = true } = {}) {
   const want = String(wanted).trim().toLowerCase();
   const text = (o) => o.textContent.trim().toLowerCase();
 
-  const target =
-    options.find((o) => text(o) === want) ??
-    options.find((o) => text(o).startsWith(want)) ??
-    options.find((o) => text(o).includes(want)) ??
-    (acceptFirst ? options[0] : null);
+  // `exact` exists because loose matching put "Aloye" on a live Alo listing:
+  // "alo" prefix-matches "aloye", and a wrong brand is worse than a blank one.
+  // For identity fields, no match must mean no selection.
+  const target = exact
+    ? options.find((o) => text(o) === want) ?? null
+    : options.find((o) => text(o) === want) ??
+      options.find((o) => text(o).startsWith(want)) ??
+      options.find((o) => text(o).includes(want)) ??
+      (acceptFirst ? options[0] : null);
 
   if (!target) {
     input.blur();
@@ -147,6 +151,32 @@ async function fillQuantity(qty) {
   }
   setNativeValue(el, String(qty));
   return true;
+}
+
+/**
+ * Every visible form control on the page, with everything needed to write a
+ * selector for it. Depop's size and quantity ids change per category, so rather
+ * than guessing again this reports the actual DOM and the banner offers to copy
+ * it — one paste ends the round-trip.
+ */
+function formInventory() {
+  return [...document.querySelectorAll("input, select, textarea")]
+    .filter((el) => el.offsetParent !== null && el.type !== "hidden")
+    .map((el) => ({
+      tag: el.tagName.toLowerCase(),
+      type: el.type || null,
+      id: el.id || null,
+      name: el.name || null,
+      role: el.getAttribute("role") || null,
+      controls: el.getAttribute("aria-controls") || null,
+      label:
+        document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim() ??
+        el.getAttribute("aria-label") ??
+        el.placeholder ??
+        null,
+      value: el.type === "file" ? `${el.files?.length ?? 0} file(s)` : el.value || "",
+      required: el.required || el.getAttribute("aria-required") === "true",
+    }));
 }
 
 /**
@@ -276,8 +306,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       filled.push("condition");
     else missing.push("condition");
 
-    if (item.brand && (await combo(FIELD.brand, item.brand))) filled.push("brand");
-    else if (item.brand) missing.push("brand");
+    if (item.brand && (await combo(FIELD.brand, item.brand, { exact: true }))) filled.push("brand");
+    else if (item.brand) missing.push(`brand (no exact match for "${item.brand}" — set it by hand)`);
 
     if (item.color && (await combo(FIELD.colour, item.color))) filled.push("colour");
 
