@@ -8,7 +8,8 @@
     "dev:lan": "next dev -p 3737 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 3737",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "pack:ext": "node scripts/pack-extension.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

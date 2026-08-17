@@ -899,3 +899,28 @@ a { color: inherit; text-decoration: none; }
   .postactions { position: sticky; bottom: 12px; }
   .postactions .button { flex: 1; text-align: center; }
 }
+
+/* ---------- public prose pages ---------- */
+
+.prose {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: 56px 20px 80px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.prose h1 { font-size: 30px; font-weight: 700; letter-spacing: -.025em; margin: 0 0 14px; }
+.prose h2 {
+  font-size: 13px; font-weight: 400; font-family: var(--mono);
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2);
+  margin: 34px 0 10px;
+}
+.prose-lead { color: var(--ink-2); margin: 0 0 6px; }
+.prose p { margin: 0 0 12px; }
+.prose ul { margin: 0 0 12px; padding-left: 20px; }
+.prose li { margin-bottom: 8px; }
+.prose a { color: var(--denim); text-decoration: underline; text-underline-offset: 2px; }
+.prose code {
+  font-family: var(--mono); font-size: .88em;
+  background: var(--surface); padding: 1px 5px; border-radius: 3px;
+}

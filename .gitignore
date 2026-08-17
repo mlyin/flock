@@ -13,3 +13,5 @@ photos/items/*
 
 .env
 .env.local
+
+dist/
