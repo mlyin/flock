@@ -9,12 +9,14 @@
 
 const SELL_PAGE = {
   depop: "https://www.depop.com/products/create/",
-  mercari: "https://www.mercari.com/sell/",
+  vinted: "https://www.vinted.com/items/new",
+  grailed: "https://www.grailed.com/sell/new",
 };
 
 const FILLER = {
   depop: "fill-depop.js",
-  mercari: "fill-mercari.js",
+  vinted: "fill-vinted.js",
+  grailed: "fill-grailed.js",
 };
 
 async function config() {
@@ -108,7 +110,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [filler] });
         // Give the SPA a moment to mount its form before we start looking for fields.
-        await new Promise((r) => setTimeout(r, 1500));
+        await new Promise((r) => setTimeout(r, 4000)); // SPAs need real time to mount
         const result = await chrome.tabs.sendMessage(tab.id, {
           type: "apply",
           payload,

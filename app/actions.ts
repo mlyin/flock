@@ -61,7 +61,7 @@ export async function deleteInboxPhoto(photoId: string) {
 
 export type DraftOutcome = { ok: true } | { ok: false; error: string };
 
-/** Generate eBay, Depop, and Mercari copy for a confirmed garment. */
+/** Generate eBay, Depop, Vinted, and Grailed copy for a confirmed garment. */
 export async function prepareListings(itemId: string): Promise<DraftOutcome> {
   try {
     const supabase = await supabaseServer();
@@ -112,9 +112,21 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
       {
         user_id: user.id,
         item_id: itemId,
-        channel: "mercari" as const,
-        title: draft.mercari.title,
-        description: draft.mercari.description,
+        channel: "vinted" as const,
+        title: draft.vinted.title,
+        description: draft.vinted.description,
+        price: draft.price.suggested,
+        status: "draft" as const,
+        draft: { price: draft.price },
+        drafted_by: model,
+        drafted_at: now,
+      },
+      {
+        user_id: user.id,
+        item_id: itemId,
+        channel: "grailed" as const,
+        title: draft.grailed.title,
+        description: draft.grailed.description,
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { price: draft.price },

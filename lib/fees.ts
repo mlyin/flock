@@ -6,15 +6,16 @@
  * pages and will go stale. `verifiedOn` is there to shame you into rechecking.
  */
 
-export type Channel = "ebay" | "poshmark" | "depop" | "mercari" | "vinted";
+export type Channel = "ebay" | "poshmark" | "depop" | "mercari" | "vinted" | "grailed";
 
-export const CHANNELS: Channel[] = ["ebay", "poshmark", "depop", "mercari", "vinted"];
+export const CHANNELS: Channel[] = ["ebay", "poshmark", "depop", "mercari", "vinted", "grailed"];
 
 export const CHANNEL_LABEL: Record<Channel, string> = {
   ebay: "eBay",
   poshmark: "Poshmark",
   depop: "Depop",
   mercari: "Mercari",
+  grailed: "Grailed",
   vinted: "Vinted",
 };
 
@@ -24,6 +25,7 @@ export const CHANNEL_ABBR: Record<Channel, string> = {
   poshmark: "PM",
   depop: "DP",
   mercari: "MC",
+  grailed: "GR",
   vinted: "VT",
 };
 
@@ -33,6 +35,7 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension"> = {
   poshmark: "extension",
   depop: "extension",
   mercari: "extension",
+  grailed: "extension",
   vinted: "extension",
 };
 
@@ -96,6 +99,15 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
       { kind: "commission", label: "Selling fee", type: "percent", rate: 0.1, basis: "item" },
       { kind: "payment", label: "Payment processing", type: "percent", rate: 0.029, basis: "item_plus_shipping" },
       { kind: "payment", label: "Processing flat", type: "flat", amount: 0.5 },
+    ],
+  },
+  grailed: {
+    verifiedOn: "unverified",
+    note: "Commission plus payment processing. Grailed has changed its fee split more than once — recheck before trusting any net figure here.",
+    rules: [
+      { kind: "commission", label: "Grailed fee", type: "percent", rate: 0.09, basis: "item" },
+      { kind: "payment", label: "Payment processing", type: "percent", rate: 0.0349, basis: "item_plus_shipping" },
+      { kind: "payment", label: "Processing flat", type: "flat", amount: 0.49 },
     ],
   },
   vinted: {

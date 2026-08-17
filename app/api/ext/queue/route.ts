@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     .from("listings")
     .select("id, channel, title, price, status, items!inner (sku, brand, title)")
     .eq("user_id", userId) // no session here, so scope by hand
-    .in("channel", ["depop", "mercari"])
+    .in("channel", ["depop", "vinted", "grailed"])
     .eq("status", "draft")
     .order("id");
 
