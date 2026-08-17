@@ -48,6 +48,11 @@ await client.query(`
   )
 `);
 
+// Supabase exposes every public table through PostgREST. RLS on with no policies
+// means the anon and publishable keys can't read it at all, while this script —
+// connecting as the table owner — still can.
+await client.query(`alter table schema_migrations enable row level security`);
+
 const applied = new Set(
   (await client.query("select name from schema_migrations")).rows.map((r) => r.name)
 );

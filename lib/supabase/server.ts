@@ -12,7 +12,7 @@ export async function supabaseServer() {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
@@ -43,8 +43,8 @@ export async function currentUser() {
  * you here. Never import this into a client component.
  */
 export function supabaseAdmin() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set.");
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!key) throw new Error("SUPABASE_SECRET_KEY is not set.");
 
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
     auth: { persistSession: false, autoRefreshToken: false },
