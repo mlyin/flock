@@ -924,3 +924,29 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--mono); font-size: .88em;
   background: var(--surface); padding: 1px 5px; border-radius: 3px;
 }
+
+.routes {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  max-width: 700px;
+}
+@media (min-width: 700px) { .routes { grid-template-columns: 1fr 1fr; } }
+.routes > div {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--denim);
+  border-radius: 4px;
+  padding: 13px 15px;
+}
+.routes strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--denim);
+  margin-bottom: 6px;
+}
+.routes p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.routes b { color: var(--ink); font-weight: 650; }

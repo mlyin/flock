@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createBasicListings, prepareListings } from "@/app/actions";
 import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
 import { usd } from "@/lib/money";
@@ -63,12 +64,31 @@ export default function ListingDrafts({
     <>
       <div className="sectionhead">
         <h2>Listing copy</h2>
-        <p>
-          {listings.length > 0
-            ? "Paste into each channel. eBay and Depop want different things."
-            : "Generate eBay and Depop copy from this garment."}
-        </p>
+        <p>Each channel wants something different, so the copy differs.</p>
       </div>
+
+      {listings.length > 0 && (
+        <div className="routes">
+          <div>
+            <strong>On this computer</strong>
+            <p>
+              Click the <b>Threader icon in your Chrome toolbar</b> and hit Fill on Depop. It
+              opens the sell page in a hidden window and fills it. Not paired yet?{" "}
+              <Link href="/connect" className="link">
+                Set that up first
+              </Link>
+              .
+            </p>
+          </div>
+          <div>
+            <strong>Anywhere else</strong>
+            <p>
+              <b>Post step by step</b> below gives you one tap per field to copy across. The
+              only route that works on a phone, where nothing can fill another app&apos;s form.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="notice notice-bad">
@@ -100,10 +120,11 @@ export default function ListingDrafts({
               <span className="draftcard-net">
                 {usd(net)} net <span className="muted">at {usd(listing.price)}</span>
               </span>
-              {/* The phone flow is the one that works on iOS, where nothing can
-                  fill another app's form. */}
+              {/* Tap-to-copy. Named for the phone because that's where it
+                  matters most — iOS can't fill another app's form — but it
+                  works with a mouse too. */}
               <a className="copy" href={`/post/${listing.id}`}>
-                Post on phone
+                Post step by step
               </a>
             </div>
 
