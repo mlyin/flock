@@ -149,7 +149,11 @@ export async function identifyAndDraft(photoIds: string[]): Promise<IdentifyOutc
       swatch: /^#[0-9a-fA-F]{6}$/.test(x.swatch) ? x.swatch : null,
       material: x.material || null,
       condition: x.condition || "good",
-      flaws: x.flaws ?? [],
+      // The model sometimes answers "none" instead of returning an empty array,
+      // which then renders as a flaw literally called "none" in a live listing.
+      flaws: (x.flaws ?? []).filter(
+        (f) => f && !/^(none|n\/?a|no flaws?|none noted)\.?$/i.test(f.trim())
+      ),
       status: "draft",
       review_state: "unreviewed",
       acquired_at: new Date().toISOString().slice(0, 10),

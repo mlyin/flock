@@ -243,7 +243,11 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
 
   if (error || !item) return { ok: false, error: error?.message ?? "Item not found." };
 
-  const flaws = Array.isArray(item.flaws) ? (item.flaws as string[]) : [];
+  // Existing rows may already hold a literal "none" from before intake filtered
+  // it, so strip it here too rather than only fixing it going forward.
+  const flaws = (Array.isArray(item.flaws) ? (item.flaws as string[]) : []).filter(
+    (f) => f && !/^(none|n\/?a|no flaws?|none noted)\.?$/i.test(f.trim())
+  );
   const title = [item.brand, item.title].filter(Boolean).join(" ").slice(0, 80);
 
   const description = [
