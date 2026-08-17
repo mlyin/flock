@@ -1,0 +1,15 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# local data — this is your actual inventory, not source
+data/closet.db
+data/closet.db-*
+photos/inbox/*
+!photos/inbox/.gitkeep
+photos/items/*
+!photos/items/.gitkeep
+
+.env
+.env.local
