@@ -1,5 +1,5 @@
 import { CHANNELS, CHANNEL_ABBR, CHANNEL_LABEL, type Channel } from "@/lib/fees";
-import type { Listing } from "@/lib/queries";
+import type { Listing } from "@/lib/data";
 
 /**
  * Five slots, always in the same order, so a column of these reads as a grid.

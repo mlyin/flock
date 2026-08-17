@@ -1,126 +1,129 @@
-import fs from "node:fs";
-import path from "node:path";
-import { db, one } from "./db";
-import type { InferenceResult } from "./inference";
+import { supabaseServer } from "./supabase/server";
+import { identifyGarment, type InferenceResult } from "./inference";
 
-export const PHOTOS_ROOT = path.join(process.cwd(), "photos");
-export const INBOX = path.join(PHOTOS_ROOT, "inbox");
-export const ITEMS = path.join(PHOTOS_ROOT, "items");
+export const BUCKET = "photos";
 
-/** Reject anything that escapes the photos directory before it reaches the filesystem. */
-export function resolvePhoto(relative: string): string | null {
-  const full = path.resolve(PHOTOS_ROOT, relative);
-  const root = path.resolve(PHOTOS_ROOT);
-  if (full !== root && !full.startsWith(root + path.sep)) return null;
-  return full;
-}
+/** Storage keys are `{user_id}/...` — the storage policies key off that first segment. */
+export const inboxKey = (userId: string, filename: string) => `${userId}/inbox/${filename}`;
 
-function nextSku(): string {
-  const row = one<{ sku: string }>(`SELECT sku FROM items ORDER BY sku DESC LIMIT 1`);
-  const n = row ? Number(row.sku.replace(/\D/g, "")) + 1 : 1;
-  return `CL-${String(n).padStart(4, "0")}`;
-}
-
-/** Never overwrite: if the name is taken, suffix it. */
-function uniquePath(dir: string, name: string): string {
-  const ext = path.extname(name);
-  const base = path.basename(name, ext);
-  let candidate = path.join(dir, name);
-  let n = 2;
-  while (fs.existsSync(candidate)) {
-    candidate = path.join(dir, `${base}-${n}${ext}`);
-    n += 1;
-  }
-  return candidate;
-}
-
-export type IntakeResult = { itemId: number; sku: string };
+export type IdentifyOutcome =
+  | { ok: true; itemId: string; sku: string; questions: string[] }
+  | { ok: false; error: string };
 
 /**
- * Turn one inference into an unreviewed draft item: move its photos out of the
- * inbox, write the record, and keep the raw model output for the audit trail.
+ * Photo rows in → one unreviewed draft item out.
+ *
+ * Photos are already in storage by the time this runs (the browser uploads
+ * straight to the bucket under RLS). This pulls them back down for the model,
+ * writes the item, and re-files the objects under the new item id.
  */
-export function createDraftItem(
-  inboxPaths: string[],
-  result: InferenceResult
-): IntakeResult {
-  const conn = db();
-  const { extraction: x } = result;
-  const sku = nextSku();
+export async function identifyAndDraft(photoIds: string[]): Promise<IdentifyOutcome> {
+  const supabase = await supabaseServer();
 
-  const destDir = path.join(ITEMS, sku);
-  fs.mkdirSync(destDir, { recursive: true });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out. Reload and sign in again." };
 
-  conn.exec("BEGIN");
-  try {
-    const itemId = Number(
-      conn
-        .prepare(
-          `INSERT INTO items (sku, title, brand, category, size, color, swatch, material,
-                              condition, flaws, cost_basis, acquired_at, source, status, review_state, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, date('now'), ?, 'draft', 'unreviewed', ?)`
-        )
-        .run(
-          sku,
-          x.title || "Untitled",
-          x.brand || null,
-          x.category || "Other",
-          x.size || null,
-          x.color || null,
-          /^#[0-9a-fA-F]{6}$/.test(x.swatch) ? x.swatch : null,
-          x.material || null,
-          x.condition || "good",
-          JSON.stringify(x.flaws ?? []),
-          "inbox",
-          [x.era && `Era: ${x.era}`, x.notes].filter(Boolean).join("\n") || null
-        ).lastInsertRowid
-    );
+  const { data: photos, error: photoError } = await supabase
+    .from("photos")
+    .select("id, storage_path")
+    .in("id", photoIds)
+    .is("item_id", null);
 
-    const insertPhoto = conn.prepare(
-      `INSERT INTO photos (item_id, path, role, sort_order) VALUES (?, ?, ?, ?)`
-    );
+  if (photoError) return { ok: false, error: photoError.message };
+  if (!photos?.length) return { ok: false, error: "Those photos are already filed against an item." };
 
-    inboxPaths.forEach((source, index) => {
-      const dest = uniquePath(destDir, path.basename(source));
-      fs.renameSync(source, dest);
-      const relative = path.relative(PHOTOS_ROOT, dest).split(path.sep).join("/");
-      insertPhoto.run(itemId, relative, index === 0 ? "hero" : "detail", index);
+  // Download originals for the model. The bucket is private, so this is a
+  // server-side fetch under the user's own session.
+  const files = [];
+  for (const photo of photos) {
+    const { data, error } = await supabase.storage.from(BUCKET).download(photo.storage_path);
+    if (error || !data) return { ok: false, error: `Couldn't read ${photo.storage_path}: ${error?.message}` };
+    files.push({
+      name: photo.storage_path.split("/").pop() ?? "photo.jpg",
+      data: Buffer.from(await data.arrayBuffer()),
     });
-
-    conn
-      .prepare(
-        `INSERT INTO inferences (item_id, source_path, model, fields, confidence, raw)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        itemId,
-        inboxPaths.map((p) => path.basename(p)).join(", "),
-        result.model,
-        JSON.stringify(x),
-        JSON.stringify(x.confidence ?? {}),
-        result.raw
-      );
-
-    conn.exec("COMMIT");
-    return { itemId, sku };
-  } catch (error) {
-    conn.exec("ROLLBACK");
-    throw error;
   }
+
+  let result: InferenceResult;
+  try {
+    result = await identifyGarment(files);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  const x = result.extraction;
+
+  const { data: skuRow } = await supabase.rpc("next_sku", { p_user: user.id });
+  const sku = (skuRow as string | null) ?? "CL-0001";
+
+  const { data: item, error: itemError } = await supabase
+    .from("items")
+    .insert({
+      user_id: user.id,
+      sku,
+      title: x.title || "Untitled",
+      brand: x.brand || null,
+      category: x.category || "Other",
+      size: x.size || null,
+      color: x.color || null,
+      swatch: /^#[0-9a-fA-F]{6}$/.test(x.swatch) ? x.swatch : null,
+      material: x.material || null,
+      condition: x.condition || "good",
+      flaws: x.flaws ?? [],
+      status: "draft",
+      review_state: "unreviewed",
+      acquired_at: new Date().toISOString().slice(0, 10),
+      notes: [x.era && `Era: ${x.era}`, x.notes].filter(Boolean).join("\n") || null,
+    })
+    .select("id, sku")
+    .single();
+
+  if (itemError || !item) return { ok: false, error: itemError?.message ?? "Couldn't create the item." };
+
+  // Re-file the objects under the item. If a move fails the photo keeps its
+  // inbox key and still points at real bytes — the row is updated either way.
+  for (const [index, photo] of photos.entries()) {
+    const filename = photo.storage_path.split("/").pop()!;
+    const destination = `${user.id}/${item.id}/${filename}`;
+    const { error: moveError } = await supabase.storage
+      .from(BUCKET)
+      .move(photo.storage_path, destination);
+
+    await supabase
+      .from("photos")
+      .update({
+        item_id: item.id,
+        storage_path: moveError ? photo.storage_path : destination,
+        role: index === 0 ? "hero" : "detail",
+        sort_order: index,
+      })
+      .eq("id", photo.id);
+  }
+
+  await supabase.from("inferences").insert({
+    user_id: user.id,
+    item_id: item.id,
+    model: result.model,
+    fields: x,
+    confidence: x.confidence ?? {},
+    raw: result.raw,
+    input_tokens: result.usage.input,
+    output_tokens: result.usage.output,
+  });
+
+  return { ok: true, itemId: item.id, sku: item.sku, questions: x.questions ?? [] };
 }
 
-export type InferenceRow = {
-  id: number;
-  item_id: number;
-  model: string;
-  fields: string;
-  confidence: string;
-  created_at: string;
-};
-
-export function latestInference(itemId: number): InferenceRow | undefined {
-  return one<InferenceRow>(
-    `SELECT * FROM inferences WHERE item_id = :id ORDER BY id DESC LIMIT 1`,
-    { id: itemId }
-  );
+export async function latestInference(itemId: string) {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("inferences")
+    .select("model, fields, confidence, created_at")
+    .eq("item_id", itemId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
 }

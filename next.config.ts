@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
-  // node:sqlite is a Node builtin; keep it out of the bundler's hands.
-  serverExternalPackages: ["node:sqlite"],
+  // sharp resizes photos before they go to the model; it must not be bundled.
+  serverExternalPackages: ["sharp"],
 };
 
 export default config;

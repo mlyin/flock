@@ -1,116 +1,78 @@
 # Threader
 
-Personal resale operations tool. One catalog, five channels, and an honest answer to
-"what did I actually net."
-
-Stages 00–01. Nothing is posted to any marketplace and no marketplace credentials
-exist — the only outbound call this app makes is to the Anthropic API, to read your
-photos.
+Resale operations for secondhand clothing. Photograph a garment, get it identified and
+priced, list it across the marketplaces you sell on, and see what you actually netted
+after five different fee structures took their cut.
 
 ## Running it
 
 ```bash
 npm install
-cp .env.example .env.local   # then paste your Anthropic API key in
-npm run seed                 # 30 fixture garments
+cp .env.example .env.local   # fill in Supabase + Anthropic values
+npm run migrate              # apply the schema to your Supabase project
 npm run dev                  # http://localhost:3737
 ```
 
-`npm run reset` wipes and reseeds. The database is a single file at `data/threader.db` —
-delete it and start over any time.
+Sign in with Google, then upload a garment and its brand tag from the Inbox.
 
-The API key is only needed for photo identification; the dashboard runs without one.
+## How a garment gets in
 
-## Photo → draft listing
-
-Drop photos into `photos/inbox`. Two per garment works best: the piece itself, and
-its brand or care tag. JPEG or PNG — **iPhone HEIC needs converting first** (Settings →
-Camera → Formats → Most Compatible shoots JPEG directly).
-
-On the Inbox page, select the photos that belong to one garment and hit **Identify
-garment**. What happens:
-
-1. Each photo is EXIF-rotated and resized to 2000px on the long edge (`MAX_EDGE` in
-   [lib/inference.ts](lib/inference.ts)) — enough to read a care label, not so much
-   that you pay for pixels you don't need.
-2. Claude returns a fixed JSON schema: brand, category, size, colour, material,
-   condition, flaws, plus **a confidence score per field**.
-3. Anything scored under 0.70 becomes a **question for you**, not a silent guess.
-4. A draft item is created with `review_state = 'unreviewed'`, the photos move out of
-   the inbox into `photos/items/<sku>/`, and the raw model output is written to the
-   `inferences` table.
-5. The item page shows the extraction as an editable form with confidence badges.
-   Nothing enters your real inventory until you hit **Confirm details**.
-
-**Brand is the field to distrust.** The prompt forbids inferring a brand from styling —
-it only reads brands off tags and logos — but check it anyway. A wrong brand is a
-wrong price.
+1. **Upload.** The browser sends photos straight to Supabase Storage under
+   `{user_id}/inbox/…`. On a phone the picker opens the camera. Two shots per garment
+   works best: the piece, and its brand or care tag.
+2. **Identify.** Select the photos that belong to one garment. They're resized to 2000px
+   (enough to read a care label, not so much you pay for pixels) and sent to Claude,
+   which returns a fixed schema — brand, category, size, material, condition, flaws —
+   with **a confidence score per field**.
+3. **Questions, not guesses.** Anything scored under 0.70 comes back as a question for
+   you rather than a confident answer. Brand is the field to distrust most; the prompt
+   forbids inferring it from styling, so it only reports brands it can read off a tag.
+4. **Review.** The draft sits as `unreviewed` with confidence badges on each field.
+   Nothing enters inventory until you confirm it.
 
 Cost is a few cents per garment at two photos. Measure your own before scaling up.
 
-### Tuning
+## Architecture
 
-- **Sloppy reads** → raise `effort` from `medium` in `lib/inference.ts`.
-- **Too expensive** → drop `MAX_EDGE`, or shoot one photo instead of two.
-- **Wrong vocabulary** → the category list and condition scale are in the same file;
-  edit them to match how you actually describe stock.
-
-## Stack
-
-- **Next.js 15** (App Router). Server components read SQLite directly; there's no API layer
-  yet because nothing needs one.
-- **`node:sqlite`** — built into Node 24, so there's no native module to compile and no
-  ORM to fight. `lib/schema.sql` is the whole schema.
+- **Next.js 15** App Router. Server components query Postgres directly; server actions
+  handle writes.
+- **Supabase** — Postgres, Auth (Google), and Storage. Row-level security is on for every
+  table, so tenant isolation is enforced by the database rather than by remembering a
+  `WHERE` clause.
+- **Claude Opus 5** for photo identification, with a forced JSON schema.
 - **Plain CSS** with tokens in `app/globals.css`. Light and dark both defined.
-
-## The one idea worth preserving
-
-An **item** is a physical garment you own. A **listing** is one item on one channel.
-Marketplace vocabulary never leaks into `items`. Everything else — cross-listing,
-delist-on-sold, per-channel copy — falls out of that split cleanly. Break it and you'll
-be untangling eBay's category IDs from your own inventory for months.
-
-Fee rules live in `lib/fees.ts` as **data, not code**. Rates change; a rate change should
-be a line edit, not a rewrite.
-
-## Layout
 
 ```
 app/
-  page.tsx            dashboard — tiles, channel strip, inventory grid
+  page.tsx            dashboard — net proceeds, take rates, inventory grid
   items/[id]/         one garment: photos, review form, listings, money ledger
-  inbox/              photo intake and the unreviewed queue
+  inbox/              upload and identify
   fees/               fee rules + net-at-price comparison
-  actions.ts          server actions: analyze photos, confirm a draft
-  api/photo/          serves files out of photos/ (path-traversal guarded)
+  login/, auth/       Google sign-in, OAuth callback, sign-out
+  actions.ts          server actions
 lib/
-  schema.sql          items, photos, listings, sales, fees, inferences
+  data.ts             all reads; RLS scopes them
   inference.ts        the vision call — schema, prompt, image encoding
   intake.ts           inference → draft item, photo filing, SKU assignment
   fees.ts             per-channel fee rules and net projection
-  queries.ts          reads and the summary aggregation
-  db.ts               node:sqlite connection + additive migrations
-scripts/seed.mjs      30 fixture garments
-photos/inbox/         drop photos here
-photos/items/<sku>/   where they land once identified
+  supabase/           server, browser, and admin clients
+supabase/migrations/  schema, applied by scripts/migrate.mjs
 ```
 
-## Known-unverified
+## Two things to know before trusting it
 
-`lib/fees.ts` carries `verifiedOn: "unverified"` on every channel. The rates were written
-from public fee pages and will be stale. Check each channel's current schedule before
-trusting any net figure, and update the date when you do.
+**Every fee rate is unverified.** `lib/fees.ts` carries `verifiedOn: "unverified"` on all
+five channels — the numbers were written from memory of public fee pages. The net figures
+are only as honest as that table.
 
-Channel write access (`CHANNEL_ACCESS`) reflects the same assumption the project is built
-on: only eBay has a public listing API. The other four would need a browser extension
-driving your own logged-in session. Verify before building stage 03.
+**Only eBay has a public listing API.** Poshmark, Depop, Mercari, and Vinted have no open
+seller-write API. Reaching them means a browser extension the seller installs and drives —
+automating a customer's marketplace account server-side puts *their* income at risk.
 
-## What's next
+## Known gaps
 
-- **Stage 02** — pricing from sold comps, showing the comps that produced the number.
-  Every confirmed item now carries the attributes a comp query needs.
-- **Stage 03** — eBay via its real API first; the other four via a browser extension
-  driving your own logged-in session.
-
-Every stored inference is kept. Six months of them is the signal for judging whether the
-model is actually good at your inventory — and for deciding what to fix if it isn't.
+- eBay OAuth tokens in `channel_accounts` are stored in plaintext. Encrypt before anyone
+  but the owner connects an account.
+- Listing creation isn't built yet. Items and photos are real; listings, sales, and fees
+  have schema and math but nothing writes them.
+- No pricing from sold comps yet.

@@ -2,27 +2,30 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { analyzeInboxPhotos, type AnalyzeResult } from "@/app/actions";
+import Link from "next/link";
+import { analyzePhotos, deleteInboxPhoto } from "@/app/actions";
+import type { IdentifyOutcome } from "@/lib/intake";
 
-export type Shot = { name: string; size: number; modified: number };
+export type InboxPhoto = { id: string; url: string; bytes: number | null };
 
-const kb = (bytes: number) => `${Math.round(bytes / 1024).toLocaleString()} KB`;
+const kb = (bytes: number | null) =>
+  bytes ? `${Math.round(bytes / 1024).toLocaleString()} KB` : "";
 
-export default function InboxClient({ shots }: { shots: Shot[] }) {
+export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   const [selected, setSelected] = useState<string[]>([]);
-  const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [result, setResult] = useState<IdentifyOutcome | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  const toggle = (name: string) =>
+  const toggle = (id: string) =>
     setSelected((current) =>
-      current.includes(name) ? current.filter((n) => n !== name) : [...current, name]
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
     );
 
   const analyze = () => {
     setResult(null);
     startTransition(async () => {
-      const outcome = await analyzeInboxPhotos(selected);
+      const outcome = await analyzePhotos(selected);
       setResult(outcome);
       if (outcome.ok) {
         setSelected([]);
@@ -30,6 +33,13 @@ export default function InboxClient({ shots }: { shots: Shot[] }) {
       }
     });
   };
+
+  const discard = (id: string) =>
+    startTransition(async () => {
+      await deleteInboxPhoto(id);
+      setSelected((current) => current.filter((x) => x !== id));
+      router.refresh();
+    });
 
   return (
     <>
@@ -66,9 +76,9 @@ export default function InboxClient({ shots }: { shots: Shot[] }) {
         <div className="notice notice-good">
           <strong>
             {result.sku} drafted{" "}
-            <a href={`/items/${result.itemId}`} className="link">
+            <Link href={`/items/${result.itemId}`} className="link">
               — review it
-            </a>
+            </Link>
           </strong>
           <p>
             {result.questions.length > 0
@@ -79,25 +89,34 @@ export default function InboxClient({ shots }: { shots: Shot[] }) {
       )}
 
       <div className="shots">
-        {shots.map((shot) => {
-          const on = selected.includes(shot.name);
-          const order = selected.indexOf(shot.name) + 1;
+        {photos.map((photo) => {
+          const on = selected.includes(photo.id);
+          const order = selected.indexOf(photo.id) + 1;
           return (
-            <button
-              key={shot.name}
-              type="button"
-              className={on ? "shot shot-on" : "shot"}
-              onClick={() => toggle(shot.name)}
-              disabled={pending}
-              aria-pressed={on}
-            >
-              <img src={`/api/photo?p=${encodeURIComponent(`inbox/${shot.name}`)}`} alt={shot.name} />
+            <div key={photo.id} className={on ? "shot shot-on" : "shot"}>
+              <button
+                type="button"
+                className="shot-hit"
+                onClick={() => toggle(photo.id)}
+                disabled={pending}
+                aria-pressed={on}
+                aria-label={on ? `Deselect photo ${order}` : "Select photo"}
+              >
+                <img src={photo.url} alt="" />
+              </button>
               {on && <span className="shot-order">{order}</span>}
               <span className="shot-meta">
-                <span className="shot-name">{shot.name}</span>
-                <span>{kb(shot.size)}</span>
+                <span className="shot-name">{kb(photo.bytes)}</span>
+                <button
+                  type="button"
+                  className="shot-discard"
+                  onClick={() => discard(photo.id)}
+                  disabled={pending}
+                >
+                  Discard
+                </button>
               </span>
-            </button>
+            </div>
           );
         })}
       </div>

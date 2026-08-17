@@ -1,50 +1,13 @@
 import Link from "next/link";
 import ChannelMatrix from "@/components/ChannelMatrix";
 import Filters from "@/components/Filters";
-import { CHANNEL_ABBR, CHANNEL_ACCESS, CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
+import { CHANNEL_ABBR, CHANNEL_ACCESS, CHANNEL_LABEL } from "@/lib/fees";
 import { usd, usdShort, pct } from "@/lib/money";
-import { daysListedFor, getItems, getSummary, isSeeded, type ItemWithChannels } from "@/lib/queries";
+import { bestProjection, getItems, shelfAge, summarize } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 const AGING_DAYS = 45;
-
-/** Best net you'd clear today across the channels this item is actually live on. */
-function bestProjection(item: ItemWithChannels): { net: number; channel: Channel } | null {
-  const live = item.listings.filter((l) => l.status === "live");
-  if (!live.length) return null;
-
-  const scored = live.map((l) => ({
-    channel: l.channel,
-    net: projectedNet(l.channel, l.price, {
-      shippingCollected: l.shipping_price,
-      shippingCost: l.shipping_price, // fixtures assume you break even on postage
-    }),
-  }));
-
-  return scored.reduce((best, cur) => (cur.net > best.net ? cur : best));
-}
-
-/**
- * Days on the shelf. For a live item that's how long it's been sitting; for a sold
- * one it's how long it took to sell. Same column, and the distinction is the
- * whole point — one is a problem, the other is a benchmark.
- */
-function age(item: ItemWithChannels): { days: number; kind: "listed" | "to-sell" } | null {
-  if (item.sale) {
-    const soldListing = item.listings.find((l) => l.status === "sold");
-    if (soldListing?.posted_at) {
-      const posted = Date.parse(`${soldListing.posted_at}T00:00:00Z`);
-      const sold = Date.parse(`${item.sale.sold_at}T00:00:00Z`);
-      if (!Number.isNaN(posted) && !Number.isNaN(sold)) {
-        return { days: Math.max(0, Math.round((sold - posted) / 86_400_000)), kind: "to-sell" };
-      }
-    }
-    return null;
-  }
-  const listed = daysListedFor(item);
-  return listed === null ? null : { days: listed, kind: "listed" };
-}
 
 export default async function Dashboard({
   searchParams,
@@ -58,19 +21,21 @@ export default async function Dashboard({
     sort: typeof sp.sort === "string" ? sp.sort : "sku",
   };
 
-  if (!isSeeded()) {
+  const all = await getItems();
+  const summary = summarize(all);
+  const items = await getItems(params);
+
+  if (all.length === 0) {
     return (
       <div className="notice">
-        <strong>No items yet</strong>
+        <strong>Your closet is empty</strong>
         <p>
-          Run <code>npm run seed</code> to load the 30 fixture garments, or start adding your own.
+          Head to the <Link href="/inbox" className="link">Inbox</Link>, upload a garment and its
+          brand tag, and let it identify the piece. Everything here fills in from there.
         </p>
       </div>
     );
   }
-
-  const summary = getSummary();
-  const items = getItems(params);
 
   return (
     <>
@@ -161,7 +126,7 @@ export default async function Dashboard({
           </thead>
           <tbody>
             {items.map((item) => {
-              const shelf = age(item);
+              const shelf = shelfAge(item);
               const aging = item.status === "listed" && shelf !== null && shelf.days >= AGING_DAYS;
               const projection = item.sale ? null : bestProjection(item);
               const net = item.sale ? item.sale.net : projection?.net ?? null;
@@ -190,7 +155,9 @@ export default async function Dashboard({
                   <td>
                     <ChannelMatrix listings={item.listings} />
                   </td>
-                  <td className="num">{item.askingPrice ? usd(item.askingPrice) : <span className="muted">—</span>}</td>
+                  <td className="num">
+                    {item.askingPrice ? usd(item.askingPrice) : <span className="muted">—</span>}
+                  </td>
                   <td className="num muted">{usd(item.cost_basis)}</td>
                   <td className="num">
                     {shelf === null ? (
@@ -219,8 +186,10 @@ export default async function Dashboard({
                     {profit === null ? <span className="muted">—</span> : `${projection ? "~" : ""}${usd(profit)}`}
                   </td>
                   <td>
-                    <span className={`badge badge-${aging ? "aging" : item.status}`}>
-                      {aging ? `${shelf!.days}d stale` : item.status}
+                    <span
+                      className={`badge badge-${aging ? "aging" : item.review_state === "unreviewed" ? "draft" : item.status}`}
+                    >
+                      {aging ? `${shelf!.days}d stale` : item.review_state === "unreviewed" ? "unreviewed" : item.status}
                     </span>
                   </td>
                 </tr>

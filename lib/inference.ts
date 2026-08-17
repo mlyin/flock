@@ -124,20 +124,20 @@ const MEDIA: Record<string, string> = {
 
 export class UnsupportedPhotoError extends Error {}
 
-async function encode(filePath: string) {
-  const ext = path.extname(filePath).toLowerCase();
+async function encode(image: GarmentPhoto) {
+  const ext = path.extname(image.name).toLowerCase();
   if (ext === ".heic" || ext === ".heif") {
     throw new UnsupportedPhotoError(
-      `${path.basename(filePath)} is HEIC. Set your phone camera to "Most Compatible" (JPEG), or convert it before dropping it in the inbox.`
+      `${image.name} is HEIC. Set your phone camera to "Most Compatible" (JPEG), or convert it first.`
     );
   }
-  if (!MEDIA[ext]) {
-    throw new UnsupportedPhotoError(`${path.basename(filePath)} isn't an image type the model reads (${ext}).`);
+  if (ext && !MEDIA[ext]) {
+    throw new UnsupportedPhotoError(`${image.name} isn't an image type the model reads (${ext}).`);
   }
 
   // Resize before encoding: keeps us inside the request size limit and stops a
   // 12-megapixel phone photo costing more tokens than the answer is worth.
-  const buffer = await sharp(await fs.readFile(filePath))
+  const buffer = await sharp(image.data)
     .rotate() // honour EXIF orientation — phone photos are frequently sideways otherwise
     .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 85 })
@@ -153,22 +153,24 @@ export type InferenceResult = {
   usage: { input: number; output: number };
 };
 
-export async function identifyGarment(photoPaths: string[]): Promise<InferenceResult> {
+export type GarmentPhoto = { name: string; data: Buffer };
+
+export async function identifyGarment(photos: GarmentPhoto[]): Promise<InferenceResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
       "ANTHROPIC_API_KEY isn't set. Put it in .env.local at the project root and restart the dev server."
     );
   }
-  if (photoPaths.length === 0) throw new Error("No photos to look at.");
+  if (photos.length === 0) throw new Error("No photos to look at.");
 
   const client = new Anthropic();
 
   const content: Anthropic.ContentBlockParam[] = [];
-  for (const photoPath of photoPaths) {
-    content.push({ type: "text", text: `Photo: ${path.basename(photoPath)}` });
+  for (const photo of photos) {
+    content.push({ type: "text", text: `Photo: ${photo.name}` });
     content.push({
       type: "image",
-      source: { type: "base64", media_type: "image/jpeg", data: await encode(photoPath) },
+      source: { type: "base64", media_type: "image/jpeg", data: await encode(photo) },
     });
   }
   content.push({

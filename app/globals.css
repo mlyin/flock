@@ -589,11 +589,45 @@ a { color: inherit; text-decoration: none; }
 }
 .selectbar-actions { display: flex; align-items: center; gap: 8px; }
 
+.uploader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px 22px;
+  margin: 20px 0;
+  background: var(--surface);
+  border: 1px dashed var(--rule);
+  border-radius: 5px;
+}
+.uploader strong { display: block; font-size: 15px; margin-bottom: 3px; }
+.uploader p { margin: 0; color: var(--ink-2); font-size: 13px; max-width: 46ch; }
+
 .shots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
+.shot-hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.shot-discard {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-3);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.shot-discard:hover { color: var(--brick); }
 .shots-detail { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 
 .shot {

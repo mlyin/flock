@@ -1,34 +1,26 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReviewForm from "@/components/ReviewForm";
-import { all } from "@/lib/db";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, computeFees, projectedNet } from "@/lib/fees";
-import { latestInference } from "@/lib/intake";
 import { usd, shortDate, daysSince } from "@/lib/money";
-import { daysListedFor, getItem } from "@/lib/queries";
+import { daysListedFor, getItem, signPhotos } from "@/lib/data";
+import { latestInference } from "@/lib/intake";
 
 export const dynamic = "force-dynamic";
 
-type Photo = { id: number; path: string; role: string };
-
 export default async function ItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const item = getItem(Number(id));
+  const item = await getItem(id);
   if (!item) notFound();
 
-  const flaws: string[] = item.flaws ? JSON.parse(item.flaws) : [];
   const days = daysListedFor(item);
   const held = daysSince(item.acquired_at);
-
-  const photos = all<Photo>(
-    `SELECT id, path, role FROM photos WHERE item_id = :id ORDER BY sort_order`,
-    { id: item.id }
-  );
+  const signed = await signPhotos(item.photos.map((p) => p.storage_path));
 
   const unreviewed = item.review_state === "unreviewed";
-  const inference = unreviewed ? latestInference(item.id) : undefined;
-  const confidence: Record<string, number> = inference?.confidence ? JSON.parse(inference.confidence) : {};
-  const questions: string[] = inference?.fields ? (JSON.parse(inference.fields).questions ?? []) : [];
+  const inference = unreviewed ? await latestInference(item.id) : null;
+  const fields = (inference?.fields ?? {}) as { questions?: string[] };
+  const confidence = (inference?.confidence ?? {}) as Record<string, number>;
 
   return (
     <>
@@ -40,22 +32,20 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
 
       <div className="detail">
         <div>
-          {photos.length > 0 ? (
+          {item.photos.length > 0 ? (
             <div className="shots shots-detail">
-              {photos.map((photo) => (
-                <a
-                  key={photo.id}
-                  className="shot"
-                  href={`/api/photo?p=${encodeURIComponent(photo.path)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <img src={`/api/photo?p=${encodeURIComponent(photo.path)}`} alt={photo.role} />
-                  <span className="shot-meta">
-                    <span className="shot-name">{photo.role}</span>
-                  </span>
-                </a>
-              ))}
+              {item.photos.map((photo) => {
+                const url = signed[photo.storage_path];
+                if (!url) return null;
+                return (
+                  <a key={photo.id} className="shot" href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt={photo.role} />
+                    <span className="shot-meta">
+                      <span className="shot-name">{photo.role}</span>
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           ) : (
             <div className="hero" style={{ background: item.swatch ?? "var(--surface)" }}>
@@ -109,7 +99,9 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
         <div>
           <h1>{item.title}</h1>
           <div className="detail-sub">
-            <span className={`badge badge-${item.status}`}>{item.status}</span>
+            <span className={`badge badge-${unreviewed ? "draft" : item.status}`}>
+              {unreviewed ? "unreviewed" : item.status}
+            </span>
             {days !== null && <span>listed {days} days ago</span>}
             {item.sale && <span>sold on {CHANNEL_LABEL[item.sale.channel]}</span>}
           </div>
@@ -120,76 +112,73 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
                 <h2>Unreviewed draft</h2>
                 <p>Read from the photos by {inference?.model ?? "the model"}. Correct anything wrong.</p>
               </div>
-              <ReviewForm item={item} confidence={confidence} questions={questions} />
+              <ReviewForm item={item} confidence={confidence} questions={fields.questions ?? []} />
             </>
           )}
 
-          {!unreviewed && flaws.length > 0 && (
+          {!unreviewed && item.flaws.length > 0 && (
             <>
               <div className="sectionhead">
                 <h2>Noted flaws</h2>
                 <p>Disclose these in the listing copy — returns cost more than the honesty does.</p>
               </div>
               <ul className="flaws">
-                {flaws.map((flaw) => (
+                {item.flaws.map((flaw) => (
                   <li key={flaw}>{flaw}</li>
                 ))}
               </ul>
             </>
           )}
 
-          <div className="sectionhead">
-            <h2>Listings</h2>
-            <p>One row per channel. Net is what you&apos;d clear at that price.</p>
-          </div>
-
-          <div className="tablewrap">
-            <table className="grid" style={{ minWidth: 640 }}>
-              <thead>
-                <tr>
-                  <th>Channel</th>
-                  <th>Access</th>
-                  <th className="num">Price</th>
-                  <th className="num">Postage</th>
-                  <th className="num">Net</th>
-                  <th>Status</th>
-                  <th>Posted</th>
-                </tr>
-              </thead>
-              <tbody>
-                {item.listings.map((listing) => {
-                  const net = projectedNet(listing.channel, listing.price, {
-                    shippingCollected: listing.shipping_price,
-                    shippingCost: listing.shipping_price,
-                  });
-                  return (
-                    <tr key={listing.id}>
-                      <td style={{ fontWeight: 600 }}>{CHANNEL_LABEL[listing.channel]}</td>
-                      <td className="cell-sku">{CHANNEL_ACCESS[listing.channel]}</td>
-                      <td className="num">{usd(listing.price)}</td>
-                      <td className="num muted">
-                        {listing.shipping_price ? usd(listing.shipping_price) : "included"}
-                      </td>
-                      <td className="num">{usd(net)}</td>
-                      <td>
-                        <span className={`badge badge-${listing.status === "live" ? "listed" : "draft"}`}>
-                          {listing.status}
-                        </span>
-                      </td>
-                      <td className="cell-sku">{shortDate(listing.posted_at)}</td>
+          {item.listings.length > 0 && (
+            <>
+              <div className="sectionhead">
+                <h2>Listings</h2>
+                <p>One row per channel. Net is what you&apos;d clear at that price.</p>
+              </div>
+              <div className="tablewrap">
+                <table className="grid" style={{ minWidth: 620 }}>
+                  <thead>
+                    <tr>
+                      <th>Channel</th>
+                      <th>Access</th>
+                      <th className="num">Price</th>
+                      <th className="num">Postage</th>
+                      <th className="num">Net</th>
+                      <th>Status</th>
+                      <th>Posted</th>
                     </tr>
-                  );
-                })}
-                {item.listings.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="muted" style={{ padding: "18px 0" }}>
-                      Not listed anywhere yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {item.listings.map((listing) => (
+                      <tr key={listing.id}>
+                        <td style={{ fontWeight: 600 }}>{CHANNEL_LABEL[listing.channel]}</td>
+                        <td className="cell-sku">{CHANNEL_ACCESS[listing.channel]}</td>
+                        <td className="num">{usd(listing.price)}</td>
+                        <td className="num muted">
+                          {listing.shipping_price ? usd(listing.shipping_price) : "included"}
+                        </td>
+                        <td className="num">
+                          {usd(
+                            projectedNet(listing.channel, listing.price, {
+                              shippingCollected: listing.shipping_price,
+                              shippingCost: listing.shipping_price,
+                            })
+                          )}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${listing.status === "live" ? "listed" : "draft"}`}>
+                            {listing.status}
+                          </span>
+                        </td>
+                        <td className="cell-sku">{shortDate(listing.posted_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
 
           {item.sale && (
             <>
@@ -230,7 +219,9 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
                 </div>
                 <div className="ledger-row ledger-total">
                   <span>Profit</span>
-                  <span className={item.sale.profit >= 0 ? "num-pos" : "num-neg"}>{usd(item.sale.profit)}</span>
+                  <span className={item.sale.profit >= 0 ? "num-pos" : "num-neg"}>
+                    {usd(item.sale.profit)}
+                  </span>
                 </div>
               </div>
             </>

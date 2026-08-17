@@ -1,48 +1,45 @@
-import fs from "node:fs";
-import path from "node:path";
 import Link from "next/link";
-import InboxClient, { type Shot } from "@/components/InboxClient";
-import { INBOX } from "@/lib/intake";
-import { all } from "@/lib/db";
+import InboxClient, { type InboxPhoto } from "@/components/InboxClient";
+import Uploader from "@/components/Uploader";
+import { getUnassignedPhotos, signPhotos } from "@/lib/data";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".heic", ".webp", ".avif"]);
-
-function readInbox(): Shot[] {
-  if (!fs.existsSync(INBOX)) return [];
-  return fs
-    .readdirSync(INBOX)
-    .filter((name) => IMAGE_EXT.has(path.extname(name).toLowerCase()))
-    .map((name) => {
-      const stat = fs.statSync(path.join(INBOX, name));
-      return { name, size: stat.size, modified: stat.mtimeMs };
-    })
-    .sort((a, b) => a.modified - b.modified);
-}
-
-type Pending = { id: number; sku: string; title: string; brand: string | null; swatch: string | null };
-
 export default async function InboxPage() {
-  const shots = readInbox();
-  const unreviewed = all<Pending>(
-    `SELECT id, sku, title, brand, swatch FROM items WHERE review_state = 'unreviewed' ORDER BY id DESC`
-  );
+  const user = await currentUser();
+  if (!user) return null; // middleware redirects; this is belt and braces
+
+  const photos = await getUnassignedPhotos();
+  const signed = await signPhotos(photos.map((p) => p.storage_path));
+
+  const inbox: InboxPhoto[] = photos
+    .filter((p) => signed[p.storage_path])
+    .map((p) => ({ id: p.id, url: signed[p.storage_path], bytes: p.bytes }));
+
+  const supabase = await supabaseServer();
+  const { data: unreviewed } = await supabase
+    .from("items")
+    .select("id, sku, title, brand")
+    .eq("review_state", "unreviewed")
+    .order("created_at", { ascending: false });
 
   return (
     <>
       <div className="sectionhead">
         <h2>Inbox</h2>
-        <p>photos/inbox</p>
+        <p>Photos waiting to become garments</p>
       </div>
 
-      {unreviewed.length > 0 && (
+      <Uploader userId={user.id} />
+
+      {(unreviewed?.length ?? 0) > 0 && (
         <div className="notice notice-warn">
           <strong>
-            {unreviewed.length} draft{unreviewed.length === 1 ? "" : "s"} waiting on you
+            {unreviewed!.length} draft{unreviewed!.length === 1 ? "" : "s"} waiting on you
           </strong>
           <p>
-            {unreviewed.map((item, index) => (
+            {unreviewed!.map((item, index) => (
               <span key={item.id}>
                 {index > 0 && " · "}
                 <Link href={`/items/${item.id}`} className="link">
@@ -54,16 +51,16 @@ export default async function InboxPage() {
         </div>
       )}
 
-      {shots.length === 0 ? (
+      {inbox.length === 0 ? (
         <div className="notice">
-          <strong>Inbox is empty</strong>
+          <strong>Nothing waiting</strong>
           <p>
-            Drop photos into <code>photos/inbox</code> and reload. Shoot two per garment — the piece
-            itself, and its brand or care tag. JPEG or PNG; iPhone HEIC needs converting first.
+            Upload a garment and its brand tag, then pick both and hit Identify. The model
+            reads them together and drafts the listing.
           </p>
         </div>
       ) : (
-        <InboxClient shots={shots} />
+        <InboxClient photos={inbox} />
       )}
     </>
   );

@@ -1,6 +1,6 @@
 import { confirmItem } from "@/app/actions";
 import { CATEGORIES, CONDITIONS } from "@/lib/inference";
-import type { ItemWithChannels } from "@/lib/queries";
+import type { ItemFull } from "@/lib/data";
 
 type Confidence = Record<string, number>;
 
@@ -42,11 +42,11 @@ export default function ReviewForm({
   confidence,
   questions,
 }: {
-  item: ItemWithChannels;
+  item: ItemFull;
   confidence: Confidence;
   questions: string[];
 }) {
-  const flaws: string[] = item.flaws ? JSON.parse(item.flaws) : [];
+  const flaws = item.flaws;
 
   return (
     <form action={confirmItem} className="review">
