@@ -1,98 +1,139 @@
-# Publishing to the Chrome Web Store
+# Chrome Web Store listing
 
-`npm run pack:ext` builds `dist/threader-extension-<version>.zip`. That's the file you
-upload. It strips the localhost host permission — reviewers treat unnecessary permissions
-as something to ask about, and users have no dev server to reach.
+Paste-ready text for every field the publish checklist asks for.
 
-## Before you start
+Accuracy matters more than persuasion here: reviewers compare these answers to
+what the code actually does, and an overclaim is what gets a submission rejected
+or an extension pulled later.
 
-- **$5 one-time developer registration**, at
-  [chrome.google.com/webstore/devconsole](https://chrome.google.com/webstore/devconsole).
-  Paid once per Google account, not per extension.
-- **Privacy policy URL**: `https://getthreader.com/privacy` — already live and reachable
-  without signing in. That last part matters: a reviewer who hits a login wall rejects.
-- **Screenshots**: 1280×800 or 640×400 PNG, at least one, up to five. Take them of the
-  extension popup with real listings and of a filled Depop form with the banner showing.
-  Screenshots are the single biggest driver of installs — worth doing properly.
+---
 
-## Listing copy
+## Store listing tab
 
-**Name**: Threader — cross-list to Depop and Mercari
+**Category:** Shopping
+*(not Developer Tools — this is for sellers, not developers)*
 
-**Summary** (132 characters max):
+**Language:** English (United States)
 
-> Fill your Depop and Mercari listings from one place. You review and publish every listing yourself.
+**Detailed description**
 
-**Category**: Workflow & Planning
+```
+Threader fills in marketplace sell forms using listings you've already prepared
+in your Threader account, so you don't retype the same garment on every site.
 
-**Description**:
+How it works:
 
-> Threader keeps your secondhand clothing inventory in one place and fills the sell forms
-> on Depop and Mercari so you don't retype the same garment twice.
->
-> How it works:
-> • Catalogue a garment once in Threader — photos, size, condition, flaws, price
-> • Open the extension and pick which listing to post
-> • It opens the marketplace's own sell page and fills what it can
-> • You set the dropdowns, check everything, and hit publish yourself
->
-> Threader never sees your Depop or Mercari password. It works inside the session you're
-> already signed in to, and it never submits a listing for you — the final click is always
-> yours.
->
-> Requires a free Threader account at getthreader.com.
+1. Prepare a listing in Threader — photos, title, description, price, size,
+   condition.
+2. Open the extension and pick the listing you want to post.
+3. It opens that marketplace's sell page and fills in the fields it can.
+4. You check everything, adjust anything it left blank, and press the
+   marketplace's own submit button yourself.
 
-## Single purpose
+The extension never submits a listing for you and never asks for your
+marketplace password. It works inside the browser session you're already
+signed in to, and a banner tells you exactly which fields it filled and which
+it left for you.
 
-The console asks you to state one purpose. Don't hedge here; a vague answer invites review.
+Requires a Threader account (getthreader.com). Currently supports Depop,
+Mercari, Vinted and Grailed sell forms.
+```
 
-> Fills the seller's own Depop and Mercari listing forms with garment details they
-> previously entered into their Threader account.
+---
 
-## Permission justifications
+## Privacy practices tab
 
-Paste these into the matching fields. Each one names the specific code path.
+**Single purpose description**
 
-| Permission | Justification |
-|---|---|
-| `storage` | Stores the pairing code that links the extension to the user's Threader account, and the Threader address. Nothing else is stored locally. |
-| `scripting` | Injects the form-filling script into the Depop or Mercari sell page, only when the user clicks "Fill" for a specific listing. |
-| `https://getthreader.com/*` | Fetches the user's own drafted listings from their Threader account, authenticated with the pairing code. |
-| `https://*.supabase.co/*` | Downloads the user's own product photos to attach to the listing. Photos are served from Supabase storage via short-lived signed URLs. |
-| `https://www.depop.com/*` | Fills the Depop sell form. |
-| `https://www.mercari.com/*` | Fills the Mercari sell form. |
+```
+Fill in marketplace sell forms with listing data from the user's own Threader
+account, so the same item doesn't have to be retyped on every marketplace.
+```
 
-**Remote code**: No. Every script is in the package; nothing is fetched and executed.
+**Justification — host permissions**
 
-## Data disclosure
+```
+getthreader.com — to fetch the user's own listing data (title, description,
+price, size, condition) after they pair the extension with their account.
 
-Tick **Personally identifiable information** — the listings fetched are tied to a user
-account. Then the three certifications:
+depop.com, mercari.com, vinted.com, grailed.com — to fill the sell form on the
+marketplace the user has chosen. The extension only touches these pages when
+the user clicks a specific "Fill on ..." button, and only fills form fields. It
+does not submit forms, read the user's account data, or act on any other page.
 
-- Not sold to third parties ✓
-- Used only for the single purpose above ✓
-- Not used for creditworthiness or lending ✓
+*.supabase.co — the user's own listing photos are stored there and fetched via
+short-lived signed URLs so they can be attached to the sell form.
 
-## Review
+localhost — development only.
+```
 
-Expect a few days, occasionally longer. Extensions with host permissions on third-party
-sites get looked at more closely.
+**Justification — scripting**
 
-If it's rejected, the most likely reasons and what to do:
+```
+Used to inject the form-filling script into the marketplace tab the user
+explicitly asked to fill. All injected scripts are bundled in the extension
+package; nothing is fetched or evaluated at runtime. Injection is triggered
+only by a direct user click, never automatically or in the background.
+```
 
-- **"Purpose unclear"** — the description didn't make it obvious the *user* clicks publish.
-  Lead with that sentence.
-- **"Unnecessary permissions"** — a permission in the manifest that no code path uses.
-  Grep for the API before adding anything.
-- **Marketplace automation concerns** — respond that the extension fills forms in the
-  user's own authenticated session, requires explicit per-listing action, and never
-  submits. Vendoo, List Perfectly, and Crosslist all ship on the store on that basis.
+**Justification — storage**
 
-## Releasing an update
+```
+Stores two things locally with chrome.storage.local: the pairing token that
+authenticates the extension to the user's own Threader account, and two user
+preferences (whether to fill in a background window, and whether to auto-fill
+the final step). No browsing history, page content or personal data is stored.
+```
 
-1. Bump `version` in `extension/manifest.json` — the store rejects a re-upload of the
-   same version
-2. `npm run pack:ext`
-3. Upload the new zip and submit
+**Remote code**
 
-Updates roll out to existing users automatically over a few hours.
+Select **"No, I am not using remote code."** That is accurate — every script that
+executes ships inside the package. If a justification box appears anyway:
+
+```
+No remote code is executed. All scripts are bundled in the extension package.
+The extension fetches JSON listing data and image files over HTTPS, but these
+are data only — never scripts, and nothing is passed to eval() or injected as
+executable code.
+```
+
+**Data usage certification** — tick all three:
+
+- Not being sold to third parties
+- Not being used or transferred for purposes unrelated to the item's single purpose
+- Not being used or transferred to determine creditworthiness or for lending
+
+All three are true. The extension moves the user's own listing data from their
+own account into a form on their own screen. Nothing is collected, retained, or
+transmitted anywhere else.
+
+---
+
+## Settings tab
+
+**Contact email** — must be set *and verified* before publishing. Chrome sends a
+verification link; the item can't be submitted until you click it.
+
+---
+
+## Graphic assets
+
+| Asset | File | Size |
+|---|---|---|
+| Store icon | `store-icon-128.png` | 128 × 128 |
+| Screenshot | `store-screenshot-1280x800.png` | 1280 × 800 |
+
+Regenerate either with `node scripts/make-icons.mjs` or
+`node scripts/make-screenshot.mjs`.
+
+---
+
+## Likely review questions
+
+Extensions that fill forms on third-party sites get looked at closely. Two
+things are worth stating plainly if a reviewer asks:
+
+- **It does not automate submission.** The user presses the marketplace's own
+  button. The extension fills fields and stops.
+- **It handles no marketplace credentials.** It uses the session the user is
+  already signed in to; no marketplace password ever reaches Threader.

@@ -15,3 +15,9 @@ photos/items/*
 .env.local
 
 dist/
+
+# packaged extension + generated store assets
+*.zip
+store-icon-*.png
+store-screenshot-*.png
+.pkg/
