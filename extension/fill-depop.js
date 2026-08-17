@@ -258,6 +258,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
      * Capped at four steps. If Depop adds a step we don't understand, this
      * stalls rather than clicking unknown buttons on a listing page.
      */
+    // Say out loud why we stopped. "Nothing happened" is the least useful
+    // possible outcome, and there are three different reasons for it.
+    if (!autoSubmit) {
+      missing.push("auto-submit is off — tick it in the extension popup");
+    } else if (blocked.length > 0) {
+      missing.push("auto-submit held back — Depop is showing errors");
+    }
+
+    // Dump the form's real structure so selector fixes stop being guesswork.
+    console.log(
+      "[Threader] fields on this page:\n" +
+        [...document.querySelectorAll("label")]
+          .map((l) => {
+            const forId = l.getAttribute("for");
+            const control =
+              (forId && document.getElementById(forId)) ||
+              l.parentElement?.querySelector("input,select,textarea,[role=combobox]");
+            return `  ${l.textContent?.trim()} => ${control ? control.tagName : "NONE"}`;
+          })
+          .join("\n") +
+        "\n[Threader] buttons:\n" +
+        [...document.querySelectorAll("button")]
+          .filter((b) => b.offsetParent)
+          .map((b) => `  ${b.textContent?.trim().slice(0, 40)}${b.disabled ? " [disabled]" : ""}`)
+          .join("\n")
+    );
+
     if (autoSubmit && blocked.length === 0) {
       for (let step = 0; step < 4; step += 1) {
         const advance = [...document.querySelectorAll("button")].find(
