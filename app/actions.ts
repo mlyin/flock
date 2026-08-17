@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { BUCKET, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
+import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
 import { draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 
@@ -205,4 +205,78 @@ export async function markListed(listingId: string) {
   }
 
   revalidatePath("/");
+}
+
+/** Photos in, blank draft out — no model call, no API key required. */
+export async function addItemByHand(photoIds: string[]): Promise<IdentifyOutcome> {
+  if (photoIds.length === 0) return { ok: false, error: "Select at least one photo." };
+
+  const outcome = await createItemByHand(photoIds);
+  if (!outcome.ok) return outcome;
+
+  revalidatePath("/inbox");
+  revalidatePath("/");
+  return { ok: true, itemId: outcome.itemId, sku: outcome.sku, questions: [] };
+}
+
+/**
+ * Build listing rows straight from the garment's own fields.
+ *
+ * The description is assembled from what the seller already recorded rather
+ * than written by a model, so this works with no API key. If a key is added
+ * later, "Write listing copy" overwrites these with better prose.
+ */
+export async function createBasicListings(itemId: string): Promise<DraftOutcome> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: item, error } = await supabase
+    .from("items")
+    .select("title, brand, size, color, material, condition, flaws, notes")
+    .eq("id", itemId)
+    .single();
+
+  if (error || !item) return { ok: false, error: error?.message ?? "Item not found." };
+
+  const flaws = Array.isArray(item.flaws) ? (item.flaws as string[]) : [];
+  const title = [item.brand, item.title].filter(Boolean).join(" ").slice(0, 80);
+
+  const description = [
+    item.title,
+    "",
+    item.brand && `Brand: ${item.brand}`,
+    item.size && `Size: ${item.size}`,
+    item.color && `Colour: ${item.color}`,
+    item.material && `Material: ${item.material}`,
+    `Condition: ${item.condition}`,
+    flaws.length ? `\nFlaws:\n${flaws.map((f) => `- ${f}`).join("\n")}` : "\nNo notable flaws.",
+    item.notes && `\n${item.notes}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const rows = (["depop", "mercari", "ebay"] as const).map((channel) => ({
+    user_id: user.id,
+    item_id: itemId,
+    channel,
+    title,
+    description,
+    price: 0,
+    status: "draft" as const,
+    draft: null,
+    drafted_by: "manual",
+    drafted_at: new Date().toISOString(),
+  }));
+
+  const { error: writeError } = await supabase
+    .from("listings")
+    .upsert(rows, { onConflict: "item_id,channel" });
+
+  if (writeError) return { ok: false, error: writeError.message };
+
+  revalidatePath(`/items/${itemId}`);
+  return { ok: true };
 }

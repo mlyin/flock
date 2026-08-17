@@ -11,6 +11,84 @@ export type IdentifyOutcome =
   | { ok: false; error: string };
 
 /**
+ * Files photos against a new item and assigns the next per-seller SKU.
+ *
+ * Shared by both intake paths — identified by the model, or typed in by hand.
+ * Inference is a convenience here, not a dependency: the app is a working
+ * inventory and cross-listing tool with no API key at all.
+ */
+async function fileAsItem(
+  photoIds: string[],
+  fields: Record<string, unknown>
+): Promise<{ ok: true; itemId: string; sku: string } | { ok: false; error: string }> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out. Reload and sign in again." };
+
+  const { data: photos, error: photoError } = await supabase
+    .from("photos")
+    .select("id, storage_path")
+    .in("id", photoIds)
+    .is("item_id", null);
+
+  if (photoError) return { ok: false, error: photoError.message };
+  if (!photos?.length) return { ok: false, error: "Those photos are already filed against an item." };
+
+  const { data: skuRow } = await supabase.rpc("next_sku", { p_user: user.id });
+  const sku = (skuRow as string | null) ?? "CL-0001";
+
+  const { data: item, error: itemError } = await supabase
+    .from("items")
+    .insert({
+      user_id: user.id,
+      sku,
+      status: "draft",
+      acquired_at: new Date().toISOString().slice(0, 10),
+      source: "inbox",
+      ...fields,
+    })
+    .select("id, sku")
+    .single();
+
+  if (itemError || !item) return { ok: false, error: itemError?.message ?? "Couldn't create the item." };
+
+  // Re-file the objects under the item. A failed move leaves the photo on its
+  // inbox key still pointing at real bytes, so the row is updated either way.
+  for (const [index, photo] of photos.entries()) {
+    const filename = photo.storage_path.split("/").pop()!;
+    const destination = `${user.id}/${item.id}/${filename}`;
+    const { error: moveError } = await supabase.storage
+      .from(BUCKET)
+      .move(photo.storage_path, destination);
+
+    await supabase
+      .from("photos")
+      .update({
+        item_id: item.id,
+        storage_path: moveError ? photo.storage_path : destination,
+        role: index === 0 ? "hero" : "detail",
+        sort_order: index,
+      })
+      .eq("id", photo.id);
+  }
+
+  return { ok: true, itemId: item.id, sku: item.sku };
+}
+
+/** Photos in, blank garment out. No model call, no API key needed. */
+export async function createItemByHand(photoIds: string[]) {
+  return fileAsItem(photoIds, {
+    title: "Untitled garment",
+    category: "Other",
+    condition: "good",
+    flaws: [],
+    review_state: "unreviewed",
+  });
+}
+
+/**
  * Photo rows in → one unreviewed draft item out.
  *
  * Photos are already in storage by the time this runs (the browser uploads

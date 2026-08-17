@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { analyzePhotos, deleteInboxPhoto } from "@/app/actions";
+import { addItemByHand, analyzePhotos, deleteInboxPhoto } from "@/app/actions";
 import type { IdentifyOutcome } from "@/lib/intake";
 
 export type InboxPhoto = { id: string; url: string; bytes: number | null };
@@ -22,10 +22,10 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
       current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
     );
 
-  const analyze = () => {
+  const run = (action: (ids: string[]) => Promise<IdentifyOutcome>) => {
     setResult(null);
     startTransition(async () => {
-      const outcome = await analyzePhotos(selected);
+      const outcome = await action(selected);
       setResult(outcome);
       if (outcome.ok) {
         setSelected([]);
@@ -56,11 +56,19 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
           )}
           <button
             type="button"
-            className="button"
-            onClick={analyze}
+            className="pill"
+            onClick={() => run(addItemByHand)}
             disabled={pending || selected.length === 0}
           >
-            {pending ? "Reading photos…" : "Identify garment"}
+            Add without AI
+          </button>
+          <button
+            type="button"
+            className="button"
+            onClick={() => run(analyzePhotos)}
+            disabled={pending || selected.length === 0}
+          >
+            {pending ? "Working…" : "Identify garment"}
           </button>
         </div>
       </div>
@@ -83,7 +91,7 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
           <p>
             {result.questions.length > 0
               ? `${result.questions.length} thing${result.questions.length === 1 ? "" : "s"} it couldn't tell from the photos. They're waiting on the item page.`
-              : "It was confident about everything. Still worth a look before you list."}
+              : "Fill in the details on the item page, then generate listings."}
           </p>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { prepareListings } from "@/app/actions";
+import { createBasicListings, prepareListings } from "@/app/actions";
 import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
 import { usd } from "@/lib/money";
 
@@ -49,11 +49,11 @@ export default function ListingDrafts({
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const generate = () =>
+  const run = (action: (id: string) => Promise<{ ok: boolean; error?: string }>) =>
     startTransition(async () => {
       setError(null);
-      const outcome = await prepareListings(itemId);
-      if (!outcome.ok) setError(outcome.error);
+      const outcome = await action(itemId);
+      if (!outcome.ok) setError(outcome.error ?? "Something went wrong.");
       else router.refresh();
     });
 
@@ -163,13 +163,21 @@ export default function ListingDrafts({
       })}
 
       <div className="review-actions">
-        <button type="button" className="button" onClick={generate} disabled={pending}>
-          {pending ? "Writing…" : listings.length > 0 ? "Rewrite copy" : "Write listing copy"}
+        <button
+          type="button"
+          className="pill"
+          onClick={() => run(createBasicListings)}
+          disabled={pending}
+        >
+          Build from my details
+        </button>
+        <button type="button" className="button" onClick={() => run(prepareListings)} disabled={pending}>
+          {pending ? "Working…" : listings.length > 0 ? "Rewrite with AI" : "Write copy with AI"}
         </button>
         <span className="muted">
           {listings.length > 0
-            ? "Rewriting replaces the copy above."
-            : "Nothing is posted anywhere — this only drafts the text."}
+            ? "Either option replaces the copy above."
+            : "Nothing is posted anywhere. “Build from my details” needs no API key."}
         </span>
       </div>
     </>
