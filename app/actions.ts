@@ -164,6 +164,7 @@ export async function confirmItem(formData: FormData) {
       material: text("material"),
       condition: text("condition") ?? "good",
       cost_basis: Number(formData.get("cost_basis") ?? 0) || 0,
+      list_price: Number(formData.get("list_price") ?? 0) || null,
       source: text("source"),
       flaws,
       notes: text("notes"),
@@ -235,7 +236,7 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
 
   const { data: item, error } = await supabase
     .from("items")
-    .select("title, brand, size, color, material, condition, flaws, notes")
+    .select("title, brand, size, color, material, condition, flaws, notes, list_price")
     .eq("id", itemId)
     .single();
 
@@ -264,7 +265,7 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
     channel,
     title,
     description,
-    price: 0,
+    price: Number(item.list_price ?? 0),
     status: "draft" as const,
     draft: null,
     drafted_by: "manual",
