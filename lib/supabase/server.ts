@@ -28,8 +28,16 @@ export async function supabaseServer() {
   );
 }
 
-/** The signed-in user, or null. */
+/** True once Supabase env vars exist. False means we're still in local SQLite mode. */
+export function supabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
+}
+
+/** The signed-in user, or null — including when Supabase isn't configured yet. */
 export async function currentUser() {
+  if (!supabaseConfigured()) return null;
   const { data } = await (await supabaseServer()).auth.getUser();
   return data.user;
 }

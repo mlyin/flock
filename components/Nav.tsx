@@ -9,7 +9,7 @@ const LINKS = [
   { href: "/fees", label: "Fees" },
 ];
 
-export default function Nav() {
+export default function Nav({ email }: { email?: string | null }) {
   const pathname = usePathname();
 
   return (
@@ -18,16 +18,28 @@ export default function Nav() {
         <strong>Threader</strong>
         <span>Stage 01 · photo intake</span>
       </Link>
-      <nav className="navlinks">
-        {LINKS.map((link) => {
-          const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
-          return (
-            <Link key={link.href} href={link.href} className={active ? "navlink navlink-on" : "navlink"}>
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
+
+      <div className="navright">
+        <nav className="navlinks">
+          {LINKS.map((link) => {
+            const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+            return (
+              <Link key={link.href} href={link.href} className={active ? "navlink navlink-on" : "navlink"}>
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {email && (
+          <form action="/auth/signout" method="post" className="navuser">
+            <span title={email}>{email}</span>
+            <button type="submit" className="navlink">
+              Sign out
+            </button>
+          </form>
+        )}
+      </div>
     </header>
   );
 }
