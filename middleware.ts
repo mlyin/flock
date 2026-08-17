@@ -38,7 +38,11 @@ export async function middleware(request: NextRequest) {
   const isPublic =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth") ||
-    request.nextUrl.pathname.startsWith("/privacy");
+    request.nextUrl.pathname.startsWith("/privacy") ||
+    // The extension authenticates with a bearer token and carries no session
+    // cookie. Redirecting it to /login hands it an HTML page where it expects
+    // JSON; these routes verify the token themselves.
+    request.nextUrl.pathname.startsWith("/api/ext");
 
   if (!data.user && !isPublic) {
     const login = request.nextUrl.clone();
