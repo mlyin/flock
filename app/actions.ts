@@ -283,8 +283,23 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
   return { ok: true };
 }
 
-/** The seller's ship-from address, stored once and filled into every marketplace. */
-export async function saveShippingAddress(formData: FormData) {
+
+export type AddressRow = {
+  id: string;
+  label: string | null;
+  name: string | null;
+  line1: string;
+  line2: string | null;
+  city: string | null;
+  state: string | null;
+  postcode: string | null;
+  country: string | null;
+  phone: string | null;
+  is_default: boolean;
+};
+
+/** Create or update one ship-from address. */
+export async function saveAddress(formData: FormData) {
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -297,19 +312,49 @@ export async function saveShippingAddress(formData: FormData) {
     return value === "" ? null : value;
   };
 
-  await supabase
-    .from("profiles")
-    .update({
-      ship_name: text("ship_name"),
-      ship_line1: text("ship_line1"),
-      ship_line2: text("ship_line2"),
-      ship_city: text("ship_city"),
-      ship_state: text("ship_state"),
-      ship_postcode: text("ship_postcode"),
-      ship_country: text("ship_country"),
-      ship_phone: text("ship_phone"),
-    })
-    .eq("id", user.id);
+  const id = text("id");
+  const wantsDefault = formData.get("is_default") === "on";
 
+  // One default per seller is a unique index, so clear the others first
+  // rather than letting the insert collide.
+  if (wantsDefault) {
+    await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+  }
+
+  const row = {
+    user_id: user.id,
+    label: text("label"),
+    name: text("name"),
+    line1: text("line1") ?? "",
+    line2: text("line2"),
+    city: text("city"),
+    state: text("state"),
+    postcode: text("postcode"),
+    country: text("country"),
+    phone: text("phone"),
+    is_default: wantsDefault,
+  };
+
+  if (id) await supabase.from("addresses").update(row).eq("id", id);
+  else await supabase.from("addresses").insert(row);
+
+  revalidatePath("/settings");
+}
+
+export async function deleteAddress(id: string) {
+  const supabase = await supabaseServer();
+  await supabase.from("addresses").delete().eq("id", id);
+  revalidatePath("/settings");
+}
+
+export async function makeDefaultAddress(id: string) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+  await supabase.from("addresses").update({ is_default: true }).eq("id", id);
   revalidatePath("/settings");
 }

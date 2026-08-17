@@ -195,7 +195,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     // Depop blocks the listing until the account has a ship-from address.
     // It lives behind an "Add new shipping address" link that opens a form.
-    if (p.address?.ship_line1 && /add new shipping address/i.test(document.body.innerText)) {
+    if (p.address?.line1 && /add new shipping address/i.test(document.body.innerText)) {
       const opener = [...document.querySelectorAll("button, a")].find((el) =>
         /add new shipping address/i.test(el.textContent ?? "")
       );
@@ -204,13 +204,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await wait(1200);
 
         const ADDRESS = [
-          [/^(first and last name|full name|name)$/i, p.address.ship_name],
-          [/^(address line 1|address 1|address)$/i, p.address.ship_line1],
-          [/^address line 2/i, p.address.ship_line2],
-          [/^(city|suburb)$/i, p.address.ship_city],
-          [/^(state|state\/province\/region|state or county|province|county)$/i, p.address.ship_state],
-          [/^(zip or postal code|postal code|postcode|zip code)$/i, p.address.ship_postcode],
-          [/^phone/i, p.address.ship_phone],
+          [/^(first and last name|full name|name)$/i, p.address.name],
+          [/^(address line 1|address 1|address)$/i, p.address.line1],
+          [/^address line 2/i, p.address.line2],
+          [/^(city|suburb)$/i, p.address.city],
+          [/^(state|state\/province\/region|state or county|province|county)$/i, p.address.state],
+          [/^(zip or postal code|postal code|postcode|zip code)$/i, p.address.postcode],
+          [/^phone/i, p.address.phone],
         ];
 
         let entered = 0;
@@ -243,7 +243,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           missing.push("shipping address (fields not found)");
         }
       }
-    } else if (!p.address?.ship_line1) {
+    } else if (!p.address?.line1) {
       missing.push("shipping address — set it in Threader → Settings");
     }
 

@@ -21,7 +21,8 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
   const signed = await signPhotos(item.photos.map((p) => p.storage_path));
 
   const supabase = await supabaseServer();
-  const { data: profile } = await supabase.from("profiles").select("ship_line1").maybeSingle();
+  const { data: defaultAddress } = await supabase
+    .from("addresses").select("id").eq("is_default", true).maybeSingle();
 
   const unreviewed = item.review_state === "unreviewed";
   const inference = unreviewed ? await latestInference(item.id) : null;
@@ -132,7 +133,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           {!unreviewed && (
             <ListingDrafts
               itemId={item.id}
-              addressSet={Boolean(profile?.ship_line1)}
+              addressSet={Boolean(defaultAddress)}
               listings={item.listings
                 .filter((l) => LISTABLE.includes(l.channel))
                 .map((l) => ({

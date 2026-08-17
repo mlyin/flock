@@ -39,10 +39,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   // Ship-from address, so the extension can complete the marketplace's
   // account-level shipping form instead of stopping there.
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("ship_name, ship_line1, ship_line2, ship_city, ship_state, ship_postcode, ship_country, ship_phone")
-    .eq("id", userId)
+  const { data: address } = await admin
+    .from("addresses")
+    .select("name, line1, line2, city, state, postcode, country, phone")
+    .eq("user_id", userId)
+    .eq("is_default", true)
     .maybeSingle();
 
   // Signed because the bucket is private. Long enough to fill a form, not to leak.
@@ -63,7 +64,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     tags: draft.tags ?? [],
     specifics: draft.specifics ?? {},
     item: item ?? null,
-    address: profile ?? null,
+    address: address ?? null,
     photos: signed.map((s) => s.signedUrl).filter(Boolean),
   });
 }
