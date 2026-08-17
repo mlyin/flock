@@ -36,16 +36,42 @@ async function api(path, options = {}) {
   return response.json();
 }
 
-/** Resolves once the tab has finished loading. */
-function whenLoaded(tabId) {
-  return new Promise((resolve) => {
-    const listener = (id, info) => {
-      if (id === tabId && info.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
+/**
+ * Resolves once the tab has finished loading.
+ *
+ * Checks the current status first: a cached page can reach "complete" before
+ * the listener is attached, and waiting for an event that already fired hangs
+ * forever. The timeout is the backstop — a stuck load should surface as an
+ * error, not as a spinner nobody can clear.
+ */
+function whenLoaded(tabId, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      chrome.tabs.onUpdated.removeListener(listener);
+      clearTimeout(timer);
+      fn(arg);
     };
+
+    const listener = (id, info) => {
+      if (id === tabId && info.status === "complete") finish(resolve);
+    };
+
+    const timer = setTimeout(
+      () => finish(reject, new Error("The marketplace page didn't finish loading.")),
+      timeoutMs
+    );
+
     chrome.tabs.onUpdated.addListener(listener);
+
+    // Already done before we started listening?
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError) return finish(reject, new Error(chrome.runtime.lastError.message));
+      if (tab?.status === "complete") finish(resolve);
+    });
   });
 }
 

@@ -91,6 +91,86 @@ async function combo(id, wanted, { acceptFirst = true } = {}) {
   return true;
 }
 
+/**
+ * Size and quantity appear only after a category is chosen, and their ids vary
+ * by category (Depop uses a different size scale for tops, shoes, and so on).
+ * So these search by id pattern and by accessible label rather than assuming
+ * one fixed id, and report what they actually found for the diagnostic.
+ */
+function findControl(patterns) {
+  const inputs = [...document.querySelectorAll("input, select")].filter(
+    (el) => el.offsetParent !== null && !el.disabled
+  );
+
+  for (const pattern of patterns) {
+    const hit = inputs.find((el) => {
+      const id = (el.id || "").toLowerCase();
+      const name = (el.name || "").toLowerCase();
+      const label = (
+        document.querySelector(`label[for="${el.id}"]`)?.textContent ??
+        el.getAttribute("aria-label") ??
+        ""
+      ).toLowerCase();
+      return pattern.test(id) || pattern.test(name) || pattern.test(label);
+    });
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function fillSize(size) {
+  if (!size) return false;
+  const el = findControl([/^size/, /size-input/, /\bsize\b/]);
+  if (!el) return false;
+
+  if (el.tagName === "SELECT") {
+    const want = String(size).trim().toLowerCase();
+    const option = [...el.options].find(
+      (o) => o.textContent.trim().toLowerCase() === want
+    );
+    if (!option) return false;
+    el.value = option.value;
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
+  return combo(el.id, size, { acceptFirst: false });
+}
+
+async function fillQuantity(qty) {
+  const el = findControl([/quantity/, /^qty/]);
+  if (!el) return false;
+  if (el.tagName === "SELECT") {
+    el.value = String(qty);
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+  setNativeValue(el, String(qty));
+  return true;
+}
+
+/**
+ * Every visible, empty, required-looking control — so a run that still lands in
+ * Incomplete tells us exactly which selector to write next, instead of leaving
+ * us guessing from a screenshot of the drafts list.
+ */
+function unfilledControls() {
+  return [...document.querySelectorAll("input, select, textarea")]
+    .filter((el) => {
+      if (el.offsetParent === null || el.disabled || el.type === "file") return false;
+      if (el.value && el.value.trim() !== "") return false;
+      return el.required || el.getAttribute("aria-required") === "true";
+    })
+    .map((el) => {
+      const label =
+        document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim() ??
+        el.getAttribute("aria-label") ??
+        "";
+      return `${label || el.name || "?"}#${el.id || "no-id"}`;
+    })
+    .slice(0, 8);
+}
+
 async function attachPhotos(urls) {
   const input = document.getElementById(FIELD.photos);
   if (!input || urls.length === 0) return false;
@@ -181,6 +261,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (await combo(FIELD.category, categoryGuess)) filled.push("category");
     else missing.push("category");
 
+    // Size and quantity don't exist in the DOM until a category is chosen —
+    // Depop renders a different size scale per category. This is why earlier
+    // runs landed in Incomplete: the fields were queried before they existed.
+    await wait(1200);
+
+    if (await fillSize(item.size)) filled.push("size");
+    else missing.push("size");
+
+    if (await fillQuantity(1)) filled.push("quantity");
+    else missing.push("quantity");
+
     if (await combo(FIELD.condition, CONDITION[item.condition], { acceptFirst: false }))
       filled.push("condition");
     else missing.push("condition");
@@ -195,6 +286,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     await wait(700);
     let blocked = validationErrors();
+
+    // Depop saves an unfinished listing as an Incomplete draft rather than
+    // refusing it, so a silent success is indistinguishable from a failure
+    // unless we name what's still empty.
+    const stillEmpty = unfilledControls();
+    if (stillEmpty.length > 0) blocked = [...blocked, ...stillEmpty];
 
     if (!autoSubmit) missing.push("auto-submit off — tick it in the popup");
 
