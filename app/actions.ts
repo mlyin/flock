@@ -110,6 +110,20 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         drafted_at: now,
       },
       {
+        // Mercari reuses the Vinted copy: both want a plain product name and a
+        // straight description, so a fifth generation would buy nothing.
+        user_id: user.id,
+        item_id: itemId,
+        channel: "mercari" as const,
+        title: draft.vinted.title,
+        description: draft.vinted.description,
+        price: draft.price.suggested,
+        status: "draft" as const,
+        draft: { price: draft.price },
+        drafted_by: model,
+        drafted_at: now,
+      },
+      {
         user_id: user.id,
         item_id: itemId,
         channel: "vinted" as const,

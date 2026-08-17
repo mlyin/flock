@@ -9,12 +9,14 @@
 
 const SELL_PAGE = {
   depop: "https://www.depop.com/products/create/",
+  mercari: "https://www.mercari.com/sell/",
   vinted: "https://www.vinted.com/items/new",
   grailed: "https://www.grailed.com/sell/new",
 };
 
 const FILLER = {
   depop: "fill-depop.js",
+  mercari: "fill-mercari.js",
   vinted: "fill-vinted.js",
   grailed: "fill-grailed.js",
 };

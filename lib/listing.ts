@@ -11,7 +11,7 @@ import type { Channel } from "./fees";
  * why this generates both from one record rather than reusing one string.
  */
 
-export const LISTABLE: Channel[] = ["ebay", "depop", "vinted", "grailed"];
+export const LISTABLE: Channel[] = ["ebay", "depop", "mercari", "vinted", "grailed"];
 
 export const CHANNEL_BRIEF: Record<"ebay" | "depop" | "vinted" | "grailed", string> = {
   ebay: "Keyword-dense and literal. Buyers arrive by search, so the title carries brand, garment, size, colour, and any collectible detail. No slang, no personality.",
