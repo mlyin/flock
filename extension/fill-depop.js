@@ -1,114 +1,197 @@
 /**
- * Fills Depop's sell form, then stops.
+ * Fills Depop's sell form.
  *
- * SELECTORS ARE THE FRAGILE PART. Depop is a React app and ships new class names
- * regularly, so everything DOM-specific lives in the map below — when a field
- * stops filling, fix it there and nowhere else. The script reports which fields
- * it couldn't find rather than failing silently, so a broken selector shows up
- * as "couldn't fill: price" instead of a mysteriously half-empty form.
+ * Fields are found by their visible label text, not by class name. Depop is a
+ * React app that ships new hashed class names constantly; the words "Category"
+ * and "Package size" change far less often than the markup around them. When
+ * something stops filling, the label is the thing to check.
  *
- * Verify against the live page before trusting these.
+ * Auto-submit is opt-in and only fires when nothing is left blank. Clicking
+ * Continue on an incomplete form just trips Depop's own validation, so
+ * "submitted" would mean "failed" — worse than stopping.
  */
 
-const SELECTORS = {
-  photos: 'input[type="file"]',
-  description: 'textarea[name="description"], textarea[id*="description" i], textarea',
-  price: 'input[name="price"], input[id*="price" i]',
-  // Depop's category, size, and condition are custom dropdowns rather than
-  // <select>, so they're left to the user deliberately — see the banner text.
-};
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** React tracks input state internally; a plain value assignment gets overwritten. */
-function setNativeValue(element, value) {
-  const setter = Object.getOwnPropertyDescriptor(
-    element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-    "value"
-  ).set;
-  setter.call(element, value);
-  element.dispatchEvent(new Event("input", { bubbles: true }));
-  element.dispatchEvent(new Event("change", { bubbles: true }));
+/** React overwrites plain value assignment; go through the native setter. */
+function setNativeValue(el, value) {
+  const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/** Walk up from a label to the control it describes. */
+function fieldByLabel(text) {
+  const labels = [...document.querySelectorAll("label, span, div, p")].filter(
+    (el) =>
+      el.textContent?.trim().toLowerCase() === text.toLowerCase() &&
+      el.children.length === 0
+  );
+
+  for (const label of labels) {
+    const forId = label.getAttribute("for");
+    if (forId) {
+      const byId = document.getElementById(forId);
+      if (byId) return byId;
+    }
+    // Otherwise the control is usually the next interactive thing after the label.
+    let node = label.parentElement;
+    for (let depth = 0; node && depth < 4; depth += 1, node = node.parentElement) {
+      const control = node.querySelector("select, input:not([type=file]), [role=combobox], [role=button]");
+      if (control) return control;
+    }
+  }
+  return null;
+}
+
+/** Depop's dropdowns are custom widgets; open, then click the matching option. */
+async function chooseOption(control, wanted) {
+  if (!control || !wanted) return false;
+
+  if (control.tagName === "SELECT") {
+    const match = [...control.options].find(
+      (o) => o.textContent.trim().toLowerCase() === String(wanted).toLowerCase()
+    );
+    if (!match) return false;
+    control.value = match.value;
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
+  control.click();
+  await wait(450);
+
+  const option = [...document.querySelectorAll('[role=option], li, [role=menuitem]')].find(
+    (el) => el.textContent?.trim().toLowerCase() === String(wanted).toLowerCase()
+  );
+  if (!option) {
+    document.body.click(); // close the menu we opened
+    return false;
+  }
+  option.click();
+  await wait(250);
+  return true;
+}
+
+/** Depop suggests categories as plain chips — cheapest reliable win on the page. */
+function pickSuggestedCategory(preferred) {
+  const chips = [...document.querySelectorAll("button")].filter((b) => /\s\/\s/.test(b.textContent ?? ""));
+  if (chips.length === 0) return false;
+
+  const chip = preferred
+    ? chips.find((c) => c.textContent.trim().toLowerCase() === preferred.toLowerCase()) ?? chips[0]
+    : chips[0];
+
+  chip.click();
+  return chip.textContent.trim();
 }
 
 async function attachPhotos(urls) {
-  const input = document.querySelector(SELECTORS.photos);
+  const input = document.querySelector('input[type="file"]');
   if (!input || urls.length === 0) return false;
 
   const transfer = new DataTransfer();
-  for (const [index, url] of urls.entries()) {
+  for (const [i, url] of urls.entries()) {
     const response = await fetch(url);
     if (!response.ok) continue;
     const blob = await response.blob();
-    transfer.items.add(new File([blob], `photo-${index + 1}.jpg`, { type: blob.type || "image/jpeg" }));
+    transfer.items.add(new File([blob], `photo-${i + 1}.jpg`, { type: blob.type || "image/jpeg" }));
   }
-
   if (transfer.files.length === 0) return false;
+
   input.files = transfer.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
   return true;
 }
 
-function banner(filled, missing, payload) {
-  document.getElementById("threader-banner")?.remove();
+/** Anything Depop is complaining about, in its own words. */
+function validationErrors() {
+  return [...document.querySelectorAll("*")]
+    .filter((el) => el.children.length === 0 && /this field is required|required/i.test(el.textContent ?? ""))
+    .map((el) => el.textContent.trim())
+    .slice(0, 6);
+}
 
+function banner(filled, missing, blocked) {
+  document.getElementById("threader-banner")?.remove();
   const el = document.createElement("div");
   el.id = "threader-banner";
-  el.style.cssText = `
-    position:fixed; top:0; left:0; right:0; z-index:2147483647;
-    background:#1A1F1D; color:#EFF0EC; font:14px/1.5 system-ui,sans-serif;
-    padding:14px 18px; display:flex; gap:16px; align-items:center;
-    box-shadow:0 2px 12px rgba(0,0,0,.3);`;
-
-  const tags = (payload.tags || []).join(" ");
+  el.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#1A1F1D;
+    color:#EFF0EC;font:14px/1.45 system-ui,sans-serif;padding:13px 18px;display:flex;gap:14px;
+    align-items:flex-start;box-shadow:0 2px 12px rgba(0,0,0,.35)`;
   el.innerHTML = `
-    <strong style="font-weight:650">Threader filled ${filled.length} field${filled.length === 1 ? "" : "s"}.</strong>
-    <span style="opacity:.75">
+    <strong style="font-weight:650;white-space:nowrap">Threader filled ${filled.length}</strong>
+    <span style="opacity:.8">
       ${missing.length ? `Couldn't fill: ${missing.join(", ")}. ` : ""}
-      Set category, size, and condition yourself, then review everything and hit Depop's own publish button.
+      ${blocked.length ? `Depop still wants: ${blocked.join(" · ")}.` : "Looks complete — review it and publish."}
     </span>
-    ${tags ? `<button id="threader-tags" style="margin-left:auto;background:#3A5570;color:#fff;border:0;padding:7px 12px;border-radius:3px;cursor:pointer;font:inherit">Copy tags</button>` : ""}
-    <button id="threader-close" style="background:none;border:1px solid #5C635E;color:inherit;padding:7px 12px;border-radius:3px;cursor:pointer;font:inherit">Dismiss</button>`;
-
+    <button id="threader-close" style="margin-left:auto;background:none;border:1px solid #5C635E;
+      color:inherit;padding:6px 11px;border-radius:3px;cursor:pointer;font:inherit">Dismiss</button>`;
   document.body.appendChild(el);
   document.getElementById("threader-close")?.addEventListener("click", () => el.remove());
-  document.getElementById("threader-tags")?.addEventListener("click", async (event) => {
-    await navigator.clipboard.writeText(tags);
-    event.target.textContent = "Copied";
-  });
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
   (async () => {
-    const payload = message.payload;
+    const p = message.payload;
+    const autoSubmit = Boolean(message.autoSubmit);
     const filled = [];
     const missing = [];
 
-    const description = document.querySelector(SELECTORS.description);
+    const description = fieldByLabel("Description") ?? document.querySelector("textarea");
     if (description) {
-      setNativeValue(description, payload.description || "");
+      setNativeValue(description, p.description || "");
       filled.push("description");
-    } else {
-      missing.push("description");
-    }
+    } else missing.push("description");
 
-    const price = document.querySelector(SELECTORS.price);
+    const price =
+      fieldByLabel("Item price") ?? document.querySelector('input[name="price"], input[id*="price" i]');
     if (price) {
-      setNativeValue(price, String(payload.price ?? ""));
+      setNativeValue(price, String(p.price ?? ""));
       filled.push("price");
-    } else {
-      missing.push("price");
-    }
+    } else missing.push("price");
 
     try {
-      if (await attachPhotos(payload.photos || [])) filled.push("photos");
+      if (await attachPhotos(p.photos || [])) filled.push("photos");
       else missing.push("photos");
     } catch (error) {
       missing.push(`photos (${error.message})`);
     }
 
-    banner(filled, missing, payload);
-    sendResponse({ filled, missing });
+    const category = pickSuggestedCategory(p.item?.depop_category);
+    if (category) filled.push(`category (${category})`);
+    else missing.push("category");
+
+    // Depop's condition wording differs from ours.
+    const CONDITION = { nwt: "Brand new", excellent: "Like new", good: "Used - excellent", fair: "Used - fair" };
+    if (await chooseOption(fieldByLabel("Condition"), CONDITION[p.item?.condition])) filled.push("condition");
+    else missing.push("condition");
+
+    if (p.item?.brand && (await chooseOption(fieldByLabel("Brand"), p.item.brand))) filled.push("brand");
+    else if (p.item?.brand) missing.push("brand");
+
+    if (p.item?.package_size && (await chooseOption(fieldByLabel("Package size"), p.item.package_size)))
+      filled.push("package size");
+    else missing.push("package size");
+
+    await wait(600);
+    const blocked = validationErrors();
+
+    if (autoSubmit && blocked.length === 0) {
+      const submit = [...document.querySelectorAll("button")].find((b) =>
+        /^(continue|next|publish|list it)$/i.test(b.textContent?.trim() ?? "")
+      );
+      if (submit) {
+        submit.click();
+        filled.push("submitted");
+      }
+    }
+
+    banner(filled, missing, blocked);
+    sendResponse({ filled, missing, blocked });
   })();
 
   return true;

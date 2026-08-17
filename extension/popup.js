@@ -43,11 +43,27 @@ async function renderPairing(error) {
   });
 }
 
-function renderQueue(listings) {
-  root.innerHTML = `<div class="row" style="margin:0 0 4px">
+async function renderQueue(listings) {
+  const { background, autoSubmit } = await chrome.storage.local.get(["background", "autoSubmit"]);
+
+  root.innerHTML = `
+    <div class="opts">
+      <label><input type="checkbox" id="opt-bg" ${background === false ? "" : "checked"} />
+        Fill in a hidden window</label>
+      <label><input type="checkbox" id="opt-submit" ${autoSubmit ? "checked" : ""} />
+        Submit automatically when nothing is missing</label>
+    </div>
+    <div class="row" style="margin:0 0 4px">
       <button id="refresh">Refresh</button>
       <button id="unpair" style="margin-left:auto">Unpair</button>
     </div>`;
+
+  document.getElementById("opt-bg").addEventListener("change", (e) =>
+    chrome.storage.local.set({ background: e.target.checked })
+  );
+  document.getElementById("opt-submit").addEventListener("change", (e) =>
+    chrome.storage.local.set({ autoSubmit: e.target.checked })
+  );
 
   if (listings.length === 0) {
     const empty = document.createElement("div");

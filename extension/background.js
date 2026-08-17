@@ -63,13 +63,38 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         const filler = FILLER[payload.channel];
         if (!url || !filler) throw new Error(`No filler for ${payload.channel} yet.`);
 
-        const tab = await chrome.tabs.create({ url });
+        const { background, autoSubmit } = await chrome.storage.local.get([
+          "background",
+          "autoSubmit",
+        ]);
+
+        // A minimised window keeps the page out of your way while it fills.
+        // An extension can't drive a truly headless page — the marketplace is a
+        // React app and needs a real renderer to mount its form at all.
+        let tab;
+        if (background === false) {
+          tab = await chrome.tabs.create({ url });
+        } else {
+          const win = await chrome.windows.create({ url, state: "minimized", focused: false });
+          tab = win.tabs[0];
+        }
         await whenLoaded(tab.id);
 
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [filler] });
         // Give the SPA a moment to mount its form before we start looking for fields.
         await new Promise((r) => setTimeout(r, 1500));
-        const result = await chrome.tabs.sendMessage(tab.id, { type: "apply", payload });
+        const result = await chrome.tabs.sendMessage(tab.id, {
+          type: "apply",
+          payload,
+          autoSubmit: Boolean(autoSubmit),
+        });
+
+        // If anything is still missing, the decision is yours — bring the
+        // window forward rather than leaving a half-filled form minimised
+        // where you'd never notice it.
+        if (result?.missing?.length || result?.blocked?.length) {
+          await chrome.windows.update(tab.windowId, { state: "normal", focused: true });
+        }
 
         sendResponse({ ok: true, data: result });
         return;

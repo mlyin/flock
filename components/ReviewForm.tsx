@@ -102,6 +102,19 @@ export default function ReviewForm({
           />
         </Field>
         <Field name="source" label="Sourced from" value={item.source} />
+        <Field name="package_size" label="Package size">
+          {/* Depop and Mercari both refuse a listing without this, and it's a
+              fact about the parcel that no photo reveals. Stored here so the
+              extension can fill it instead of stopping. */}
+          <select id="package_size" name="package_size" defaultValue={item.package_size ?? ""}>
+            <option value="">— pick one —</option>
+            <option value="Extra small">Extra small — jewellery, accessories</option>
+            <option value="Small">Small — a t-shirt or two</option>
+            <option value="Medium">Medium — jeans, a jumper</option>
+            <option value="Large">Large — a coat, boots</option>
+            <option value="Extra large">Extra large — bulky outerwear</option>
+          </select>
+        </Field>
       </div>
 
       <label className="field" htmlFor="flaws">

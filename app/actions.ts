@@ -165,6 +165,7 @@ export async function confirmItem(formData: FormData) {
       condition: text("condition") ?? "good",
       cost_basis: Number(formData.get("cost_basis") ?? 0) || 0,
       list_price: Number(formData.get("list_price") ?? 0) || null,
+      package_size: text("package_size"),
       source: text("source"),
       flaws,
       notes: text("notes"),

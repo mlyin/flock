@@ -26,6 +26,7 @@ export type Item = {
   flaws: string[];
   cost_basis: number;
   list_price: number | null;
+  package_size: string | null;
   acquired_at: string | null;
   source: string | null;
   status: string;
