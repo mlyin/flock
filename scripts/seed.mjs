@@ -4,6 +4,7 @@
  *
  *   node scripts/seed.mjs           add fixtures to an empty database
  *   node scripts/seed.mjs --reset   wipe and reseed
+ *   node scripts/seed.mjs --empty   wipe and leave it empty — your real closet starts here
  */
 
 import { DatabaseSync } from "node:sqlite";
@@ -13,7 +14,8 @@ import { computeFees } from "../lib/fees.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const DB_PATH = path.join(ROOT, "data", "closet.db");
-const RESET = process.argv.includes("--reset");
+const EMPTY = process.argv.includes("--empty");
+const RESET = process.argv.includes("--reset") || EMPTY;
 
 // item, list, sold — the three shapes a garment moves through.
 const FIXTURES = [
@@ -128,6 +130,12 @@ fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const db = new DatabaseSync(DB_PATH);
 db.exec("PRAGMA foreign_keys = ON;");
 db.exec(fs.readFileSync(path.join(ROOT, "lib", "schema.sql"), "utf8"));
+
+if (EMPTY) {
+  console.log("database is empty — add your first garment from the Inbox");
+  db.close();
+  process.exit(0);
+}
 
 const existing = db.prepare("SELECT COUNT(*) AS n FROM items").get().n;
 if (existing > 0) {

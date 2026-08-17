@@ -9,17 +9,22 @@
     "build": "next build",
     "start": "next start -p 3737",
     "seed": "node scripts/seed.mjs",
-    "reset": "node scripts/seed.mjs --reset"
+    "reset": "node scripts/seed.mjs --reset",
+    "empty": "node scripts/seed.mjs --empty"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.3",
     "next": "^15.5.0",
+    "pg": "^8.23.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "typescript": "^5.8.0"
