@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "Inventory" },
   { href: "/inbox", label: "Inbox" },
   { href: "/fees", label: "Fees" },
+  { href: "/connect", label: "Extension" },
 ];
 
 export default function Nav({ email }: { email?: string | null }) {

@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Threader",
+  "version": "0.1.0",
+  "description": "Fills your Depop and Mercari listings from Threader. You review and submit.",
+  "permissions": ["storage", "scripting", "tabs"],
+  "host_permissions": [
+    "https://getthreader.com/*",
+    "http://localhost:3737/*",
+    "https://*.supabase.co/*",
+    "https://www.depop.com/*",
+    "https://www.mercari.com/*"
+  ],
+  "action": {
+    "default_title": "Threader",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

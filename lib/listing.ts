@@ -11,23 +11,25 @@ import type { Channel } from "./fees";
  * why this generates both from one record rather than reusing one string.
  */
 
-export const LISTABLE: Channel[] = ["ebay", "depop"];
+export const LISTABLE: Channel[] = ["ebay", "depop", "mercari"];
 
-export const CHANNEL_BRIEF: Record<"ebay" | "depop", string> = {
+export const CHANNEL_BRIEF: Record<"ebay" | "depop" | "mercari", string> = {
   ebay: "Keyword-dense and literal. Buyers arrive by search, so the title carries brand, garment, size, colour, and any collectible detail. No slang, no personality.",
   depop: "Conversational and scroll-stopping. Buyers browse a feed, so lead with the vibe and the fit. Lowercase is normal. Never sound like a catalogue.",
+  mercari: "Plain and practical. Buyers search but also browse; the title should read like a clear product name, and the description like a straight description of what arrives in the box.",
 };
 
 export type ListingDraft = {
   ebay: { title: string; description: string; category: string; specifics: Record<string, string> };
   depop: { title: string; description: string; tags: string[] };
+  mercari: { title: string; description: string };
   price: { low: number; suggested: number; high: number; reasoning: string };
 };
 
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["ebay", "depop", "price"],
+  required: ["ebay", "depop", "mercari", "price"],
   properties: {
     ebay: {
       type: "object",
@@ -78,6 +80,23 @@ const SCHEMA = {
         },
       },
     },
+    mercari: {
+      type: "object",
+      additionalProperties: false,
+      required: ["title", "description"],
+      properties: {
+        title: {
+          type: "string",
+          description:
+            "Maximum 80 characters. Reads like a clear product name — brand, item, size — without eBay's keyword stuffing.",
+        },
+        description: {
+          type: "string",
+          description:
+            "Under 900 characters. Straight description of what arrives: condition, every flaw, fit notes. No slang.",
+        },
+      },
+    },
     price: {
       type: "object",
       additionalProperties: false,
@@ -98,12 +117,13 @@ const SCHEMA = {
 
 const SYSTEM = `You write listings for a secondhand clothing seller.
 
-You are given one garment's record. Produce copy for eBay and for Depop, and a price range.
+You are given one garment's record. Produce copy for eBay, Depop, and Mercari, plus a price range.
 
-- Disclose every flaw in both descriptions. A returned item costs the seller far more than a slightly lower price.
+- Disclose every flaw in all three descriptions. A returned item costs the seller far more than a slightly lower price.
 - Never invent facts. If the record has no material, don't guess one into the copy — write around it.
 - eBay: ${CHANNEL_BRIEF.ebay}
 - Depop: ${CHANNEL_BRIEF.depop}
+- Mercari: ${CHANNEL_BRIEF.mercari}
 
 On price: you have no sold-comp data, only the garment and your own sense of the resale market. Say so in the reasoning rather than implying more confidence than you have. A seller who knows the number is a guess will check it; one who thinks it's data won't.`;
 

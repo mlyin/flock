@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { BUCKET, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
 import { draftListings } from "@/lib/listing";
+import { issueToken } from "@/lib/exttoken";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
   if (photoIds.length === 0) return { ok: false, error: "Select at least one photo." };
@@ -60,7 +61,7 @@ export async function deleteInboxPhoto(photoId: string) {
 
 export type DraftOutcome = { ok: true } | { ok: false; error: string };
 
-/** Generate eBay and Depop copy for a confirmed garment. */
+/** Generate eBay, Depop, and Mercari copy for a confirmed garment. */
 export async function prepareListings(itemId: string): Promise<DraftOutcome> {
   try {
     const supabase = await supabaseServer();
@@ -105,6 +106,18 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { tags: draft.depop.tags, price: draft.price },
+        drafted_by: model,
+        drafted_at: now,
+      },
+      {
+        user_id: user.id,
+        item_id: itemId,
+        channel: "mercari" as const,
+        title: draft.mercari.title,
+        description: draft.mercari.description,
+        price: draft.price.suggested,
+        status: "draft" as const,
+        draft: { price: draft.price },
         drafted_by: model,
         drafted_at: now,
       },
@@ -163,4 +176,14 @@ export async function confirmItem(formData: FormData) {
   revalidatePath(`/items/${id}`);
   revalidatePath("/");
   redirect(`/items/${id}`);
+}
+
+export async function createPairingCode(): Promise<
+  { ok: true; token: string } | { ok: false; error: string }
+> {
+  try {
+    return { ok: true, token: await issueToken() };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
