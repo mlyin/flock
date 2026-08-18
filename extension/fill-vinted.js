@@ -324,9 +324,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     await wait(1400);
 
+    // Try the brand as recorded, then any name the same company is listed
+    // under here — Vinted has "Alo Yoga" and no bare "Alo", so a correctly
+    // labelled item was getting no brand at all. Still exact equality on each
+    // candidate: an alias is a statement that two names are the same company,
+    // not a licence to prefix-match, which is what once put "Aloye" on a live
+    // Alo listing.
     const brandEl = item.brand && findByLabel([/brand/]);
-    if (brandEl && (await pick(`#${brandEl.id}`, item.brand, { exact: true }))) filled.push("brand");
-    else if (item.brand) missing.push(`brand (no exact match for "${item.brand}")`);
+    const candidates = item.brandCandidates?.length ? item.brandCandidates : [item.brand];
+    let brandSet = null;
+    if (brandEl) {
+      for (const candidate of candidates) {
+        if (candidate && (await pick(`#${brandEl.id}`, candidate, { exact: true }))) {
+          brandSet = candidate;
+          break;
+        }
+      }
+    }
+    if (brandSet) {
+      filled.push(brandSet === item.brand ? "brand" : `brand (as "${brandSet}")`);
+    } else if (item.brand) {
+      missing.push(`brand (no exact match for "${item.brand}")`);
+    }
 
     const sizeEl = item.size && findByLabel([/\bsize\b/]);
     if (sizeEl && (await pick(`#${sizeEl.id}`, item.size, { exact: true }))) filled.push("size");

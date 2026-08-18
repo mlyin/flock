@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
+import { brandCandidates } from "@/lib/matching";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     shipping_price: Number(listing.shipping_price),
     tags: draft.tags ?? [],
     specifics: draft.specifics ?? {},
-    item: item ?? null,
+    item: item ? { ...item, brandCandidates: brandCandidates(item.brand) } : null,
     address: address ?? null,
     photos: signed.map((s) => s.signedUrl).filter(Boolean),
   });

@@ -88,9 +88,17 @@ describe("pickCategory — the Men's/Women's trap", () => {
 });
 
 describe("pickBrand — exact or nothing", () => {
-  it("does not let Alo select Aloye", () => {
+  it("never selects Aloye for Alo", () => {
     // The real incident: loose matching put "Aloye" on a live Alo listing.
+    // With the alias table this now resolves to Alo Yoga, which is the right
+    // answer — but the invariant under test is that it is never Aloye.
     const choice = pickBrand("Alo", ["Aloye", "Alo Yoga", "Alpha Industries"]);
+    expect(choice.value).not.toBe("Aloye");
+    expect(choice.value).toBe("Alo Yoga");
+  });
+
+  it("returns nothing rather than a near miss when no alias covers it", () => {
+    const choice = pickBrand("Alo", ["Aloye", "Alpha Industries"]);
     expect(choice.value).toBeNull();
     expect(choice.exact).toBe(false);
     expect(choice.reason).toMatch(/Aloye/);
@@ -128,5 +136,36 @@ describe("pickCondition", () => {
   it("returns null for an unknown channel or condition", () => {
     expect(pickCondition("poshmark", "good")).toBeNull();
     expect(pickCondition("mercari", "pristine")).toBeNull();
+  });
+});
+
+describe("pickBrand — aliases, without reopening the Aloye hole", () => {
+  it("finds Alo Yoga for an item branded Alo", () => {
+    // The real failure: Vinted lists "Alo Yoga" and no bare "Alo", so a
+    // correctly-labelled item got no brand at all.
+    const r = pickBrand("Alo", ["Aloye", "Alo Yoga", "Alpha Industries"]);
+    expect(r.value).toBe("Alo Yoga");
+    expect(r.exact).toBe(true);
+    expect(r.reason).toMatch(/listed as/);
+  });
+
+  it("still refuses Aloye when no alias applies", () => {
+    const r = pickBrand("Alo", ["Aloye", "Alpha Industries"]);
+    expect(r.value).toBeNull();
+  });
+
+  it("prefers a true exact match over an alias", () => {
+    const r = pickBrand("Alo", ["Alo", "Alo Yoga"]);
+    expect(r.value).toBe("Alo");
+  });
+
+  it("handles the common marketplace renamings", () => {
+    expect(pickBrand("North Face", ["The North Face"]).value).toBe("The North Face");
+    expect(pickBrand("Carhartt", ["Carhartt WIP"]).value).toBe("Carhartt WIP");
+    expect(pickBrand("levis", ["Levi's"]).value).toBe("Levi's");
+  });
+
+  it("does not invent a brand that isn't on offer", () => {
+    expect(pickBrand("Alo", ["Nike", "Adidas"]).value).toBeNull();
   });
 });

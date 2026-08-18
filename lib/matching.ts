@@ -193,6 +193,38 @@ export interface BrandChoice {
 }
 
 /**
+ * Brands whose marketplace name differs from what a seller writes.
+ *
+ * Exact-or-nothing is the right rule — it's what stops "Alo" selecting "Aloye"
+ * — but on its own it fails honest cases: Vinted lists "Alo Yoga" and has no
+ * bare "Alo", so a correctly-labelled item got no brand at all.
+ *
+ * The fix is a curated table, not looser matching. Each entry is a deliberate
+ * statement that these two names are the same company; a prefix rule would let
+ * Aloye back in. Add entries from real misses — the filler reports them.
+ */
+const BRAND_ALIASES: Record<string, string[]> = {
+  alo: ["Alo Yoga"],
+  "alo yoga": ["Alo"],
+  "north face": ["The North Face"],
+  "the north face": ["North Face"],
+  levis: ["Levi's", "Levi Strauss"],
+  "levi s": ["Levi's"],
+  carhartt: ["Carhartt WIP"],
+  "carhartt wip": ["Carhartt"],
+  patagonia: ["Patagonia"],
+  "urban outfitters": ["UO", "Urban Outfitters"],
+  uo: ["Urban Outfitters"],
+  "lululemon athletica": ["Lululemon"],
+  lululemon: ["Lululemon Athletica"],
+  "abercrombie": ["Abercrombie & Fitch", "Abercrombie and Fitch"],
+  "american eagle": ["American Eagle Outfitters", "AE"],
+  "brandy melville": ["Brandy Melville"],
+  nike: ["Nike"],
+  adidas: ["Adidas", "adidas Originals"],
+};
+
+/**
  * Pick a brand from a typeahead's options.
  *
  * Exact, case-insensitive, punctuation-insensitive — or nothing. This is the
@@ -210,6 +242,20 @@ export function pickBrand(brand: string | null | undefined, options: string[]): 
   const exact = options.find((o) => norm(o) === target);
   if (exact) {
     return { value: exact, reason: `Exact match for "${brand}".`, exact: true };
+  }
+
+  // Then the alias table, still on exact equality — "Alo" finds "Alo Yoga"
+  // because we said those are the same company, not because one is a prefix.
+  const aliases = BRAND_ALIASES[brand.trim().toLowerCase()] ?? [];
+  for (const alias of aliases) {
+    const hit = options.find((o) => norm(o) === norm(alias));
+    if (hit) {
+      return {
+        value: hit,
+        reason: `"${brand}" is listed as "${hit}" here.`,
+        exact: true,
+      };
+    }
   }
 
   const near = options.filter((o) => norm(o).startsWith(target)).slice(0, 3);
@@ -260,4 +306,17 @@ export const CONDITION_MAP: Record<string, Record<string, string>> = {
 
 export function pickCondition(channel: string, condition: string): string | null {
   return CONDITION_MAP[channel]?.[condition] ?? null;
+}
+
+/**
+ * Every name this brand might be listed under, most canonical first.
+ *
+ * Sent to the extension in the listing payload, because the extension is the
+ * only thing that can see a marketplace's actual brand list — the server can
+ * offer candidates, but only the browser can check them against the options.
+ */
+export function brandCandidates(brand: string | null | undefined): string[] {
+  if (!brand || !brand.trim()) return [];
+  const key = brand.trim().toLowerCase();
+  return [brand.trim(), ...(BRAND_ALIASES[key] ?? [])];
 }
