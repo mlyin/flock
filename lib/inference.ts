@@ -36,8 +36,16 @@ export type Extraction = {
   category: (typeof CATEGORIES)[number];
   size: string;
   color: string;
+  /**
+   * The same colour, snapped to a vocabulary a marketplace dropdown contains.
+   * `color` is what a buyer reads ("faded black"); this is what a form matches.
+   */
+  color_primary: (typeof COLORS)[number];
   swatch: string;
   material: string;
+  material_primary: (typeof MATERIALS)[number];
+  /** Gates category matching on Grailed and Vinted — see the schema note. */
+  department: (typeof DEPARTMENTS)[number];
   condition: (typeof CONDITIONS)[number];
   era: string;
   flaws: string[];
@@ -46,12 +54,35 @@ export type Extraction = {
   confidence: Record<(typeof CONFIDENCE_FIELDS)[number], number>;
 };
 
+/**
+ * Fixed vocabularies for the normalised fields.
+ *
+ * Drawn from the marketplace dropdowns themselves (Vinted's colour and
+ * material panels, read live 18 Aug 2026), not invented. A value here is one
+ * a form will actually contain; a value outside it is a field left blank.
+ */
+export const COLORS = [
+  "Black", "Grey", "White", "Cream", "Beige", "Brown", "Tan", "Navy", "Blue",
+  "Green", "Yellow", "Orange", "Red", "Pink", "Purple", "Silver", "Gold",
+  "Khaki", "Burgundy", "Multi",
+] as const;
+
+export const MATERIALS = [
+  "Cotton", "Polyester", "Wool", "Cashmere", "Linen", "Silk", "Denim",
+  "Leather", "Nylon", "Acrylic", "Viscose", "Elastane", "Fleece", "Velvet",
+  "Satin", "Suede", "Corduroy", "Other",
+] as const;
+
+/** Who the garment is cut for. Gates category matching on Grailed and Vinted. */
+export const DEPARTMENTS = ["women", "men", "unisex", "kids"] as const;
+
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: [
-    "title", "brand", "category", "size", "color", "swatch",
-    "material", "condition", "era", "flaws", "questions", "notes", "confidence",
+    "title", "brand", "category", "size", "color", "color_primary", "swatch",
+    "material", "material_primary", "department", "condition", "era", "flaws",
+    "questions", "notes", "confidence",
   ],
   properties: {
     title: {
@@ -70,8 +101,26 @@ const SCHEMA = {
       description: "As printed on the tag (S, 34x32, UK 8, 42). Empty string if no size tag is visible.",
     },
     color: { type: "string", description: "How a seller would describe it — 'faded black', 'British tan'." },
+    color_primary: {
+      type: "string",
+      enum: [...COLORS],
+      description:
+        "The single closest colour from the list. This one gets matched against marketplace dropdowns, so it must come from the list even when the real colour sits between two — an approximate match fills the field, an exact phrase nobody lists leaves it empty.",
+    },
     swatch: { type: "string", description: "Hex code approximating the dominant colour, e.g. #7A5C37." },
     material: { type: "string", description: "From the care label if legible, otherwise your read of the fabric." },
+    material_primary: {
+      type: "string",
+      enum: [...MATERIALS],
+      description:
+        "The dominant fibre, from the list. A blend takes whichever fibre leads the care label. Other only when nothing fits.",
+    },
+    department: {
+      type: "string",
+      enum: [...DEPARTMENTS],
+      description:
+        "Who the garment is cut for, from the tag section, the cut, or the sizing convention. This gates category matching: Grailed opens with Menswear or Womenswear and has no neutral option, and a Vinted search for a garment type returns mostly men's rows. Say unisex when it genuinely is, never as a hedge — an honest unisex still matches, a hedged one puts a women's garment in Men's.",
+    },
     condition: {
       type: "string",
       enum: [...CONDITIONS],

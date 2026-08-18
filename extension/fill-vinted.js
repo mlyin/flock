@@ -212,6 +212,81 @@ async function setVintedCondition(condition) {
     return Boolean(field.value);
   });
 }
+/**
+ * Colour and material, both required-ish and both previously left blank.
+ *
+ * A fifth and sixth control type on the same form: colour options are
+ * div[role="button"], material rows are div[role="checkbox"]. Read live
+ * 18 Aug 2026. Vinted refuses to publish without a colour ("Fill in color to
+ * continue"), so an unfilled one blocked every listing.
+ *
+ * Beware: document.querySelector("[role=dialog]") on this page returns the
+ * COOKIE BANNER, not the field panel. Query the options directly.
+ */
+/**
+ * An option's own name, without the description line some panels carry.
+ * Condition rows read "Good" plus an explanation; colours are one word.
+ */
+const firstLine = (el) => el.innerText.trim().split(String.fromCharCode(10))[0].trim().toLowerCase();
+
+/**
+ * Split a record's value into the parts a marketplace might list separately.
+ *
+ * Colours and materials arrive compound — "Ivory/Cream", "Cotton blend" —
+ * while Vinted's lists are single words. Without this, a perfectly good
+ * record fails to match anything and the field is left blank.
+ */
+const parts = (value) =>
+  String(value)
+    .split(/[/,&]|\band\b/)
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
+/**
+ * Colour. Vinted will NOT publish without one — the form says "Fill in color
+ * to continue" — so leaving this blank blocked every listing.
+ *
+ * Options are div[role="button"]: a fifth control type on this one form,
+ * after li, brand radios, size checkboxes and condition radios.
+ *
+ * Beware: querySelector("[role=dialog]") here returns the COOKIE BANNER, not
+ * the panel. Query the options directly.
+ */
+async function setVintedColor(color) {
+  if (!color) return false;
+  return openPanel("#color", async (field) => {
+    const options = () =>
+      [...document.querySelectorAll('[role="button"]')].filter((e) => e.offsetParent !== null);
+
+    for (const want of parts(color)) {
+      const target = options().find((e) => firstLine(e) === want);
+      if (!target) continue;
+      pointerClick(target);
+      await wait(1000);
+      if (field.value) return true;
+    }
+    return false;
+  });
+}
+
+/** Material rows are role="checkbox". Recommended, not required. */
+async function setVintedMaterial(material) {
+  if (!material) return false;
+  return openPanel("#material", async (field) => {
+    const options = () =>
+      [...document.querySelectorAll('[role="checkbox"]')].filter((e) => e.offsetParent !== null);
+
+    for (const want of parts(material)) {
+      const target = options().find((e) => firstLine(e) === want);
+      if (!target) continue;
+      pointerClick(target);
+      await wait(900);
+      if (field.value) return true;
+    }
+    return false;
+  });
+}
+
 async function attachPhotos(urls) {
   const input = document.querySelector(FIELD.photos);
   if (!input || urls.length === 0) return false;
@@ -469,6 +544,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (await setVintedCondition(item.condition)) filled.push(`condition (${VINTED_CONDITION[item.condition]})`);
     else missing.push("condition");
+
+    // Vinted will not publish without a colour, so this is not optional.
+    if (await setVintedColor(item.color_primary || item.color)) filled.push("colour");
+    else if (item.color) missing.push(`colour (no Vinted match for "${item.color}")`);
+
+    if (await setVintedMaterial(item.material_primary || item.material)) filled.push("material");
+    else if (item.material) missing.push(`material (no Vinted match for "${item.material}")`);
 
     await wait(700);
     const blocked = unfilledControls();

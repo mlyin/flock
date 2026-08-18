@@ -146,8 +146,13 @@ export async function identifyAndDraft(photoIds: string[]): Promise<IdentifyOutc
       category: x.category || "Other",
       size: x.size || null,
       color: x.color || null,
+      // Normalised alongside the descriptive one: the first is what a buyer
+      // reads, the second is what a dropdown can match.
+      color_primary: x.color_primary || null,
       swatch: /^#[0-9a-fA-F]{6}$/.test(x.swatch) ? x.swatch : null,
       material: x.material || null,
+      material_primary: x.material_primary || null,
+      department: x.department || null,
       condition: x.condition || "good",
       // The model sometimes answers "none" instead of returning an empty array,
       // which then renders as a flaw literally called "none" in a live listing.
