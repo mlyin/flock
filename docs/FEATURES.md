@@ -310,3 +310,46 @@ The honest summary: the extension is the *right* architecture for a product with
 and one engineer, and the *wrong* one for a product with ten thousand. Don't rebuild it
 yet — but assume it gets rebuilt, and keep the fillers as pure DOM functions so they port
 to Playwright with minimal change. They already are.
+
+---
+
+## How new offers and messages actually reach Threader
+
+There is no Depop API and no webhook, so this is worth writing down properly.
+
+| Layer | Latency | Needs a Depop tab open? | Needs Chrome running? |
+|---|---|---|---|
+| Header-badge watch | seconds | **Yes** — any Depop tab | Yes |
+| `chrome.alarms` sync | ≤ 30 min | **No** — opens a hidden tab, reads, closes it | Yes |
+| Email forwarding *(not built)* | seconds | No | **No** |
+
+The badge watch is a free upgrade, not a requirement: when a Depop tab happens to be
+open, we read a number the seller's browser already rendered and sync within seconds.
+When there isn't one, the alarm does the work by opening a background tab at
+`active: false` — nothing appears, nothing steals focus.
+
+**The real constraint is Chrome, not tabs.** An extension service worker only runs while
+the browser runs. Laptop shut, or Chrome quit, and nothing syncs until it's back.
+
+### L12. Email forwarding — the only way to sync with the browser closed
+*Not built. Recommended as the next sync work, ahead of anything cloud-based.*
+
+Depop emails the seller on every new message and offer, and so do Poshmark, Mercari,
+Vinted and Grailed. That email **is** the push notification these platforms don't
+otherwise expose — it's official, it's already permitted, and it arrives in seconds.
+
+Give each seller a forwarding address (`u_<id>@in.getthreader.com` via Postmark, SendGrid
+inbound, or Cloudflare Email Workers), have them set one Gmail filter forwarding
+marketplace notifications to it, and parse what lands.
+
+Why this beats both alternatives:
+
+- **vs polling:** no browser required at all, near-instant, and no traffic against the
+  marketplace to be noticed.
+- **vs a cloud browser:** no credential custody, no bot detection, no per-user VM cost —
+  the three things that made that option expensive.
+
+What it doesn't give you is the *content* — Depop's emails say a message arrived, not
+always what it said, and offers may need the thread read to get the amount. So the shape
+is: **email tells you when, the extension reads what.** Which turns polling from a
+schedule into a trigger, and that is the whole difference.
