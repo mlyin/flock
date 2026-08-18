@@ -1998,3 +1998,39 @@ body { font-size: 15px; line-height: 1.55; }
   color: var(--ink-2);
   font-size: 13.5px;
 }
+
+/* Multi-select photo picker on /add. */
+.shots-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+.pickshot { border-radius: 12px; }
+.pickshot-hit {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 2px solid var(--rule-2);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  cursor: pointer;
+}
+.pickshot-hit img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.pickshot-on .pickshot-hit { border-color: var(--brand); }
+.pickshot-tick {
+  position: absolute;
+  top: 8px; left: 8px;
+  width: 24px; height: 24px;
+  border-radius: 999px;
+  border: 2px solid var(--brand);
+  background: var(--raised);
+  color: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.pickshot-on .pickshot-tick { background: var(--brand); color: var(--brand-ink); }
+.pickshot-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 11.5px; }
+
+/* Destructive controls, kept visually apart from everything else. */
+.dangerzone { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--rule-2); }
+.linkish-danger { color: var(--brick); }
+.button-danger { background: var(--brick); border-color: var(--brick); color: #fff; }
+.deleteconfirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

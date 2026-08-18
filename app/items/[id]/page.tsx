@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReviewForm from "@/components/ReviewForm";
+import DeleteItem from "@/components/DeleteItem";
 import ListingDrafts from "@/components/ListingDrafts";
 import ItemMessages from "@/components/ItemMessages";
 import ChannelBoard from "@/components/ChannelBoard";
@@ -296,6 +297,12 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
               </div>
             </>
           )}
+          {/* Last thing on the page, deliberately: destructive and rarely
+              wanted, so it should never be next to something routine. */}
+          <div className="dangerzone">
+            <DeleteItem itemId={item.id} sku={item.sku} />
+          </div>
+
         </div>
       </div>
       <ItemMessages itemId={item.id} />

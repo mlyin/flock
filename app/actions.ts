@@ -496,3 +496,55 @@ export async function saveListingUrl(
   revalidatePath("/");
   return { ok: true };
 }
+
+/**
+ * Remove a garment and everything attached to it.
+ *
+ * Wanted for the obvious reason — a bad identification run leaves items nobody
+ * asked for, and an inventory you can't clean up stops being trusted. Five
+ * drafts appeared from four photos once, and there was no way to undo it from
+ * the app at all.
+ *
+ * Refuses once anything is live. A row here is not the listing: deleting the
+ * record does NOT take the listing down, it just means Flock stops knowing
+ * about something that's still for sale, which is how an item gets sold twice.
+ * End the listings first, then delete.
+ *
+ * Storage objects go too. Orphaned photos in a private bucket are invisible and
+ * still billed.
+ */
+export async function deleteItem(itemId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await supabaseServer();
+
+  const { data: listings } = await supabase
+    .from("listings")
+    .select("channel, status")
+    .eq("item_id", itemId);
+
+  const live = (listings ?? []).filter((l) => l.status === "live");
+  if (live.length > 0) {
+    return {
+      ok: false,
+      error: `Still live on ${live
+        .map((l) => l.channel)
+        .join(", ")}. Deleting here wouldn't take those listings down — end them first, or mark them ended.`,
+    };
+  }
+
+  const { data: photos } = await supabase
+    .from("photos")
+    .select("storage_path")
+    .eq("item_id", itemId);
+
+  const paths = (photos ?? []).map((p) => p.storage_path).filter(Boolean);
+  if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths);
+
+  // RLS scopes all of this to the owner; a wrong id deletes nothing rather than
+  // someone else's garment.
+  const { error } = await supabase.from("items").delete().eq("id", itemId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/");
+  revalidatePath("/add");
+  return { ok: true };
+}
