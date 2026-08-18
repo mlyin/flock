@@ -318,6 +318,13 @@ export async function identifyGarment(photos: GarmentPhoto[]): Promise<Inference
   const client = new Anthropic();
   const fast = await readOnce(client, photos, MODEL_FAST, EDGE_FAST);
 
+  // FLOCK_INFERENCE_TIER=fast pins everything to the cheap model, however
+  // unsure it is. Worth having as a switch rather than a code change: it caps
+  // the bill at a known number per garment, and the cost of being wrong is a
+  // field the seller corrects on the review screen, not a bad listing — every
+  // uncertain field already comes back as a question.
+  if (process.env.FLOCK_INFERENCE_TIER === "fast") return fast;
+
   const reason = needsCarefulRead(fast.extraction);
   if (!reason) return fast;
 

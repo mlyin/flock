@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addItemByHand, analyzePhotos, deleteInboxPhoto } from "@/app/actions";
 import type { IdentifyOutcome } from "@/lib/intake";
@@ -65,6 +65,21 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
+  /**
+   * Identify new photos without being asked.
+   *
+   * Uploading and then pressing a button on each card is two steps where one
+   * would do — the answer to 'what is this' is wanted every time.
+   *
+   * This terminates on its own: identifying a group assigns those photos to
+   * an item, so they leave the unassigned inbox and can't come round again.
+   * Groups are done one at a time rather than at once, because a dozen photos
+   * dropped in together would otherwise fire a dozen concurrent reads.
+   */
+  const [autoIdentify, setAutoIdentify] = useState(true);
+  const attempted = useRef(new Set<string>());
+  const [running, setRunning] = useState<string | null>(null);
+
   const groups = useMemo(() => {
     if (Object.keys(moved).length === 0) return auto;
 
@@ -93,6 +108,29 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
     });
   };
 
+  const identify = useCallback(
+    async (group: Group) => {
+      setRunning(group.id);
+      const outcome = await analyzePhotos(group.photos.map((p) => p.id));
+      setRunning(null);
+      setResult({ groupId: group.id, outcome });
+      if (outcome.ok) router.refresh();
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    if (!autoIdentify || running || pending) return;
+
+    const next = groups.find((g) => !attempted.current.has(g.id));
+    if (!next) return;
+
+    // Marked before the call, not after: a read that fails should not be
+    // retried forever against a photo the model can't use.
+    attempted.current.add(next.id);
+    void identify(next);
+  }, [autoIdentify, groups, running, pending, identify]);
+
   const discard = (id: string) =>
     startTransition(async () => {
       await deleteInboxPhoto(id);
@@ -117,9 +155,26 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   if (photos.length === 0) return null;
 
   return (
-    <div className="garments">
+    <>
+      <div className="selectbar">
+        <label>
+          <input
+            type="checkbox"
+            checked={autoIdentify}
+            onChange={(e) => setAutoIdentify(e.target.checked)}
+          />{" "}
+          Identify new photos automatically
+        </label>
+        <span className="muted">
+          {running
+            ? "Reading a garment…"
+            : "Reads the brand, size and condition off each garment as it arrives."}
+        </span>
+      </div>
+
+      <div className="garments">
       {groups.map((group, index) => {
-        const isBusy = busy === group.id;
+        const isBusy = busy === group.id || running === group.id;
         const note = result?.groupId === group.id ? result.outcome : null;
 
         return (
@@ -191,6 +246,7 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
           </section>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
