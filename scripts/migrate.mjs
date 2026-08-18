@@ -10,9 +10,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
+// import.meta.dirname only exists from Node 20.11. On 18 it is undefined, and
+// path.resolve then throws "paths[0] must be of type string" — which reads like
+// a missing database URL but isn't. Derive it from import.meta.url instead so
+// this runs on whatever node the shell happens to have.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, "..");
 const DIR = path.join(ROOT, "supabase", "migrations");
 const DRY = process.argv.includes("--dry");
 
