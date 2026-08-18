@@ -1,3 +1,18 @@
+/**
+ * The popup does one job: pair this browser with a Flock account, and show
+ * whether that worked.
+ *
+ * It used to also list every drafted listing with its own Fill button, and hold
+ * the auto-submit toggle, the hidden-window toggle, a Depop username field and
+ * a sync button. All of that was a second, worse copy of the site — the same
+ * listings without the photos, prices or fee maths, and settings buried behind
+ * a toolbar icon you have to remember exists.
+ *
+ * Pairing has to live here, because only an extension can write to
+ * chrome.storage.local. Everything else belongs on the site, so that's where it
+ * is now.
+ */
+
 const root = document.getElementById("root");
 
 const send = (message) =>
@@ -10,18 +25,20 @@ function note(text, tone = "bad") {
   root.appendChild(el);
 }
 
+const HOME = "https://sellonflock.com";
+
 async function renderPairing(error) {
   const { apiBase } = await chrome.storage.local.get("apiBase");
 
   root.innerHTML = `
     <label for="code" style="font-size:11.5px;opacity:.7;display:block;margin-bottom:5px">
-      Pairing code — from Flock → Extension
+      Pairing code — from Flock → Settings → Browser extension
     </label>
     <input id="code" placeholder="XXXXXX-XXXXXX" autocomplete="off" spellcheck="false" />
     <label for="base" style="font-size:11.5px;opacity:.7;display:block;margin:12px 0 5px">
       Flock address
     </label>
-    <input id="base" value="${apiBase || "https://sellonflock.com"}" spellcheck="false" />
+    <input id="base" value="${apiBase || HOME}" spellcheck="false" />
     <div class="row"><button id="pair" class="primary">Pair</button></div>`;
 
   if (error) note(error);
@@ -35,127 +52,38 @@ async function renderPairing(error) {
     const result = await send({ type: "queue" });
 
     if (result?.ok) {
-      renderQueue(result.data.listings);
+      renderPaired(result.data.listings?.length ?? 0);
     } else {
+      // Don't keep a token the server just rejected. A stored bad token makes
+      // every later call fail the same way with nothing pointing at the cause.
       await chrome.storage.local.remove("token");
       renderPairing(result?.error ?? "Couldn't reach Flock.");
     }
   });
 }
 
-async function renderQueue(listings) {
-  const { background, autoSubmit, depopUsername, lastSyncAt } =
-    await chrome.storage.local.get(["background", "autoSubmit", "depopUsername", "lastSyncAt"]);
-
-  const syncedAgo = lastSyncAt
-    ? `synced ${Math.max(1, Math.round((Date.now() - lastSyncAt) / 60000))}m ago`
-    : "not synced yet";
+async function renderPaired(drafted) {
+  const { apiBase } = await chrome.storage.local.get("apiBase");
+  const home = apiBase || HOME;
 
   root.innerHTML = `
-    <div class="opts">
-      <label><input type="checkbox" id="opt-bg" ${background === true ? "checked" : ""} />
-        Fill in a hidden window (off = watch it work)</label>
-      <label><input type="checkbox" id="opt-submit" ${autoSubmit ? "checked" : ""} />
-        Submit automatically when nothing is missing</label>
+    <div class="msg msg-ok" style="margin:0 0 12px">
+      Connected${drafted ? ` · ${drafted} listing${drafted === 1 ? "" : "s"} ready` : ""}
     </div>
-
-    <!-- Without a username there's no shop to read, so listing URLs and sold
-         status can never come back. Depop's shop slug is not derivable from
-         anything we already hold, so it has to be asked for. -->
-    <div class="opts">
-      <label style="display:block">
-        <span style="display:block;margin-bottom:6px">Your Depop username</span>
-        <input id="depop-user" type="text" placeholder="yumseller22"
-               value="${depopUsername ? String(depopUsername).replace(/"/g, "&quot;") : ""}" />
-      </label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="sync-now">Sync Depop now</button>
-        <span class="item-meta" id="sync-when">${syncedAgo}</span>
-      </div>
-    </div>
-
-    <div class="row" style="margin:0 0 4px">
-      <button id="refresh">Refresh</button>
+    <p style="font-size:12.5px;opacity:.75;margin:0 0 14px;line-height:1.5">
+      Open a garment in Flock and press Fill next to a marketplace. This window
+      doesn't need to be open.
+    </p>
+    <div class="row">
+      <button id="open" class="primary">Open Flock</button>
       <button id="unpair" style="margin-left:auto">Unpair</button>
     </div>`;
 
-  document.getElementById("opt-bg").addEventListener("change", (e) =>
-    chrome.storage.local.set({ background: e.target.checked })
-  );
-  document.getElementById("opt-submit").addEventListener("change", (e) =>
-    chrome.storage.local.set({ autoSubmit: e.target.checked })
-  );
-
-  const userField = document.getElementById("depop-user");
-  userField.addEventListener("change", (e) =>
-    // Tolerate a pasted profile URL as well as a bare handle.
-    chrome.storage.local.set({
-      depopUsername: e.target.value.trim().replace(/^.*depop\.com\//i, "").replace(/\/+$/, ""),
-    })
-  );
-
-  document.getElementById("sync-now").addEventListener("click", async (e) => {
-    const username = userField.value.trim().replace(/^.*depop\.com\//i, "").replace(/\/+$/, "");
-    if (!username) return note("Add your Depop username first.");
-    await chrome.storage.local.set({ depopUsername: username });
-
-    e.target.disabled = true;
-    e.target.textContent = "Syncing…";
-    const result = await send({ type: "sync-depop-all", username });
-    e.target.disabled = false;
-    e.target.textContent = "Sync Depop now";
-
-    if (result?.ok) {
-      const d = result.data ?? {};
-      note(
-        `Read ${d.listings ?? 0} listing(s) and ${d.threads ?? 0} thread(s).` +
-          (d.matched ? ` Linked ${d.matched} to items.` : ""),
-        true
-      );
-    } else {
-      note(result?.error ?? "Sync failed.");
-    }
+  document.getElementById("open").addEventListener("click", () => {
+    chrome.tabs.create({ url: home });
+    window.close();
   });
 
-  if (listings.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent =
-      "Nothing drafted yet. In Flock, open a garment and hit Write listing copy.";
-    root.appendChild(empty);
-  }
-
-  for (const listing of listings) {
-    const row = document.createElement("div");
-    row.className = "item";
-    row.innerHTML = `
-      <div>
-        <div class="item-name">${listing.label}</div>
-        <div class="item-meta">${listing.sku} · ${listing.channel} · $${listing.price}</div>
-      </div>`;
-
-    const button = document.createElement("button");
-    button.className = "primary";
-    const CHANNEL_NAME = { depop: "Depop", mercari: "Mercari", vinted: "Vinted", grailed: "Grailed", ebay: "eBay", poshmark: "Poshmark", facebook: "Facebook" };
-    button.textContent = `Fill on ${CHANNEL_NAME[listing.channel] ?? listing.channel}`;
-    button.addEventListener("click", async () => {
-      button.disabled = true;
-      button.textContent = "Opening…";
-      const result = await send({ type: "fill", listingId: listing.id });
-      if (result?.ok) {
-        window.close();
-      } else {
-        button.disabled = false;
-        button.textContent = "Retry";
-        note(result?.error ?? "Something went wrong.");
-      }
-    });
-
-    row.appendChild(button);
-    root.appendChild(row);
-  }
-
-  document.getElementById("refresh").addEventListener("click", load);
   document.getElementById("unpair").addEventListener("click", async () => {
     await chrome.storage.local.remove("token");
     renderPairing();
@@ -166,10 +94,10 @@ async function load() {
   const { token } = await chrome.storage.local.get("token");
   if (!token) return renderPairing();
 
-  root.innerHTML = '<div class="empty">Loading…</div>';
+  root.innerHTML = '<div class="empty">Checking…</div>';
   const result = await send({ type: "queue" });
 
-  if (result?.ok) renderQueue(result.data.listings);
+  if (result?.ok) renderPaired(result.data.listings?.length ?? 0);
   else renderPairing(result?.error);
 }
 

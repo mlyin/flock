@@ -1,4 +1,5 @@
 import PairExtension from "@/components/PairExtension";
+import ExtensionSettings from "@/components/ExtensionSettings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { shortDate } from "@/lib/money";
 
@@ -35,6 +36,11 @@ export default async function ConnectPage() {
       </p>
 
       <PairExtension existing={tokens?.length ?? 0} />
+
+      {/* Behaviour settings used to hide in the toolbar popup. They belong
+          here, next to the pairing they depend on. Renders nothing until the
+          extension is actually installed. */}
+      <ExtensionSettings />
 
       {(tokens?.length ?? 0) > 0 && (
         <>

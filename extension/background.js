@@ -266,6 +266,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
+      // Settings moved to the site; only the extension can reach this store.
+      if (message.type === "get-prefs") {
+        const prefs = await chrome.storage.local.get([
+          "autoSubmit",
+          "background",
+          "depopUsername",
+        ]);
+        sendResponse({ ok: true, data: prefs });
+        return;
+      }
+
+      if (message.type === "set-prefs") {
+        // Whitelisted keys only — this arrives from a web page, and letting it
+        // write arbitrary keys would let it overwrite the pairing token.
+        const allowed = ["autoSubmit", "background", "depopUsername"];
+        const patch = {};
+        for (const key of allowed) {
+          if (key in message.prefs) patch[key] = message.prefs[key];
+        }
+        await chrome.storage.local.set(patch);
+        sendResponse({ ok: true, data: patch });
+        return;
+      }
+
       if (message.type === "fill") {
         const payload = await api(`/api/ext/listing/${message.listingId}`);
         const url = SELL_PAGE[payload.channel];
