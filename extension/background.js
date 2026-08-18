@@ -303,7 +303,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         } else {
           tab = await chrome.tabs.create({ url });
         }
-        await whenLoaded(tab.id);
+        // Not fatal if it times out. Some sell pages keep a socket open and
+        // never report "complete", and reusing a tab makes that more likely.
+        // waitForForm below polls for the actual form, which is the readiness
+        // test that matters — let it produce the error if the page is truly dead.
+        await whenLoaded(tab.id).catch(() => {});
 
         const ready = await waitForForm(tab.id, READY[payload.channel] ?? "form");
         if (!ready) {

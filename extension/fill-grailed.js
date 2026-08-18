@@ -137,8 +137,7 @@ function banner(filled, missing, blocked) {
     <span style="opacity:.8">
       ${filled.length ? filled.join(", ") + ". " : ""}
       ${missing.length ? `Skipped: ${missing.join(", ")}. ` : ""}
-      Set Department, Category, Sub-category and Size yourself — Grailed rejects
-      miscategorised listings, so it's worth doing by hand.
+      Check the category before publishing — Grailed rejects miscategorised listings.
       ${blocked.length ? ` Still empty: ${blocked.join(" · ")}.` : ""}
     </span>
     <button id="threader-close" style="margin-left:auto;background:none;border:1px solid #5C635E;
