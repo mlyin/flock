@@ -273,38 +273,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         // fill shouldn't pile up tabs, and a tab you opened to watch the fill
         // happen stays the one being filled. Reloading it first resets any
         // half-filled form to a known-clean state.
+        // Always a fresh tab. Reusing whichever tab happened to be on the sell
+        // page picks an arbitrary one across every window — including a listing
+        // the seller was part-way through writing, which it would then
+        // overwrite. It also raced its own reload and filled a document that
+        // was already being replaced. A new tab costs nothing and can't destroy
+        // anyone's work.
         let tab;
-        const [existing] = await chrome.tabs.query({ url: `${url}*` });
-        if (existing) {
-          // Navigating a tab to the URL it is already on races: tabs.update
-          // resolves while the tab still reports the OLD page's "complete", so
-          // whenLoaded sails through and the filler lands in a document the
-          // reload is about to destroy — everything fills, then vanishes.
-          // Listen for the new load actually starting before waiting for it to
-          // finish. The timeout covers Chrome deciding not to navigate at all.
-          const navStarted = new Promise((resolve) => {
-            const onUpdated = (id, info) => {
-              if (id !== existing.id || info.status !== "loading") return;
-              chrome.tabs.onUpdated.removeListener(onUpdated);
-              clearTimeout(fallback);
-              resolve();
-            };
-            const fallback = setTimeout(() => {
-              chrome.tabs.onUpdated.removeListener(onUpdated);
-              resolve();
-            }, 3000);
-            chrome.tabs.onUpdated.addListener(onUpdated);
-          });
-          tab = await chrome.tabs.update(existing.id, { url });
-          await navStarted;
-        } else if (background === true) {
+        if (background === true) {
           const win = await chrome.windows.create({ url, state: "minimized", focused: false });
           tab = win.tabs[0];
         } else {
           tab = await chrome.tabs.create({ url });
         }
         // Not fatal if it times out. Some sell pages keep a socket open and
-        // never report "complete", and reusing a tab makes that more likely.
+        // never report "complete" at all.
         // waitForForm below polls for the actual form, which is the readiness
         // test that matters — let it produce the error if the page is truly dead.
         await whenLoaded(tab.id).catch(() => {});
