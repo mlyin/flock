@@ -26,11 +26,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (error) return json({ error: error.message }, 500);
   if (!listing) return json({ error: "Not found." }, 404);
 
-  const { data: item } = await admin
+  // Columns that exist regardless of which migrations have run.
+  const BASE =
+    "sku, brand, category, size, color, material, condition, flaws, package_size, depop_category, department";
+
+  // Columns added by 0012 and 0013.
+  const PENDING = "color_primary, material_primary, measurements";
+
+  // Asking PostgREST for a column that doesn't exist yet makes it reject the
+  // WHOLE select, which took the fill down with it: photos, brand, size and
+  // condition all vanished because colour was requested before its migration
+  // ran. A migration landing later must never break the feature it improves, so
+  // ask for the new columns separately and carry on without them if they aren't
+  // there yet.
+  let item: Record<string, unknown> | null = null;
+  const withNormalised = await admin
     .from("items")
-    .select("sku, brand, category, size, color, color_primary, material, material_primary, condition, flaws, package_size, depop_category, department")
+    .select(`${BASE}, ${PENDING}`)
     .eq("id", listing.item_id)
     .single();
+
+  if (withNormalised.error) {
+    const fallback = await admin.from("items").select(BASE).eq("id", listing.item_id).single();
+    item = fallback.data;
+  } else {
+    item = withNormalised.data;
+  }
 
   const { data: photos } = await admin
     .from("photos")
@@ -64,7 +85,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     shipping_price: Number(listing.shipping_price),
     tags: draft.tags ?? [],
     specifics: draft.specifics ?? {},
-    item: item ? { ...item, brandCandidates: brandCandidates(item.brand) } : null,
+    item: item
+      ? { ...item, brandCandidates: brandCandidates(item.brand as string | null) }
+      : null,
     address: address ?? null,
     photos: signed.map((s) => s.signedUrl).filter(Boolean),
   });

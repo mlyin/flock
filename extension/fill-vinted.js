@@ -287,6 +287,36 @@ async function setVintedMaterial(material) {
   });
 }
 
+/**
+ * Measurements. Vinted asks for Shoulder Width and Length, in inches, as
+ * ordinary number inputs rather than a panel — the one straightforward pair
+ * of fields on this whole form.
+ *
+ * Only ever writes a measurement the seller actually recorded. A guessed
+ * measurement is worse than a blank one: a buyer reads it, orders on it, and
+ * the return is the seller's problem.
+ */
+async function setVintedMeasurements(measurements) {
+  if (!measurements || typeof measurements !== "object") return [];
+
+  const filled = [];
+  const pairs = [
+    ["#shoulder_width", measurements.shoulder],
+    ["#height", measurements.length],
+  ];
+
+  for (const [selector, value] of pairs) {
+    if (value === undefined || value === null || value === "") continue;
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    setNativeValue(el, String(value));
+    await wait(300);
+    if (el.value) filled.push(selector === "#shoulder_width" ? "shoulder" : "length");
+  }
+
+  return filled;
+}
+
 async function attachPhotos(urls) {
   const input = document.querySelector(FIELD.photos);
   if (!input || urls.length === 0) return false;
@@ -551,6 +581,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (await setVintedMaterial(item.material_primary || item.material)) filled.push("material");
     else if (item.material) missing.push(`material (no Vinted match for "${item.material}")`);
+
+    const measured = await setVintedMeasurements(item.measurements);
+    if (measured.length) filled.push(`measurements (${measured.join(", ")})`);
 
     await wait(700);
     const blocked = unfilledControls();
