@@ -36,7 +36,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" v
   <text x="64" y="86" font-family="${sans}" font-size="38" font-weight="700" fill="${PAPER}"
         letter-spacing="-0.8">One garment. Every marketplace.</text>
   <text x="64" y="122" font-family="${sans}" font-size="17" fill="${MUTED}">
-    Threader fills the sell form. You review it and submit it yourself.</text>
+    Flock fills the sell form. You review it and submit it yourself.</text>
 
   <!-- marketplace form -->
   <rect x="64" y="164" width="700" height="580" rx="8" fill="${SURFACE}" stroke="${RULE}"/>
@@ -45,7 +45,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" v
   <rect x="64" y="164" width="700" height="52" rx="8" fill="#101312"/>
   <rect x="64" y="200" width="700" height="16" fill="#101312"/>
   <text x="88" y="196" font-family="${sans}" font-size="14" font-weight="650" fill="${PAPER}">
-    Threader filled 8</text>
+    Flock filled 8</text>
   <text x="215" y="196" font-family="${sans}" font-size="13" fill="${MUTED}">
     photos, title, description, price, size, quantity, condition, brand.</text>
 
@@ -72,7 +72,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" v
 
   <!-- popup -->
   <rect x="812" y="164" width="404" height="368" rx="8" fill="${SURFACE}" stroke="${RULE}"/>
-  <text x="840" y="204" font-family="${sans}" font-size="18" font-weight="700" fill="${PAPER}">Threader</text>
+  <text x="840" y="204" font-family="${sans}" font-size="18" font-weight="700" fill="${PAPER}">Flock</text>
   <text x="840" y="226" font-family="${sans}" font-size="12.5" fill="${MUTED}">
     Fills your sell forms. You submit.</text>
   <line x1="812" y1="248" x2="1216" y2="248" stroke="${RULE}"/>

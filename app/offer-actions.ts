@@ -6,7 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 /**
  * Answering an offer.
  *
- * Threader records the decision and the maths behind it; it does not click
+ * Flock records the decision and the maths behind it; it does not click
  * Accept on the marketplace. That's the same boundary the extension holds when
  * it fills a form but never submits it — it's the seller's account, and the
  * action should come from their browser. The UI pairs every button here with a

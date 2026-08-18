@@ -4,7 +4,7 @@ import { currentUser, supabaseConfigured } from "@/lib/supabase/server";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Threader",
+  title: "Flock",
   description: "Inventory, listings, and what you actually netted.",
 };
 

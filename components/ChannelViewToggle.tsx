@@ -14,14 +14,14 @@ export default function ChannelViewToggle() {
   const [view, setView] = useState<"icons" | "names">("icons");
 
   useEffect(() => {
-    const stored = (localStorage.getItem("threader:chanview") as "icons" | "names") ?? "icons";
+    const stored = (localStorage.getItem("flock:chanview") as "icons" | "names") ?? "icons";
     setView(stored);
     document.documentElement.setAttribute("data-chanview", stored);
   }, []);
 
   const choose = (next: "icons" | "names") => {
     setView(next);
-    localStorage.setItem("threader:chanview", next);
+    localStorage.setItem("flock:chanview", next);
     document.documentElement.setAttribute("data-chanview", next);
   };
 

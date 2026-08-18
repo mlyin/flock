@@ -23,7 +23,7 @@ export default async function ConnectPage() {
         <strong>How this works</strong>
         <p>
           The extension fills the sell form on Depop or Mercari inside your own browser
-          session, then stops — <strong>you click submit yourself</strong>. Threader never sees
+          session, then stops — <strong>you click submit yourself</strong>. Flock never sees
           your Depop or Mercari password, and nothing posts from our servers. That&apos;s
           deliberate: a listing that comes from your real browser looks like you, because it is.
         </p>

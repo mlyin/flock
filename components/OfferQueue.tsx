@@ -171,7 +171,7 @@ function OfferCard({ offer }: { offer: OfferView }) {
       )}
 
       <p className="offercard-fine">
-        Threader records your decision and the maths behind it. The accept itself happens on
+        Flock records your decision and the maths behind it. The accept itself happens on
         {" "}
         {CHANNEL_LABEL[offer.channel as keyof typeof CHANNEL_LABEL]}, from your own browser.
       </p>

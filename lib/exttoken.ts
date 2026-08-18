@@ -75,7 +75,7 @@ export const CORS = {
 };
 
 export const unauthorized = () =>
-  new Response(JSON.stringify({ error: "Pair the extension in Threader first." }), {
+  new Response(JSON.stringify({ error: "Pair the extension in Flock first." }), {
     status: 401,
     headers: { ...CORS, "content-type": "application/json" },
   });

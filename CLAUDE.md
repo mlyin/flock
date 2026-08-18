@@ -1,10 +1,10 @@
-# Threader — working notes
+# Flock — working notes
 
 Resale operations for secondhand clothing. Photograph a garment, get it identified and
 priced, cross-list it, and see what you actually netted. Multi-tenant: Next.js 15 +
 Supabase (Postgres, Auth, Storage) on Vercel, plus a Chrome extension.
 
-Live at **getthreader.com**. Repo **github.com/mlyin/threader**.
+Live at **sellonflock.com**. Repo **github.com/mlyin/threader**.
 
 ## Running it
 
@@ -41,8 +41,8 @@ token, not a session, so there's no `auth.uid()` for RLS to match — those rout
 vocabulary never leaks into `items`. Don't collapse it.
 
 **`external_listings` and `messages` are separate from `listings`.** A `listing` is
-something Threader created. An external listing or message is something we *found* on a
-marketplace — it may predate Threader and may never match an item. `item_id` starts null
+something Flock created. An external listing or message is something we *found* on a
+marketplace — it may predate Flock and may never match an item. `item_id` starts null
 and matching is a separate step, because a wrong auto-match silently corrupts the
 net-proceeds maths.
 

@@ -1,6 +1,6 @@
-# Threader — feature plan
+# Flock — feature plan
 
-Synthesised from the *Threader* group chat (Matthew, Bryan Yan, Finn Gormely, 17 Aug 2026)
+Synthesised from the *Flock* group chat (Matthew, Bryan Yan, Finn Gormely, 17 Aug 2026)
 and reconciled against what the repo actually does today.
 
 Two things to keep straight while reading:
@@ -43,7 +43,7 @@ Both have verified selectors and have **never posted a real listing**. Until one
 
 ### M3. Desired net revenue per product, fee-adjusted
 Explicitly in the named MVP, and the sharpest thing in the whole plan. The seller enters
-*what they want to walk away with*; Threader back-computes the asking price on each
+*what they want to walk away with*; Flock back-computes the asking price on each
 channel from that channel's fee schedule and postage. Nobody else leads with this.
 
 Blocker: **every fee rate in `lib/fees.ts` is marked `unverified`** — written from memory
@@ -115,12 +115,12 @@ what an offer is actually worth.
 ### P7. Auto-send offers to likers / auto-messages
 > Finn: *"auto send offers auto messages"*, *"Depop also has and Poshmark"*
 
-Copy the native mechanic. Threader's version wins by running across all channels at once.
+Copy the native mechanic. Flock's version wins by running across all channels at once.
 
 ### P8. Multi-account management, Meta Business Suite style
 > Finn: *"specific page management feature like copy it from meta business suite"* … *"auto managers of the acct for each site"*
 
-One Threader login managing several seller accounts per marketplace.
+One Flock login managing several seller accounts per marketplace.
 
 ### P9. Full back-office — never open Depop again
 > Matthew: *"end state for someone never have to log in to depop again after account creation, e.g. label generation and invoice generation and pay analytics are all in this platform"*
@@ -192,7 +192,7 @@ not by ease.
 ### L1. Auto-delist when it sells on one channel  ← *the one that got an unqualified yes*
 > Finn: *"Auto delisting when its sold on one"* → Matthew: *"Yep I think this is very important"*
 
-The classic cross-lister failure is selling the same garment twice. Threader already
+The classic cross-lister failure is selling the same garment twice. Flock already
 knows an item is one physical thing across N listings, so it has the model for this;
 what's missing is knowing a sale happened, which needs the same per-channel polling the
 offers queue needs. Build it directly after the sync readers.
@@ -203,7 +203,7 @@ offers queue needs. Build it directly after the sync readers.
 
 **Decided for MVP: forward the labels the marketplaces already generate.** Own-label
 generation via Pirate Ship or Shippo is a real integration and was explicitly deferred.
-Worth revisiting because Finn's point stands — relying on their labels caps what Threader
+Worth revisiting because Finn's point stands — relying on their labels caps what Flock
 can offer. Note also Finn's observation that Depop runs shipping promotions roughly
 monthly, which would undercut a paid own-label flow.
 
@@ -235,14 +235,14 @@ everywhere at once.
 ### L7. Expense tracker / seller stats
 > Finn: *"Expense tracker depop lets u see ur stats"*
 
-Threader already holds cost basis, fees and net — this is mostly surfacing what's there,
+Flock already holds cost basis, fees and net — this is mostly surfacing what's there,
 plus non-COGS expenses (supplies, postage, mileage). Feeds the tax-season wedge.
 
 ### L8. AI trend prediction — what to buy
 > Finn: *"AI trend prediction like tells u what to buy?"* → Matthew: *"this has to come much later I think"*
 
 Sourcing intelligence rather than selling. Deferred by agreement, and it needs a corpus
-of sold data Threader won't have for a while.
+of sold data Flock won't have for a while.
 
 ---
 
@@ -258,7 +258,7 @@ is awake. Everything below is the honest trade.
 ### The shape of it
 
 A per-user headful Chromium in a container — Browserbase, Steel, Kernel, or self-hosted
-Playwright behind Xvfb. Threader stores that user's marketplace session cookies, hydrates
+Playwright behind Xvfb. Flock stores that user's marketplace session cookies, hydrates
 the container, drives the sell forms, and tears it down. Sessions hibernate between jobs so
 you're not paying for idle browsers.
 
@@ -272,7 +272,7 @@ you're not paying for idle browsers.
 
 ### What it costs
 
-1. **Credential custody is the real one.** Today Threader never holds marketplace
+1. **Credential custody is the real one.** Today Flock never holds marketplace
    credentials; the seller's own browser does. Moving server-side means holding session
    cookies for every user — a breach becomes mass account takeover across five
    marketplaces. That changes the security posture from "modest" to "we are now a
@@ -284,8 +284,8 @@ you're not paying for idle browsers.
    an empty document on repeat visits. Mitigating means per-user residential proxies —
    more cost, and its own legal texture.
 3. **ToS.** A seller automating their own browser is a grey area sellers themselves take
-   on. Threader running automation from its own infrastructure, holding their credentials,
-   is a much clearer violation and puts the liability on Threader rather than the user.
+   on. Flock running automation from its own infrastructure, holding their credentials,
+   is a much clearer violation and puts the liability on Flock rather than the user.
 4. **Cost per user.** A warm browser is cents per hour but users are many and listings are
    bursty; this is a real per-seat COGS line that the current architecture simply doesn't
    have.
@@ -313,7 +313,7 @@ to Playwright with minimal change. They already are.
 
 ---
 
-## How new offers and messages actually reach Threader
+## How new offers and messages actually reach Flock
 
 There is no Depop API and no webhook, so this is worth writing down properly.
 
@@ -338,7 +338,7 @@ Depop emails the seller on every new message and offer, and so do Poshmark, Merc
 Vinted and Grailed. That email **is** the push notification these platforms don't
 otherwise expose — it's official, it's already permitted, and it arrives in seconds.
 
-Give each seller a forwarding address (`u_<id>@in.getthreader.com` via Postmark, SendGrid
+Give each seller a forwarding address (`u_<id>@in.sellonflock.com` via Postmark, SendGrid
 inbound, or Cloudflare Email Workers), have them set one Gmail filter forwarding
 marketplace notifications to it, and parse what lands.
 

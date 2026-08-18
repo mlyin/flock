@@ -18,12 +18,12 @@ or an extension pulled later.
 **Detailed description**
 
 ```
-Threader fills in marketplace sell forms using listings you've already prepared
-in your Threader account, so you don't retype the same garment on every site.
+Flock fills in marketplace sell forms using listings you've already prepared
+in your Flock account, so you don't retype the same garment on every site.
 
 How it works:
 
-1. Prepare a listing in Threader — photos, title, description, price, size,
+1. Prepare a listing in Flock — photos, title, description, price, size,
    condition.
 2. Open the extension and pick the listing you want to post.
 3. It opens that marketplace's sell page and fills in the fields it can.
@@ -35,7 +35,7 @@ marketplace password. It works inside the browser session you're already
 signed in to, and a banner tells you exactly which fields it filled and which
 it left for you.
 
-Requires a Threader account (getthreader.com). Currently supports Depop,
+Requires a Flock account (sellonflock.com). Currently supports Depop,
 Mercari, Vinted and Grailed sell forms.
 ```
 
@@ -46,14 +46,14 @@ Mercari, Vinted and Grailed sell forms.
 **Single purpose description**
 
 ```
-Fill in marketplace sell forms with listing data from the user's own Threader
+Fill in marketplace sell forms with listing data from the user's own Flock
 account, so the same item doesn't have to be retyped on every marketplace.
 ```
 
 **Justification — host permissions**
 
 ```
-getthreader.com — to fetch the user's own listing data (title, description,
+sellonflock.com — to fetch the user's own listing data (title, description,
 price, size, condition) after they pair the extension with their account.
 
 depop.com, mercari.com, vinted.com, grailed.com — to fill the sell form on the
@@ -80,7 +80,7 @@ only by a direct user click, never automatically or in the background.
 
 ```
 Stores two things locally with chrome.storage.local: the pairing token that
-authenticates the extension to the user's own Threader account, and two user
+authenticates the extension to the user's own Flock account, and two user
 preferences (whether to fill in a background window, and whether to auto-fill
 the final step). No browsing history, page content or personal data is stored.
 ```
@@ -136,4 +136,4 @@ things are worth stating plainly if a reviewer asks:
 - **It does not automate submission.** The user presses the marketplace's own
   button. The extension fills fields and stops.
 - **It handles no marketplace credentials.** It uses the session the user is
-  already signed in to; no marketplace password ever reaches Threader.
+  already signed in to; no marketplace password ever reaches Flock.

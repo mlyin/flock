@@ -1,4 +1,4 @@
--- Threader — multi-tenant schema.
+-- Flock — multi-tenant schema.
 --
 -- Two things changed moving off SQLite, and both are deliberate:
 --

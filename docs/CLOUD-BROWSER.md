@@ -31,7 +31,7 @@ small interface so switching is a file, not a rewrite.
 The objection I raised earlier was credential custody: moving server-side means holding
 marketplace credentials. **The live-view flow avoids most of that.**
 
-1. Threader creates a persistent browser context for the seller.
+1. Flock creates a persistent browser context for the seller.
 2. The seller is shown that browser **embedded in an iframe** (Browserbase and Steel both
    expose a live-view URL).
 3. They log into Depop *inside it*, typing into the remote browser. 2FA, captchas and
@@ -41,7 +41,7 @@ marketplace credentials. **The live-view flow avoids most of that.**
 So you hold **a session, not a password**. That's a materially smaller blast radius, and
 it's the same thing every "connect your account" product does. It does not remove the need
 to encrypt what you store, and a stolen session is still account access — but nobody's
-password passes through Threader, and there's no place for one to leak from.
+password passes through Flock, and there's no place for one to leak from.
 
 What you must still do:
 - Encrypt context ids and any exported cookies at rest. `channel_accounts` already stores
@@ -111,8 +111,8 @@ rather not hand over a session. Both can coexist; they share the fillers.
 - **Cost per seller.** A warm browser is cents per hour, but listings are bursty. Hibernate
   contexts between jobs; never leave one running idle.
 - **This is a clearer ToS violation than the extension.** A seller automating their own
-  browser is a grey area they take on. Threader driving their account from its own
-  infrastructure moves that liability onto Threader. Worth a lawyer's eye before it's the
+  browser is a grey area they take on. Flock driving their account from its own
+  infrastructure moves that liability onto Flock. Worth a lawyer's eye before it's the
   default for paying users, not after.
 - **eBay and Etsy have real APIs.** Neither should ever touch a browser, cloud or local.
   Every channel moved onto an API is one fewer that needs any of this.

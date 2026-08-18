@@ -16,7 +16,7 @@ export default async function LoginPage({
     <div className="gate">
       <div className="gate-card">
         <div className="gate-brand">
-          <strong>Threader</strong>
+          <strong>Flock</strong>
           <span>Resale operations</span>
         </div>
 
@@ -45,7 +45,7 @@ export default async function LoginPage({
         )}
 
         <p className="gate-fine">
-          We only read your name and email from Google. Threader never receives your Google
+          We only read your name and email from Google. Flock never receives your Google
           password.
         </p>
       </div>

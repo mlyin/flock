@@ -1,6 +1,6 @@
-# Threader extension
+# Flock extension
 
-Fills Depop and Mercari sell forms from your Threader inventory. **It never submits** —
+Fills Depop and Mercari sell forms from your Flock inventory. **It never submits** —
 you review the filled form and click the marketplace's own button.
 
 That boundary is deliberate. It's your marketplace account, and a listing that comes from
@@ -16,16 +16,16 @@ it is you. Server-side automation is what gets seller accounts flagged.
 
 ## Pair it
 
-1. In Threader, go to **Extension** and generate a pairing code
+1. In Flock, go to **Extension** and generate a pairing code
 2. Click the extension icon, paste the code
-3. Set the address — `https://getthreader.com`, or `http://localhost:3737` while developing
+3. Set the address — `https://sellonflock.com`, or `http://localhost:3737` while developing
 
 The code is shown once and only its hash is stored, so a lost code means generating a new
 one rather than recovering the old.
 
 ## Use it
 
-1. In Threader: upload photos → identify → confirm → **Write listing copy**
+1. In Flock: upload photos → identify → confirm → **Write listing copy**
 2. Click the extension icon — drafted Depop and Mercari listings appear
 3. Hit **Fill on Depop**. It opens the sell page, fills what it can, and shows a banner
    listing what it filled and what it couldn't
@@ -48,7 +48,7 @@ they're left to you on purpose. Automating them is brittle and they're three cli
 
 ```
 manifest.json     MV3 manifest; host permissions per marketplace
-background.js     talks to Threader, opens the tab, injects the filler
+background.js     talks to Flock, opens the tab, injects the filler
 popup.js/html     pairing and the drafted-listing queue
 fill-depop.js     Depop form filler — selectors at the top
 fill-mercari.js   Mercari form filler — same shape

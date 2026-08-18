@@ -9,7 +9,7 @@ alter table items add column if not exists floor_price numeric(10, 2);
 -- Messages from every channel in one place.
 --
 -- item_id is nullable and starts null: a message arrives attached to a
--- marketplace listing, and matching that back to a Threader item is a separate
+-- marketplace listing, and matching that back to a Flock item is a separate
 -- step. A message shown against the wrong garment is worse than one shown
 -- against none.
 create table messages (

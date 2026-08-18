@@ -120,7 +120,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
               with far more often than "let me change the size". */}
           <div className="sectionhead">
             <h2>Channels</h2>
-            <p>Fill a marketplace's form, then tell Threader once you've published.</p>
+            <p>Fill a marketplace's form, then tell Flock once you've published.</p>
           </div>
           <ChannelBoard
             item={item.id}

@@ -25,7 +25,7 @@ export default async function SettingsPage() {
       <div className="settingslinks">
         <Link href="/connect" className="settingslink">
           <strong>Browser extension</strong>
-          <span>Pair Chrome so Threader can fill marketplace forms for you</span>
+          <span>Pair Chrome so Flock can fill marketplace forms for you</span>
         </Link>
         <Link href="/fees" className="settingslink">
           <strong>Fee table</strong>

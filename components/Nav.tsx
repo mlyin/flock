@@ -21,7 +21,7 @@ export default function Nav({ email, todo }: { email?: string | null; todo?: num
   return (
     <header className="topbar">
       <Link href="/" className="brandmark">
-        <strong>Threader</strong>
+        <strong>Flock</strong>
       </Link>
 
       <nav className="navlinks" aria-label="Primary">

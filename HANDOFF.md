@@ -1,11 +1,11 @@
-# Where Threader stands — 18 Aug 2026
+# Where Flock stands — 18 Aug 2026
 
 Written to hand off between machines. Read this plus `extension/SELECTORS.md`
 and you have everything.
 
 ## Live state
 
-- Deployed at **getthreader.com**, auto-deploys from `main` via Vercel.
+- Deployed at **sellonflock.com**, auto-deploys from `main` via Vercel.
 - **Migrations 0001–0010 are applied** to the production Supabase database
   (verified directly: `items.department`, seven `messages` offer columns, and
   the `messages_open_offers_idx` / `messages_item_thread_idx` indexes all exist).
@@ -94,4 +94,4 @@ Vinted's own "Find a category" search.
   fixable; a wrongly-filled one is neither.
 - **Never guess a selector.** Every selector in `extension/SELECTORS.md` was read
   off the live signed-in site, with the date and what was *not* verified.
-- **Threader never clicks the final submit.** It fills; the seller publishes.
+- **Flock never clicks the final submit.** It fills; the seller publishes.

@@ -1,8 +1,8 @@
 -- What's already live out there.
 --
 -- Distinct from `listings`, and deliberately so. A `listing` is something
--- Threader created from an item it knows about. An `external_listing` is
--- something we found on a marketplace — it may predate Threader entirely, may
+-- Flock created from an item it knows about. An `external_listing` is
+-- something we found on a marketplace — it may predate Flock entirely, may
 -- never match an item, and may be someone's decade-old closet.
 --
 -- Keeping them apart means the item/listing model stays clean while still
@@ -27,7 +27,7 @@ create table external_listings (
   -- words it differently.
   status        text not null default 'active',
 
-  -- Set once matched to a Threader item, by hand or by the matcher.
+  -- Set once matched to a Flock item, by hand or by the matcher.
   item_id       uuid references items (id) on delete set null,
   matched_at    timestamptz,
 

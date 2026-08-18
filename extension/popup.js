@@ -15,13 +15,13 @@ async function renderPairing(error) {
 
   root.innerHTML = `
     <label for="code" style="font-size:11.5px;opacity:.7;display:block;margin-bottom:5px">
-      Pairing code — from Threader → Extension
+      Pairing code — from Flock → Extension
     </label>
     <input id="code" placeholder="XXXXXX-XXXXXX" autocomplete="off" spellcheck="false" />
     <label for="base" style="font-size:11.5px;opacity:.7;display:block;margin:12px 0 5px">
-      Threader address
+      Flock address
     </label>
-    <input id="base" value="${apiBase || "https://getthreader.com"}" spellcheck="false" />
+    <input id="base" value="${apiBase || "https://sellonflock.com"}" spellcheck="false" />
     <div class="row"><button id="pair" class="primary">Pair</button></div>`;
 
   if (error) note(error);
@@ -38,7 +38,7 @@ async function renderPairing(error) {
       renderQueue(result.data.listings);
     } else {
       await chrome.storage.local.remove("token");
-      renderPairing(result?.error ?? "Couldn't reach Threader.");
+      renderPairing(result?.error ?? "Couldn't reach Flock.");
     }
   });
 }
@@ -121,7 +121,7 @@ async function renderQueue(listings) {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent =
-      "Nothing drafted yet. In Threader, open a garment and hit Write listing copy.";
+      "Nothing drafted yet. In Flock, open a garment and hit Write listing copy.";
     root.appendChild(empty);
   }
 

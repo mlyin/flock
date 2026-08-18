@@ -128,7 +128,7 @@ export function pickCategory(item: ItemForMatching, options: string[]): Category
       value: null,
       reason:
         "These categories are split by department and this item doesn't record one. " +
-        "Set the department to let Threader choose.",
+        "Set the department to let Flock choose.",
       score: 0,
     };
   }

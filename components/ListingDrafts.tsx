@@ -75,7 +75,7 @@ export default function ListingDrafts({
           <div>
             <strong>On this computer</strong>
             <p>
-              Click the <b>Threader icon in your Chrome toolbar</b> and hit Fill on Depop. It
+              Click the <b>Flock icon in your Chrome toolbar</b> and hit Fill on Depop. It
               opens the sell page in a hidden window and fills it. Not paired yet?{" "}
               <Link href="/connect" className="link">
                 Set that up first

@@ -1,4 +1,4 @@
-# Threader
+# Flock
 
 Resale operations for secondhand clothing. Photograph a garment, get it identified and
 priced, list it across the marketplaces you sell on, and see what you actually netted

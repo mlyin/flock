@@ -1,5 +1,5 @@
 /**
- * Page ↔ extension bridge, injected into Threader only.
+ * Page ↔ extension bridge, injected into Flock only.
  *
  * Lets the item page show a real "Fill on Depop" button instead of making you
  * hunt for the toolbar icon. Uses window.postMessage rather than

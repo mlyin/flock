@@ -6,8 +6,8 @@
  *
  * Two objects land in a public "extension" bucket:
  *
- *   threader-extension-<version>.zip   immutable, one per release
- *   threader-extension-latest.zip      overwritten every publish — the URL
+ *   flock-extension-<version>.zip   immutable, one per release
+ *   flock-extension-latest.zip      overwritten every publish — the URL
  *                                      /install hands out, so old links keep
  *                                      working after a version bump
  *
@@ -50,7 +50,7 @@ if (!url || !secret) {
 execFileSync(process.execPath, [path.join(HERE, "pack-extension.mjs")], { stdio: "inherit" });
 
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "extension", "manifest.json"), "utf8"));
-const zipPath = path.join(ROOT, "dist", `threader-extension-${manifest.version}.zip`);
+const zipPath = path.join(ROOT, "dist", `flock-extension-${manifest.version}.zip`);
 const zip = fs.readFileSync(zipPath);
 
 const supabase = createClient(url, secret);
@@ -62,7 +62,7 @@ if (bucketError && !/already exists/i.test(bucketError.message)) {
   process.exit(1);
 }
 
-for (const name of [`threader-extension-${manifest.version}.zip`, "threader-extension-latest.zip"]) {
+for (const name of [`flock-extension-${manifest.version}.zip`, "flock-extension-latest.zip"]) {
   const { error } = await supabase.storage
     .from("extension")
     .upload(name, zip, { contentType: "application/zip", upsert: true });
@@ -73,6 +73,6 @@ for (const name of [`threader-extension-${manifest.version}.zip`, "threader-exte
   console.log(`uploaded ${name}  (${Math.round(zip.length / 1024)} KB)`);
 }
 
-const { data } = supabase.storage.from("extension").getPublicUrl("threader-extension-latest.zip");
+const { data } = supabase.storage.from("extension").getPublicUrl("flock-extension-latest.zip");
 console.log(`\npublic URL  ${data.publicUrl}`);
-console.log("install page  https://getthreader.com/install");
+console.log("install page  https://sellonflock.com/install");

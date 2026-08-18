@@ -394,7 +394,7 @@ export async function makeDefaultAddress(id: string) {
  * Record that a listing went live, with the URL it went live at.
  *
  * The gap this closes: the extension fills a form and stops — the seller clicks
- * List themselves, on the marketplace. Nothing then told Threader it happened,
+ * List themselves, on the marketplace. Nothing then told Flock it happened,
  * so items filled through the extension sat at "draft" forever while being live
  * on Depop. `markListed` existed but was only ever called from the step-by-step
  * post flow, so the faster route was the one that silently lost state.

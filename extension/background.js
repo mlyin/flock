@@ -1,5 +1,5 @@
 /**
- * Fetches a listing payload from Threader, opens the marketplace's sell page,
+ * Fetches a listing payload from Flock, opens the marketplace's sell page,
  * and injects the filler.
  *
  * It never submits. The user reviews the filled form and clicks the button
@@ -34,22 +34,34 @@ const FILLER = {
   grailed: "fill-grailed.js",
 };
 
+const HOME = "https://sellonflock.com";
+const OLD_HOME = "https://sellonflock.com";
+
 async function config() {
   const { token, apiBase } = await chrome.storage.local.get(["token", "apiBase"]);
-  return { token, apiBase: apiBase || "https://getthreader.com" };
+
+  // Anyone paired before the rename has the old host STORED, and a stored value
+  // beats the default forever — they'd keep calling sellonflock.com until they
+  // re-paired, with no sign anything was wrong. Move them once, here.
+  if (apiBase === OLD_HOME) {
+    await chrome.storage.local.set({ apiBase: HOME });
+    return { token, apiBase: HOME };
+  }
+
+  return { token, apiBase: apiBase || HOME };
 }
 
 async function api(path, options = {}) {
   const { token, apiBase } = await config();
-  if (!token) throw new Error("Not paired. Open the Threader extension and enter your code.");
+  if (!token) throw new Error("Not paired. Open the Flock extension and enter your code.");
 
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: { ...(options.headers || {}), authorization: `Bearer ${token}` },
   });
 
-  if (response.status === 401) throw new Error("Pairing code rejected. Generate a new one in Threader.");
-  if (!response.ok) throw new Error(`Threader returned ${response.status}.`);
+  if (response.status === 401) throw new Error("Pairing code rejected. Generate a new one in Flock.");
+  if (!response.ok) throw new Error(`Flock returned ${response.status}.`);
   return response.json();
 }
 
@@ -113,7 +125,7 @@ async function waitForForm(tabId, selector, timeoutMs = 25000) {
 }
 
 /**
- * Reads Depop's inbox and posts it to Threader.
+ * Reads Depop's inbox and posts it to Flock.
  *
  * The thread list has the buyer and the preview; only the thread page has the
  * product link, and that link is the exact key that ties a conversation to a
@@ -378,7 +390,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
    the seller and exactly the traffic pattern a marketplace looks for.
    ========================================================================== */
 
-const SYNC_ALARM = "threader-sync";
+const SYNC_ALARM = "flock-sync";
 const SYNC_MINUTES = 30;
 
 chrome.runtime.onInstalled.addListener(() => scheduleSync());
@@ -427,7 +439,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 /* --------------------------------------------------------------------------
    Depop shop sync — which listings are live, and where.
 
-   This is what makes a channel chip clickable. Threader fills a form, the
+   This is what makes a channel chip clickable. Flock fills a form, the
    seller publishes on Depop, and nothing came back with the URL it landed at.
    Rather than ask them to paste it, read their shop.
    -------------------------------------------------------------------------- */

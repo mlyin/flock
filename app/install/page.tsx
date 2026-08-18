@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Install the extension — Threader",
-  description: "Install the Threader browser extension manually, until it's on the Chrome Web Store.",
+  title: "Install the extension — Flock",
+  description: "Install the Flock browser extension manually, until it's on the Chrome Web Store.",
 };
 
 /**
@@ -11,21 +11,21 @@ export const metadata: Metadata = {
  * `node scripts/publish-extension.mjs`. Once the Chrome Web Store listing is
  * approved, this page becomes a link to the store and the manual steps go.
  */
-const ZIP_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/extension/threader-extension-latest.zip`;
+const ZIP_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/extension/flock-extension-latest.zip`;
 
 export default function InstallPage() {
   return (
     <div className="prose">
-      <h1>Install the Threader extension</h1>
+      <h1>Install the Flock extension</h1>
       <p className="prose-lead">
-        The extension fills marketplace sell forms from your Threader inventory — you review
+        The extension fills marketplace sell forms from your Flock inventory — you review
         everything and press publish yourself. It isn&apos;t on the Chrome Web Store yet, so for
         now it installs manually. Takes about a minute.
       </p>
 
       <p>
         <a className="button" href={ZIP_URL}>
-          Download threader-extension-latest.zip
+          Download flock-extension-latest.zip
         </a>
       </p>
 
@@ -52,10 +52,10 @@ export default function InstallPage() {
       <h2>Pair it with your account</h2>
       <ol>
         <li>
-          Sign in at <a href="https://getthreader.com">getthreader.com</a>, then go to{" "}
+          Sign in at <a href="https://sellonflock.com">sellonflock.com</a>, then go to{" "}
           <strong>Settings → Browser extension</strong>.
         </li>
-        <li>Click the Threader icon in Chrome&apos;s toolbar and paste the pairing code.</li>
+        <li>Click the Flock icon in Chrome&apos;s toolbar and paste the pairing code.</li>
       </ol>
       <p>
         From then on, every listing in your inventory gets a one-click <em>Fill</em> button per

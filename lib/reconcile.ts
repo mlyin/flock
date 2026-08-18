@@ -1,5 +1,5 @@
 /**
- * Tying a scraped marketplace listing back to a Threader item.
+ * Tying a scraped marketplace listing back to a Flock item.
  *
  * The rule that governs this file: a wrong match silently corrupts the
  * net-proceeds maths and shows a buyer's message against the wrong garment.

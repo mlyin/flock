@@ -1,7 +1,7 @@
 /**
  * Reads a seller's own Depop shop — which listings are live, and where.
  *
- * This is what makes a channel chip clickable: Threader fills a form, the
+ * This is what makes a channel chip clickable: Flock fills a form, the
  * seller publishes, and until now nothing came back with the URL the listing
  * landed at. Rather than ask them to paste it, read the shop.
  *

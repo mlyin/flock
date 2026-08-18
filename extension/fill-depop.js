@@ -249,7 +249,7 @@ function banner(filled, missing, blocked) {
     color:#EFF0EC;font:14px/1.45 system-ui,sans-serif;padding:13px 18px;display:flex;gap:14px;
     align-items:flex-start;box-shadow:0 2px 12px rgba(0,0,0,.35)`;
   el.innerHTML = `
-    <strong style="font-weight:650;white-space:nowrap">Threader filled ${filled.length}</strong>
+    <strong style="font-weight:650;white-space:nowrap">Flock filled ${filled.length}</strong>
     <span style="opacity:.8">
       ${filled.length ? filled.join(", ") + ". " : ""}
       ${missing.length ? `Skipped: ${missing.join(", ")}. ` : ""}

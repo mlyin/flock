@@ -17,7 +17,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const SRC = path.join(ROOT, "extension");
 const BUILD = path.join(ROOT, "dist", "extension");
 const manifest = JSON.parse(fs.readFileSync(path.join(SRC, "manifest.json"), "utf8"));
-const ZIP = path.join(ROOT, "dist", `threader-extension-${manifest.version}.zip`);
+const ZIP = path.join(ROOT, "dist", `flock-extension-${manifest.version}.zip`);
 
 fs.rmSync(path.join(ROOT, "dist"), { recursive: true, force: true });
 fs.mkdirSync(BUILD, { recursive: true });

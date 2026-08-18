@@ -141,7 +141,7 @@ async function reconcile(
     }
 
     // Point external_listings at the item, so the "everything live everywhere"
-    // view has its link even when there's no Threader listing behind it.
+    // view has its link even when there's no Flock listing behind it.
     await admin
       .from("external_listings")
       .update({ item_id: result.itemId })
@@ -149,7 +149,7 @@ async function reconcile(
       .eq("channel", channel)
       .eq("external_id", row.external_id);
 
-    // And backfill the Threader listing's url/status, which is what the channel
+    // And backfill the Flock listing's url/status, which is what the channel
     // chip reads. Only ever fills a blank url — never overwrites one the seller
     // entered by hand.
     const { data: listing } = await admin
