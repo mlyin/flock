@@ -285,7 +285,13 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
     item.color && `Colour: ${item.color}`,
     item.material && `Material: ${item.material}`,
     `Condition: ${item.condition}`,
-    flaws.length ? `\nFlaws:\n${flaws.map((f) => `- ${f}`).join("\n")}` : "\nNo notable flaws.",
+    // Only ever state flaws we actually recorded. An empty list means nobody
+    // wrote any down — which is NOT the same as having inspected the garment and
+    // found none. The previous "No notable flaws." asserted the second from the
+    // first, onto a live public listing the seller answers for: if there's a
+    // stain the model didn't see, the listing was actively denying it. A listing
+    // with no flaws section claims nothing; that's the honest default.
+    flaws.length ? `\nFlaws:\n${flaws.map((f) => `- ${f}`).join("\n")}` : null,
     item.notes && `\n${item.notes}`,
   ]
     .filter(Boolean)

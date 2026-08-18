@@ -93,6 +93,48 @@ item page.
 
 Revisit once the six retail channels are actually verified end to end.
 
+### StockX and GOAT
+Requested 18 Aug 2026. Both are a **third access shape** the model doesn't have
+yet, and it's worth naming before building either.
+
+Every channel so far takes a listing you *wrote*: a title, a description, your
+photos. StockX and GOAT take neither. They're **catalog-matched**: you find the
+exact product already in their database — by style code, colourway and size —
+and place an **ask** against it. There is no copy to generate, no photos to
+upload for a deadstock pair, and no category cascade. The entire listing is
+`(catalog SKU, size, condition, ask)`.
+
+That inverts what Flock does well. The hard part stops being "write six versions
+of this description" and becomes **"which catalog entry is this, exactly"** —
+and getting it wrong isn't a cosmetic error, it's shipping the wrong shoe to an
+authenticator.
+
+They also take custody, but differently from The RealReal: you ship *after* a
+sale, to them, for authentication, and they forward it to the buyer. So the item
+is in your closet while listed (unlike consignment) but the sale isn't final
+until someone else has inspected it. `items.custody` covers the warehouse case;
+this needs an in-authentication state, which is not the same thing.
+
+Practical notes for whoever picks this up:
+
+- **Style code is the join key.** Without it there's no reliable match, and it's
+  usually printed on the shoe's inner label — a photo Flock doesn't currently
+  ask for. Intake needs a new photo role before this can work.
+- **Sneakers first, apparel second.** StockX has expanded into apparel, but the
+  catalog depth and the buyer base are still sneaker-led. A closet of Alo and
+  Depop clothing is largely out of scope for both.
+- **Condition is mostly binary.** These marketplaces are built around deadstock;
+  used goods are a secondary flow with different rules. The four-value
+  `item_condition` enum doesn't map cleanly.
+- **You set the ask, so `projectedNet` applies** — unlike consignment. Fee
+  structures differ (StockX takes a transaction fee plus payment processing,
+  GOAT a commission plus cash-out fee), and both vary by seller level and
+  region. Verify before showing a number, same as everything else in
+  `lib/fees.ts`.
+
+Worth doing when the inventory actually contains sneakers. Doing it for a closet
+of pullovers would be building a catalog matcher with nothing to match.
+
 ### Also queued
 - **Poshmark** — agreed as an MVP channel in the group chat, still not built.
   Renders fine for automated tabs, so its DOM can be read properly first time.
