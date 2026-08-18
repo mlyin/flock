@@ -44,7 +44,12 @@ async function renderPairing(error) {
 }
 
 async function renderQueue(listings) {
-  const { background, autoSubmit } = await chrome.storage.local.get(["background", "autoSubmit"]);
+  const { background, autoSubmit, depopUsername, lastSyncAt } =
+    await chrome.storage.local.get(["background", "autoSubmit", "depopUsername", "lastSyncAt"]);
+
+  const syncedAgo = lastSyncAt
+    ? `synced ${Math.max(1, Math.round((Date.now() - lastSyncAt) / 60000))}m ago`
+    : "not synced yet";
 
   root.innerHTML = `
     <div class="opts">
@@ -53,6 +58,22 @@ async function renderQueue(listings) {
       <label><input type="checkbox" id="opt-submit" ${autoSubmit ? "checked" : ""} />
         Submit automatically when nothing is missing</label>
     </div>
+
+    <!-- Without a username there's no shop to read, so listing URLs and sold
+         status can never come back. Depop's shop slug is not derivable from
+         anything we already hold, so it has to be asked for. -->
+    <div class="opts">
+      <label style="display:block">
+        <span style="display:block;margin-bottom:6px">Your Depop username</span>
+        <input id="depop-user" type="text" placeholder="yumseller22"
+               value="${depopUsername ? String(depopUsername).replace(/"/g, "&quot;") : ""}" />
+      </label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="sync-now">Sync Depop now</button>
+        <span class="item-meta" id="sync-when">${syncedAgo}</span>
+      </div>
+    </div>
+
     <div class="row" style="margin:0 0 4px">
       <button id="refresh">Refresh</button>
       <button id="unpair" style="margin-left:auto">Unpair</button>
@@ -64,6 +85,37 @@ async function renderQueue(listings) {
   document.getElementById("opt-submit").addEventListener("change", (e) =>
     chrome.storage.local.set({ autoSubmit: e.target.checked })
   );
+
+  const userField = document.getElementById("depop-user");
+  userField.addEventListener("change", (e) =>
+    // Tolerate a pasted profile URL as well as a bare handle.
+    chrome.storage.local.set({
+      depopUsername: e.target.value.trim().replace(/^.*depop\.com\//i, "").replace(/\/+$/, ""),
+    })
+  );
+
+  document.getElementById("sync-now").addEventListener("click", async (e) => {
+    const username = userField.value.trim().replace(/^.*depop\.com\//i, "").replace(/\/+$/, "");
+    if (!username) return note("Add your Depop username first.");
+    await chrome.storage.local.set({ depopUsername: username });
+
+    e.target.disabled = true;
+    e.target.textContent = "Syncing…";
+    const result = await send({ type: "sync-depop-all", username });
+    e.target.disabled = false;
+    e.target.textContent = "Sync Depop now";
+
+    if (result?.ok) {
+      const d = result.data ?? {};
+      note(
+        `Read ${d.listings ?? 0} listing(s) and ${d.threads ?? 0} thread(s).` +
+          (d.matched ? ` Linked ${d.matched} to items.` : ""),
+        true
+      );
+    } else {
+      note(result?.error ?? "Sync failed.");
+    }
+  });
 
   if (listings.length === 0) {
     const empty = document.createElement("div");

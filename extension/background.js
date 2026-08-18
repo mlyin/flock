@@ -350,15 +350,22 @@ async function syncDepopListings(username) {
     const result = await chrome.tabs.sendMessage(tab.id, { type: "depop-read-shop" });
     const listings = result?.listings ?? [];
 
+    let imported = null;
     if (listings.length) {
-      await api("/api/ext/import", {
+      imported = await api("/api/ext/import", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ channel: "depop", listings }),
       });
     }
 
-    return { found: listings.length };
+    // matched/ambiguous come back from the reconciler, so the popup can say
+    // whether a listing was actually tied to a garment rather than just read.
+    return {
+      found: listings.length,
+      matched: imported?.matched ?? 0,
+      ambiguous: imported?.ambiguous ?? 0,
+    };
   } finally {
     await chrome.tabs.remove(tab.id).catch(() => {});
   }
@@ -389,6 +396,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const data = await syncDepopMessages();
       await chrome.storage.local.set({ lastSyncAt: Date.now(), lastSyncResult: { ok: true, ...data } });
       sendResponse({ ok: true, synced: true });
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message });
+    }
+  })();
+
+  return true;
+});
+
+/* One button in the popup: read the shop and the inbox, in that order.
+   Shop first, because a freshly-read listing URL is what lets a message be
+   matched to the item it's about. */
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "sync-depop-all") return;
+
+  (async () => {
+    try {
+      const username =
+        message.username ||
+        (await chrome.storage.local.get(["depopUsername"])).depopUsername;
+
+      const shop = username ? await syncDepopListings(username) : { found: 0 };
+      const messages = await syncDepopMessages();
+
+      await chrome.storage.local.set({ lastSyncAt: Date.now() });
+      sendResponse({
+        ok: true,
+        data: { listings: shop.found ?? 0, threads: messages?.threads ?? 0, matched: shop.matched ?? 0 },
+      });
     } catch (error) {
       sendResponse({ ok: false, error: error.message });
     }

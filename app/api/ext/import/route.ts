@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CHANNELS, type Channel } from "@/lib/fees";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
+import { matchListingToItem } from "@/lib/reconcile";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Fill in where a listing actually went live.
+  //
+  // The extension fills a form and stops; the seller publishes on the
+  // marketplace. Nothing came back with the resulting URL, so listings sat with
+  // a null url and the channel chip stayed unclickable. Now that we can read the
+  // seller's own shop, close that gap — but only where the match is certain.
+  const reconciled = await reconcile(admin, userId, channel, rows, now);
+
   await admin.from("channel_syncs").upsert({
     user_id: userId,
     channel,
@@ -92,5 +101,82 @@ export async function POST(request: Request) {
     error: null,
   });
 
-  return json({ ok: true, imported: rows.length });
+  return json({ ok: true, imported: rows.length, ...reconciled });
+}
+
+type AdminClient = ReturnType<typeof supabaseAdmin>;
+
+/**
+ * Attach scraped listings to the items they belong to.
+ *
+ * Deliberately conservative (see lib/reconcile.ts): a slug has to contain an
+ * item's whole title, only one item may match, and anything ambiguous is left
+ * alone. A wrong match corrupts net proceeds and files buyer messages against
+ * the wrong garment — an unmatched listing is merely visible.
+ */
+async function reconcile(
+  admin: AdminClient,
+  userId: string,
+  channel: Channel,
+  rows: Array<{ external_id: string; url: string | null; status: string }>,
+  now: string
+) {
+  if (rows.length === 0) return { matched: 0, ambiguous: 0 };
+
+  const { data: items } = await admin
+    .from("items")
+    .select("id, title, brand")
+    .eq("user_id", userId);
+
+  if (!items?.length) return { matched: 0, ambiguous: 0 };
+
+  let matched = 0;
+  let ambiguous = 0;
+
+  for (const row of rows) {
+    const result = matchListingToItem(row.external_id, items);
+    if (!result.itemId) {
+      if (/items match/.test(result.reason)) ambiguous++;
+      continue;
+    }
+
+    // Point external_listings at the item, so the "everything live everywhere"
+    // view has its link even when there's no Threader listing behind it.
+    await admin
+      .from("external_listings")
+      .update({ item_id: result.itemId })
+      .eq("user_id", userId)
+      .eq("channel", channel)
+      .eq("external_id", row.external_id);
+
+    // And backfill the Threader listing's url/status, which is what the channel
+    // chip reads. Only ever fills a blank url — never overwrites one the seller
+    // entered by hand.
+    const { data: listing } = await admin
+      .from("listings")
+      .select("id, url, status")
+      .eq("user_id", userId)
+      .eq("item_id", result.itemId)
+      .eq("channel", channel)
+      .maybeSingle();
+
+    if (!listing) continue;
+
+    const patch: Record<string, unknown> = { last_synced_at: now };
+    if (!listing.url && row.url) patch.url = row.url;
+    if (row.status === "active" && listing.status !== "live") patch.status = "live";
+    if (row.status === "sold") patch.status = "sold";
+    if (row.status === "ended" && listing.status === "live") patch.status = "ended";
+
+    await admin.from("listings").update(patch).eq("id", listing.id);
+
+    if (patch.url || patch.status) {
+      matched++;
+      if (patch.status === "live") {
+        await admin.from("items").update({ status: "listed" }).eq("id", result.itemId);
+      }
+    }
+  }
+
+  return { matched, ambiguous };
 }
