@@ -26,8 +26,19 @@ import sharp from "sharp";
  * model at full resolution. Easy items cost a fraction; hard ones cost what
  * they always did.
  */
-export const MODEL_FAST = "claude-haiku-4-5-20251001";
-export const MODEL_CAREFUL = "claude-opus-5";
+export const MODEL_FAST = process.env.FLOCK_FAST_MODEL || "claude-haiku-4-5-20251001";
+export const MODEL_CAREFUL = process.env.FLOCK_CAREFUL_MODEL || "claude-opus-5";
+
+/**
+ * `effort` is a Claude 5 option. Haiku 4.5 rejects the whole request with
+ * 400 "This model does not support the effort parameter" — which surfaced to
+ * the seller as a wall of JSON on a photo that was perfectly readable.
+ *
+ * Structured output (`format`) IS supported on both, verified against the
+ * live API: Haiku returned schema-valid JSON for a garment with no effort
+ * parameter set. So only the effort hint is conditional, not the schema.
+ */
+const SUPPORTS_EFFORT = /-(opus|sonnet)-5/;
 
 /** Kept as the historical export; callers that just want a label use this. */
 export const MODEL = MODEL_CAREFUL;
@@ -274,9 +285,9 @@ async function readOnce(
     // charged at full rate after the first read.
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     output_config: {
-      // `medium` is deliberate: extraction is not reasoning-heavy, and this
-      // runs on every garment.
-      effort: "medium",
+      // `medium` is deliberate where it applies: extraction is not
+      // reasoning-heavy and this runs on every garment.
+      ...(SUPPORTS_EFFORT.test(model) ? { effort: "medium" as const } : {}),
       format: { type: "json_schema", schema: SCHEMA },
     },
     messages: [{ role: "user", content }],
