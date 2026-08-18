@@ -131,3 +131,35 @@ why syncing walks threads one at a time rather than pulling them in parallel.
 Message bubbles have no stable hook, so they're read as leaf text nodes inside
 the conversation pane, with Depop's own safety notice filtered by content. That
 part is the fragile bit; the product link is not.
+
+## Depop messages — verified 18 Aug 2026 against a live signed-in inbox
+
+Run directly in the page (not via the extension) while signed in, on an inbox with
+two threads and one real buyer conversation.
+
+**Thread list** — `a[href^="/messages/"]`, id from `/messages/([a-f0-9]{32,})/`. Six
+anchors resolved to two unique threads. The row's `innerText` lines are:
+
+```
+[avatar initial?]      only when the buyer has no avatar image — one character
+handle                 e.g. "mrtt2", or "Depop" for their official account
+preview                last message text
+relative time          "Today"
+"Conversation Menu"    row furniture
+```
+
+The optional avatar-initial line is what made every field read one position out —
+sender came back as "M", preview as the handle, and the message text as the
+timestamp. Depop's own account has an avatar image and so never showed it, which
+is why this looked correct in testing. Handles are at least three characters, so a
+one- or two-character first line is the initial.
+
+**Thread** — `a[href^="/products/"]` gives the product link, and it is reliable:
+resolved to `depop.com/products/yumseller21-ivory-soho-pullover-brand-alo-ab33/`.
+That link is what ties a conversation to an item.
+
+Message bodies still have no stable hook. Of 13 leaf nodes in a two-message
+conversation, 11 were noise: timestamps, `Item(s)`, `Total`, `$80.00`,
+`Shipping calculated at checkout`, `Refresh`, `Active today`, the safety notice,
+the report/block notice, and the product card repeating the listing description.
+Filtering by content (see `isMessageText`) kept exactly the two real messages.

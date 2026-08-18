@@ -181,3 +181,65 @@ acquisition and organic virality. Bryan on fundraising: *"I can close any VC"*.
    integration or another filler.
 4. **Does the extension survive the Chrome Web Store review?** Privacy policy is done; the
    listing copy and assets exist. Not submitted as far as the repo shows.
+
+---
+
+## Later ideas — from the 17 Aug chat with Finn
+
+Captured so they aren't lost. Ordered by how strongly the thread argued for them,
+not by ease.
+
+### L1. Auto-delist when it sells on one channel  ← *the one that got an unqualified yes*
+> Finn: *"Auto delisting when its sold on one"* → Matthew: *"Yep I think this is very important"*
+
+The classic cross-lister failure is selling the same garment twice. Threader already
+knows an item is one physical thing across N listings, so it has the model for this;
+what's missing is knowing a sale happened, which needs the same per-channel polling the
+offers queue needs. Build it directly after the sync readers.
+
+### L2. Shipping — forward the marketplace's own labels (MVP), revisit later
+> Finn: *"We should have seller pay shipping our own shipping label QR code generator"* … *"We wanna offer more than them not rely on them"*
+> Matthew: *"For MVP stage I am going to rely on the existing architecture for label generation and just forward the labels from the websites"* … *"Don't want to deal with piratesihp + shippo label auto generation for now"*
+
+**Decided for MVP: forward the labels the marketplaces already generate.** Own-label
+generation via Pirate Ship or Shippo is a real integration and was explicitly deferred.
+Worth revisiting because Finn's point stands — relying on their labels caps what Threader
+can offer. Note also Finn's observation that Depop runs shipping promotions roughly
+monthly, which would undercut a paid own-label flow.
+
+### L3. One shipping hub for all marketplaces
+> Finn: *"Like one shipping hub"* … *"For all marketplaces"*
+
+The natural home for L2 once labels are handled in-app. Pairs with P9 (never open Depop
+again).
+
+### L4. Smart pricing from live comps
+> Finn: *"Smart pricing like it finds what its selling for on other platforms"* → Matthew: *"This might be kind of hard for an mvp"*
+
+Same feature as P6 (sold-comps pricing), arrived at independently — which is a decent
+signal it matters. Explicitly judged too hard for MVP.
+
+### L5. Auto re-list / refresh for SEO
+> Finn: *"Auto re - list / re fresh? For SEO"* → Matthew: *"Like delete and re list functionality?"*
+
+Most of these marketplaces rank by recency, so sellers delete and relist to climb the
+feed. Automating it is genuinely valuable and genuinely risky — it's also the behaviour
+platforms rate-limit. Needs a per-channel view on what's tolerated.
+
+### L6. Bulk discounts and sales across every channel
+> Finn: *"Bulk discounts discounts and sales across all"*
+
+Runs on top of the existing bulk price-drop idea; the differentiator is doing it
+everywhere at once.
+
+### L7. Expense tracker / seller stats
+> Finn: *"Expense tracker depop lets u see ur stats"*
+
+Threader already holds cost basis, fees and net — this is mostly surfacing what's there,
+plus non-COGS expenses (supplies, postage, mileage). Feeds the tax-season wedge.
+
+### L8. AI trend prediction — what to buy
+> Finn: *"AI trend prediction like tells u what to buy?"* → Matthew: *"this has to come much later I think"*
+
+Sourcing intelligence rather than selling. Deferred by agreement, and it needs a corpus
+of sold data Threader won't have for a while.
