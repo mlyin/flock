@@ -4,7 +4,7 @@ Resale operations for secondhand clothing. Photograph a garment, get it identifi
 priced, cross-list it, and see what you actually netted. Multi-tenant: Next.js 15 +
 Supabase (Postgres, Auth, Storage) on Vercel, plus a Chrome extension.
 
-Live at **sellonflock.com**. Repo **github.com/mlyin/threader**.
+Live at **www.sellonflock.com**. Repo **github.com/mlyin/flock**.
 
 ## Running it
 
