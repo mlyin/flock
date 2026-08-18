@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import ReviewForm from "@/components/ReviewForm";
 import ListingDrafts from "@/components/ListingDrafts";
 import ItemMessages from "@/components/ItemMessages";
+import ChannelBoard from "@/components/ChannelBoard";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, computeFees, projectedNet } from "@/lib/fees";
 import { LISTABLE } from "@/lib/listing";
 import { usd, shortDate, daysSince } from "@/lib/money";
@@ -113,6 +114,28 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             {days !== null && <span>listed {days} days ago</span>}
             {item.sale && <span>sold on {CHANNEL_LABEL[item.sale.channel]}</span>}
           </div>
+
+          {/* Where it's live, and the link to it. Sits above the edit form
+              because "where is this posted" is the question you open the page
+              with far more often than "let me change the size". */}
+          <div className="sectionhead">
+            <h2>Channels</h2>
+            <p>Fill a marketplace's form, then tell Threader once you've published.</p>
+          </div>
+          <ChannelBoard
+            item={item.id}
+            rows={CHANNELS.map((channel) => {
+              const listing = item.listings.find((l) => l.channel === channel);
+              return {
+                channel,
+                listingId: listing?.id ?? null,
+                status: listing?.status ?? null,
+                url: listing?.url ?? null,
+                price: listing?.price ?? null,
+                net: listing?.price != null ? projectedNet(channel, listing.price) : null,
+              };
+            })}
+          />
 
           {/* Always editable. A confirmed item still needs correcting — a wrong
               size or a missing package size shouldn't require starting over. */}

@@ -389,3 +389,104 @@ export async function makeDefaultAddress(id: string) {
   await supabase.from("addresses").update({ is_default: true }).eq("id", id);
   revalidatePath("/settings");
 }
+
+/**
+ * Record that a listing went live, with the URL it went live at.
+ *
+ * The gap this closes: the extension fills a form and stops — the seller clicks
+ * List themselves, on the marketplace. Nothing then told Threader it happened,
+ * so items filled through the extension sat at "draft" forever while being live
+ * on Depop. `markListed` existed but was only ever called from the step-by-step
+ * post flow, so the faster route was the one that silently lost state.
+ *
+ * The URL is the useful half: without it there's no way back to the listing, and
+ * no way to poll it later.
+ */
+export async function markListedWithUrl(
+  listingId: string,
+  url?: string | null
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const clean = (url ?? "").trim();
+
+  if (clean && !/^https?:\/\//i.test(clean)) {
+    return { ok: false, error: "That doesn't look like a link — it should start with https://" };
+  }
+
+  const supabase = await supabaseServer();
+  const { data: listing, error } = await supabase
+    .from("listings")
+    .update({
+      status: "live",
+      posted_at: new Date().toISOString(),
+      posted_via: "extension",
+      last_synced_at: new Date().toISOString(),
+      ...(clean ? { url: clean } : {}),
+    })
+    .eq("id", listingId)
+    .select("item_id")
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!listing) return { ok: false, error: "Couldn't find that listing." };
+
+  await supabase.from("items").update({ status: "listed" }).eq("id", listing.item_id);
+
+  revalidatePath(`/items/${listing.item_id}`);
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/** Put a listing back to draft — it was ended, or marked live by mistake. */
+export async function unmarkListed(
+  listingId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await supabaseServer();
+  const { data: listing, error } = await supabase
+    .from("listings")
+    .update({ status: "draft", posted_at: null })
+    .eq("id", listingId)
+    .select("item_id")
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!listing) return { ok: false, error: "Couldn't find that listing." };
+
+  // Only drop the item back to draft if nothing else is still live.
+  const { data: live } = await supabase
+    .from("listings")
+    .select("id")
+    .eq("item_id", listing.item_id)
+    .eq("status", "live");
+
+  if (!live || live.length === 0) {
+    await supabase.from("items").update({ status: "draft" }).eq("id", listing.item_id);
+  }
+
+  revalidatePath(`/items/${listing.item_id}`);
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/** Save just the URL, without changing status. */
+export async function saveListingUrl(
+  listingId: string,
+  url: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const clean = url.trim();
+  if (!/^https?:\/\//i.test(clean)) {
+    return { ok: false, error: "That doesn't look like a link — it should start with https://" };
+  }
+
+  const supabase = await supabaseServer();
+  const { data: listing, error } = await supabase
+    .from("listings")
+    .update({ url: clean, last_synced_at: new Date().toISOString() })
+    .eq("id", listingId)
+    .select("item_id")
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (listing) revalidatePath(`/items/${listing.item_id}`);
+  revalidatePath("/");
+  return { ok: true };
+}

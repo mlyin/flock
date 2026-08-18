@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Threader — cross-list your resale inventory",
+  "name": "Threader \u2014 cross-list your resale inventory",
   "version": "0.2.0",
   "description": "Fills marketplace sell forms from your Threader inventory. You review every listing and submit it yourself.",
   "icons": {
@@ -11,7 +11,8 @@
   },
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "https://getthreader.com/*",

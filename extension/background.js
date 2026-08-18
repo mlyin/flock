@@ -260,3 +260,59 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   return true; // keep the channel open for the async reply
 });
+
+/* ==========================================================================
+   Background sync
+   --------------------------------------------------------------------------
+   Why this lives in the extension and not on the server:
+
+   Depop, Poshmark, Grailed, Vinted and Mercari have no public API for reading
+   your own shop. There is no key to give a server and no way for one to
+   authenticate as the seller. The extension is the only thing that holds the
+   session, so any polling has to happen here, in the seller's own browser,
+   using the tab they're already signed into. eBay is the exception — once its
+   API approval lands, that one can be polled server-side properly.
+
+   The alarm is deliberately infrequent. Each run opens a background tab and
+   walks message threads; doing that every few minutes would be both visible to
+   the seller and exactly the traffic pattern a marketplace looks for.
+   ========================================================================== */
+
+const SYNC_ALARM = "threader-sync";
+const SYNC_MINUTES = 30;
+
+chrome.runtime.onInstalled.addListener(() => scheduleSync());
+chrome.runtime.onStartup.addListener(() => scheduleSync());
+
+async function scheduleSync() {
+  await chrome.alarms.clear(SYNC_ALARM);
+  chrome.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_MINUTES, delayInMinutes: 2 });
+}
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== SYNC_ALARM) return;
+
+  // Unpaired means there's nowhere to send what we read; don't open tabs for
+  // nothing, and don't nag.
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) return;
+
+  // Never more than twice an hour, even if alarms double-fire after the
+  // machine wakes. The sync tab opens with active:false so it doesn't steal
+  // focus; this throttle is what keeps the traffic pattern unremarkable.
+  const { lastSyncAt } = await chrome.storage.local.get(["lastSyncAt"]);
+  if (Date.now() - (lastSyncAt ?? 0) < 25 * 60 * 1000) return;
+
+  try {
+    const result = await syncDepopMessages();
+    await chrome.storage.local.set({
+      lastSyncAt: Date.now(),
+      lastSyncResult: { ok: true, ...result },
+    });
+  } catch (error) {
+    await chrome.storage.local.set({
+      lastSyncAt: Date.now(),
+      lastSyncResult: { ok: false, error: error.message },
+    });
+  }
+});

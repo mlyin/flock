@@ -21,3 +21,5 @@ dist/
 store-icon-*.png
 store-screenshot-*.png
 .pkg/
+.vercel
+.env*

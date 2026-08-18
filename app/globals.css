@@ -1545,3 +1545,103 @@ button.mchip:disabled { cursor: default; opacity: .5; }
   .tiles { grid-template-columns: repeat(3, 1fr); }
   .tile-value { font-size: 15px; }
 }
+
+/* ==========================================================================
+   Channel board — the item page's "where is this listed" section
+   ========================================================================== */
+
+.board {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 26px;
+}
+.boardrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  background: var(--raised);
+  border-bottom: 1px solid var(--rule-2);
+}
+.boardrow:last-child { border-bottom: none; }
+.boardrow-live { background: color-mix(in srgb, var(--sage-soft) 55%, var(--raised)); }
+
+.boardrow-id { display: flex; align-items: center; gap: 11px; min-width: 190px; }
+.boardrow-name { display: block; font-weight: 620; font-size: 14.5px; letter-spacing: -.01em; }
+.boardrow-sub {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.boardrow-live .boardrow-sub { color: var(--sage); }
+
+/* A coloured mark per marketplace — recognisable at a glance in a way that
+   "EB / PM / DP / MC / VT / GR" never was. */
+.chanmark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  display: inline-block;
+  position: relative;
+}
+.chanmark::after {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.chanmark-ebay     { background: #4b5cc4; }
+.chanmark-ebay::after     { content: "e"; }
+.chanmark-poshmark { background: #8c3a4a; }
+.chanmark-poshmark::after { content: "P"; }
+.chanmark-depop    { background: #b3312a; }
+.chanmark-depop::after    { content: "D"; }
+.chanmark-mercari  { background: #2f6d8c; }
+.chanmark-mercari::after  { content: "M"; }
+.chanmark-vinted   { background: #2c7a68; }
+.chanmark-vinted::after   { content: "V"; }
+.chanmark-grailed  { background: #303030; }
+.chanmark-grailed::after  { content: "G"; }
+
+.boardrow-money { margin-left: auto; text-align: right; }
+.boardrow-price {
+  display: block;
+  font-weight: 650;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.boardrow-net {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.boardrow-act { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.boardrow .chipnote { flex-basis: 100%; margin-top: 4px; }
+
+.urlbox { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.urlbox .field { min-width: 230px; }
+
+@media (max-width: 900px) {
+  .boardrow { align-items: flex-start; gap: 10px; }
+  .boardrow-id { min-width: 0; flex: 1 1 auto; }
+  .boardrow-money { margin-left: 0; text-align: left; flex-basis: 100%; }
+  .boardrow-price { display: inline; }
+  .boardrow-net { display: inline; margin-left: 8px; }
+  .boardrow-act { flex-basis: 100%; }
+  .boardrow-act .button { flex: 1 1 auto; justify-content: center; }
+  .urlbox { flex-basis: 100%; }
+  .urlbox .field { min-width: 0; flex: 1 1 100%; }
+}
