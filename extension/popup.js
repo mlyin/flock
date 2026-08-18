@@ -48,8 +48,8 @@ async function renderQueue(listings) {
 
   root.innerHTML = `
     <div class="opts">
-      <label><input type="checkbox" id="opt-bg" ${background === false ? "" : "checked"} />
-        Fill in a hidden window</label>
+      <label><input type="checkbox" id="opt-bg" ${background === true ? "checked" : ""} />
+        Fill in a hidden window (off = watch it work)</label>
       <label><input type="checkbox" id="opt-submit" ${autoSubmit ? "checked" : ""} />
         Submit automatically when nothing is missing</label>
     </div>

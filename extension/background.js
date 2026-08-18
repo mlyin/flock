@@ -14,6 +14,19 @@ const SELL_PAGE = {
   grailed: "https://www.grailed.com/sell/new",
 };
 
+/**
+ * One selector per channel that only exists once the form has actually mounted.
+ * Waiting for these beats waiting a fixed number of seconds: the pages differ by
+ * seconds between loads, and a fixed wait either fails on a slow one or wastes
+ * time on a fast one.
+ */
+const READY = {
+  depop: "#description",
+  mercari: "#sellName",
+  vinted: "#title",
+  grailed: 'input[name="title"]',
+};
+
 const FILLER = {
   depop: "fill-depop.js",
   mercari: "fill-mercari.js",
@@ -79,6 +92,26 @@ function whenLoaded(tabId, timeoutMs = 30000) {
   });
 }
 
+/** Polls in the page until the form exists, or gives up with a real error. */
+async function waitForForm(tabId, selector, timeoutMs = 25000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const [hit] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (sel) => Boolean(document.querySelector(sel)),
+        args: [selector],
+      });
+      if (hit?.result) return true;
+    } catch {
+      // Tab still navigating — executeScript throws until it settles.
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
@@ -102,17 +135,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         // An extension can't drive a truly headless page — the marketplace is a
         // React app and needs a real renderer to mount its form at all.
         let tab;
-        if (background === false) {
-          tab = await chrome.tabs.create({ url });
-        } else {
+        if (background === true) {
           const win = await chrome.windows.create({ url, state: "minimized", focused: false });
           tab = win.tabs[0];
+        } else {
+          tab = await chrome.tabs.create({ url });
         }
         await whenLoaded(tab.id);
 
+        const ready = await waitForForm(tab.id, READY[payload.channel] ?? "form");
+        if (!ready) {
+          throw new Error(
+            `${payload.channel} didn't render its sell form. Open the tab and check you're signed in.`
+          );
+        }
+
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [filler] });
-        // Give the SPA a moment to mount its form before we start looking for fields.
-        await new Promise((r) => setTimeout(r, 4000)); // SPAs need real time to mount
         const result = await chrome.tabs.sendMessage(tab.id, {
           type: "apply",
           payload,

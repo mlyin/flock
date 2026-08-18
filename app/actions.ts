@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
-import { draftListings } from "@/lib/listing";
+import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
@@ -290,7 +290,7 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
     .filter(Boolean)
     .join("\n");
 
-  const rows = (["depop", "mercari", "ebay"] as const).map((channel) => ({
+  const rows = LISTABLE.map((channel) => ({
     user_id: user.id,
     item_id: itemId,
     channel,

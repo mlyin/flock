@@ -1,9 +1,9 @@
 import Link from "next/link";
-import ChannelMatrix from "@/components/ChannelMatrix";
+import ChannelActions from "@/components/ChannelActions";
 import Filters from "@/components/Filters";
 import { CHANNEL_ABBR, CHANNEL_ACCESS, CHANNEL_LABEL } from "@/lib/fees";
 import { usd, usdShort, pct } from "@/lib/money";
-import { bestProjection, getItems, shelfAge, summarize } from "@/lib/data";
+import { bestProjection, getItems, shelfAge, signPhotos, summarize } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,14 @@ export default async function Dashboard({
   const all = await getItems();
   const summary = summarize(all);
   const items = await getItems(params);
+
+  // One signing call for the whole page rather than one per row.
+  const heroes = new Map(
+    all.map((i) => [i.id, i.photos.find((p) => p.role === "hero") ?? i.photos[0]])
+  );
+  const signed = await signPhotos(
+    [...heroes.values()].filter(Boolean).map((p) => p!.storage_path)
+  );
 
   if (all.length === 0) {
     return (
@@ -112,7 +120,7 @@ export default async function Dashboard({
         <table className="grid">
           <thead>
             <tr>
-              <th style={{ width: 46 }} />
+              <th style={{ width: 72 }} />
               <th>SKU</th>
               <th>Item</th>
               <th>Channels</th>
@@ -135,11 +143,21 @@ export default async function Dashboard({
               return (
                 <tr key={item.id}>
                   <td>
-                    <span
-                      className="swatch"
-                      style={{ background: item.swatch ?? "var(--rule)" }}
-                      aria-hidden="true"
-                    />
+                    {(() => {
+                      const hero = heroes.get(item.id);
+                      const url = hero ? signed[hero.storage_path] : undefined;
+                      return url ? (
+                        <Link href={`/items/${item.id}`} className="rowthumb">
+                          <img src={url} alt="" />
+                        </Link>
+                      ) : (
+                        <span
+                          className="rowthumb rowthumb-empty"
+                          style={{ background: item.swatch ?? "var(--rule)" }}
+                          aria-hidden="true"
+                        />
+                      );
+                    })()}
                   </td>
                   <td className="cell-sku">{item.sku}</td>
                   <td>
@@ -153,7 +171,14 @@ export default async function Dashboard({
                     </div>
                   </td>
                   <td>
-                    <ChannelMatrix listings={item.listings} />
+                    <ChannelActions
+                      states={item.listings.map((l) => ({
+                        channel: l.channel,
+                        listingId: l.id,
+                        status: l.status,
+                        url: l.url,
+                      }))}
+                    />
                   </td>
                   <td className="num">
                     {item.askingPrice ? usd(item.askingPrice) : <span className="muted">—</span>}
