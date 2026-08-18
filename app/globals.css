@@ -1980,3 +1980,21 @@ body { font-size: 15px; line-height: 1.55; }
   font-size: 11.5px;
 }
 .garment-shot-acts { display: flex; gap: 10px; }
+
+/* Drag a photo into the right garment. */
+.garment { transition: border-color var(--dur, .16s), background var(--dur, .16s); }
+.garment-over {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.garment-shot { cursor: grab; }
+.garment-shot:active { cursor: grabbing; }
+.garment-shot-dragging { opacity: .4; }
+.garment-new {
+  border: 2px dashed var(--brand-line);
+  border-radius: 14px;
+  padding: 22px;
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 13.5px;
+}

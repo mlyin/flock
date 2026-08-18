@@ -79,6 +79,8 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   const [autoIdentify, setAutoIdentify] = useState(true);
   const attempted = useRef(new Set<string>());
   const [running, setRunning] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
 
   const groups = useMemo(() => {
     if (Object.keys(moved).length === 0) return auto;
@@ -120,7 +122,8 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   );
 
   useEffect(() => {
-    if (!autoIdentify || running || pending) return;
+    // Not mid-drag: the seller is still saying what this garment is.
+    if (!autoIdentify || running || pending || dragging) return;
 
     const next = groups.find((g) => !attempted.current.has(g.id));
     if (!next) return;
@@ -129,7 +132,7 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
     // retried forever against a photo the model can't use.
     attempted.current.add(next.id);
     void identify(next);
-  }, [autoIdentify, groups, running, pending, identify]);
+  }, [autoIdentify, groups, running, pending, dragging, identify]);
 
   const discard = (id: string) =>
     startTransition(async () => {
@@ -137,21 +140,35 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
       router.refresh();
     });
 
-  /** Pull one photo out into a garment of its own. */
-  const split = (photo: InboxPhoto) =>
-    setMoved((m) => ({ ...m, [photo.id]: `own-${photo.id}` }));
-
-  /** Fold a whole group into the one above it. */
-  const mergeUp = (group: Group, index: number) => {
-    const above = groups[index - 1];
-    if (!above) return;
-    setMoved((m) => {
-      const next = { ...m };
-      for (const photo of group.photos) next[photo.id] = above.id;
-      return next;
-    });
+  /**
+   * Move a photo into a garment.
+   *
+   * Dropping onto the strip at the bottom gives it a garment of its own,
+   * keyed on the photo's own id so it can't collide with an existing group.
+   */
+  const move = (photoId: string, groupId: string) => {
+    setMoved((m) => ({ ...m, [photoId]: groupId }));
+    // A group whose contents just changed deserves a fresh read.
+    attempted.current.delete(groupId);
+    setDragging(null);
+    setOver(null);
   };
 
+  const dropProps = (groupId: string) => ({
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (over !== groupId) setOver(groupId);
+    },
+    onDragLeave: () => setOver((current) => (current === groupId ? null : current)),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      // dataTransfer is the real source; `dragging` covers browsers that
+      // don't hand the payload back on drop.
+      const photoId = e.dataTransfer.getData("text/plain") || dragging;
+      if (photoId) move(photoId, groupId);
+    },
+  });
   if (photos.length === 0) return null;
 
   return (
@@ -168,7 +185,7 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
         <span className="muted">
           {running
             ? "Reading a garment…"
-            : "Reads the brand, size and condition off each garment as it arrives."}
+            : "Drag a photo between garments if the grouping is wrong."}
         </span>
       </div>
 
@@ -178,7 +195,11 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
         const note = result?.groupId === group.id ? result.outcome : null;
 
         return (
-          <section key={group.id} className="garment">
+          <section
+            key={group.id}
+            className={`garment ${over === group.id ? "garment-over" : ""}`}
+            {...dropProps(group.id)}
+          >
             <header className="garment-head">
               <div>
                 <strong>Garment {index + 1}</strong>
@@ -188,16 +209,6 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
                 </span>
               </div>
               <div className="garment-acts">
-                {index > 0 && (
-                  <button
-                    type="button"
-                    className="linkish"
-                    onClick={() => mergeUp(group, index)}
-                    disabled={pending}
-                  >
-                    Merge up
-                  </button>
-                )}
                 <button
                   type="button"
                   className="button button-sm button-quiet"
@@ -219,20 +230,28 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
 
             <div className="garment-shots">
               {group.photos.map((photo) => (
-                <figure key={photo.id} className="garment-shot">
-                  <img src={photo.url} alt="" />
+                <figure
+                  key={photo.id}
+                  className={`garment-shot ${dragging === photo.id ? "garment-shot-dragging" : ""}`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", photo.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDragging(photo.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragging(null);
+                    setOver(null);
+                  }}
+                >
+                  {/* draggable={false} on the img so the browser drags the
+                      whole card rather than a ghost of the image alone. */}
+                  <img src={photo.url} alt="" draggable={false} />
                   <figcaption>
                     <span className="muted">{kb(photo.bytes)}</span>
-                    <span className="garment-shot-acts">
-                      {group.photos.length > 1 && (
-                        <button type="button" className="linkish" onClick={() => split(photo)}>
-                          Separate
-                        </button>
-                      )}
-                      <button type="button" className="linkish" onClick={() => discard(photo.id)}>
-                        Discard
-                      </button>
-                    </span>
+                    <button type="button" className="linkish" onClick={() => discard(photo.id)}>
+                      Discard
+                    </button>
                   </figcaption>
                 </figure>
               ))}
@@ -246,6 +265,17 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
           </section>
         );
       })}
+
+      {/* Only while dragging — the rest of the time it's a box asking to be
+          ignored. */}
+      {dragging && (
+        <div
+          className={`garment-new ${over === `own-${dragging}` ? "garment-over" : ""}`}
+          {...dropProps(`own-${dragging}`)}
+        >
+          Drop here to make this its own garment
+        </div>
+      )}
       </div>
     </>
   );

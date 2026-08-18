@@ -128,7 +128,29 @@ export async function identifyAndDraft(photoIds: string[]): Promise<IdentifyOutc
   try {
     result = await identifyGarment(files);
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    const message = error instanceof Error ? error.message : String(error);
+
+    // The SDK's 401 arrives as a wall of JSON — `401 {"type":"error","error":
+    // {"type":"authentication_error",...}}` — which tells a seller nothing and
+    // reads like the app is broken. It almost always means one thing: the
+    // server this is running on has no key. Say that, and where to put one.
+    if (/authentication_error|401|invalid x-api-key|API key is invalid/i.test(message)) {
+      return {
+        ok: false,
+        error:
+          "This server has no valid Anthropic API key. Locally, set ANTHROPIC_API_KEY in .env.local and restart the dev server — Next only reads it at boot. On sellonflock.com, add it in Vercel under Settings → Environment Variables and redeploy.",
+      };
+    }
+
+    if (/rate_limit|429/i.test(message)) {
+      return { ok: false, error: "Rate limited by the model. Wait a moment and try again." };
+    }
+
+    if (/credit|billing|quota/i.test(message)) {
+      return { ok: false, error: "The Anthropic account is out of credit, or its spend limit is reached." };
+    }
+
+    return { ok: false, error: message };
   }
 
   const x = result.extraction;
