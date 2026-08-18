@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SyncMessages from "@/components/SyncMessages";
 import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
 import { usd } from "@/lib/money";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -50,6 +51,8 @@ export default async function InboxPage() {
         <h2>Inbox</h2>
         <p>Buyer messages and offers, every channel, grouped by garment</p>
       </div>
+
+      <SyncMessages />
 
       {rows.length === 0 ? (
         <div className="notice">

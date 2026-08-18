@@ -22,6 +22,24 @@ window.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || data.source !== "threader-page") return;
 
+  if (data.type === "sync-messages" && typeof data.channel === "string") {
+    chrome.runtime.sendMessage({ type: "sync-messages", channel: data.channel }, (result) => {
+      window.postMessage(
+        {
+          source: "threader-extension",
+          type: "messages-synced",
+          channel: data.channel,
+          ok: Boolean(result?.ok),
+          error: result?.error ?? null,
+          imported: result?.data?.imported ?? 0,
+          matched: result?.data?.matched ?? 0,
+        },
+        window.location.origin
+      );
+    });
+    return;
+  }
+
   if (data.type === "fill" && typeof data.listingId === "string") {
     chrome.runtime.sendMessage({ type: "fill", listingId: data.listingId }, (result) => {
       window.postMessage(

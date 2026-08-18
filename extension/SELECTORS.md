@@ -111,3 +111,23 @@ Paste this into DevTools on any sell page:
 ```
 
 Wait for the form to mount first — Mercari needs about four seconds.
+
+---
+
+## Depop messages — `https://www.depop.com/messages/`
+
+Split across two views, and neither has everything:
+
+| View | Selector | Gives |
+|---|---|---|
+| List | `a[href^="/messages/<32+ hex>/"]` | thread id, buyer handle, last-message preview, relative time |
+| Thread | `a[href^="/products/"]` (excluding `/products/create/` and `/products/edit/`) | **the product link** — the exact key tying a conversation to a garment |
+
+**Fetching the HTML does not work.** `fetch('/messages/<hash>/')` returns a 215KB
+shell with none of the conversation in it — Depop renders messages client-side.
+The reader has to run in a real tab that has actually loaded the page, which is
+why syncing walks threads one at a time rather than pulling them in parallel.
+
+Message bubbles have no stable hook, so they're read as leaf text nodes inside
+the conversation pane, with Depop's own safety notice filtered by content. That
+part is the fragile bit; the product link is not.

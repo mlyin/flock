@@ -112,6 +112,70 @@ async function waitForForm(tabId, selector, timeoutMs = 25000) {
   return false;
 }
 
+/**
+ * Reads Depop's inbox and posts it to Threader.
+ *
+ * The thread list has the buyer and the preview; only the thread page has the
+ * product link, and that link is the exact key that ties a conversation to a
+ * garment. So this walks the threads one at a time in a single tab rather than
+ * guessing a match from the item title.
+ */
+async function syncDepopMessages(maxThreads = 20) {
+  const tab = await chrome.tabs.create({ url: "https://www.depop.com/messages/", active: false });
+  try {
+    await whenLoaded(tab.id);
+    if (!(await waitForForm(tab.id, 'a[href^="/messages/"]', 20000))) {
+      throw new Error("Depop's inbox didn't load. Check you're signed in.");
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["read-depop-messages.js"],
+    });
+    const list = await chrome.tabs.sendMessage(tab.id, { type: "depop-read-list" });
+    const threads = (list?.threads ?? []).slice(0, maxThreads);
+
+    const messages = [];
+    for (const thread of threads) {
+      await chrome.tabs.update(tab.id, { url: thread.url });
+      await whenLoaded(tab.id);
+      await new Promise((r) => setTimeout(r, 2500)); // the pane renders after load
+
+      let detail = { product_url: null, bubbles: [] };
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["read-depop-messages.js"],
+        });
+        detail = await chrome.tabs.sendMessage(tab.id, { type: "depop-read-thread" });
+      } catch {
+        // A thread that won't render shouldn't lose the rest of the sync.
+      }
+
+      const body = detail?.bubbles?.length
+        ? detail.bubbles[detail.bubbles.length - 1]
+        : thread.preview;
+
+      messages.push({
+        external_id: thread.id,
+        thread_id: thread.id,
+        sender: thread.sender,
+        body,
+        listing_url: detail?.product_url ?? null,
+        raw: { when: thread.when, bubbles: detail?.bubbles ?? [] },
+      });
+    }
+
+    return await api("/api/ext/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ channel: "depop", messages }),
+    });
+  } finally {
+    await chrome.tabs.remove(tab.id).catch(() => {});
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
@@ -165,6 +229,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
 
         sendResponse({ ok: true, data: result });
+        return;
+      }
+
+      if (message.type === "sync-messages") {
+        if (message.channel !== "depop") {
+          throw new Error(`No message reader for ${message.channel} yet.`);
+        }
+        sendResponse({ ok: true, data: await syncDepopMessages() });
         return;
       }
 

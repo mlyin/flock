@@ -46,5 +46,15 @@
       ],
       "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "read-depop-messages.js"
+      ],
+      "matches": [
+        "https://www.depop.com/*"
+      ]
+    }
   ]
 }
