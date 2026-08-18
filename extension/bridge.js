@@ -24,6 +24,17 @@ window.addEventListener("message", (event) => {
 
   // Extension preferences live in chrome.storage.local, which no page can
   // touch — so the settings UI asks the extension to read and write them.
+  if (data.type === "probe" && typeof data.channel === "string") {
+    chrome.runtime.sendMessage({ type: "probe", channel: data.channel }, (result) => {
+      window.postMessage(
+        { source: "threader-extension", type: "probed", channel: data.channel,
+          ok: Boolean(result?.ok), error: result?.error ?? null, report: result?.data ?? null },
+        window.location.origin
+      );
+    });
+    return;
+  }
+
   if (data.type === "get-prefs") {
     chrome.runtime.sendMessage({ type: "get-prefs" }, (result) => {
       window.postMessage(

@@ -22,7 +22,9 @@
     "https://www.depop.com/*",
     "https://www.mercari.com/*",
     "https://www.vinted.com/*",
-    "https://www.grailed.com/*"
+    "https://www.grailed.com/*",
+    "https://poshmark.com/*",
+    "https://www.facebook.com/*"
   ],
   "action": {
     "default_title": "Flock",

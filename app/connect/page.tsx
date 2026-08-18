@@ -1,5 +1,6 @@
 import PairExtension from "@/components/PairExtension";
 import ExtensionSettings from "@/components/ExtensionSettings";
+import ProbeForm from "@/components/ProbeForm";
 import { supabaseServer } from "@/lib/supabase/server";
 import { shortDate } from "@/lib/money";
 
@@ -41,6 +42,8 @@ export default async function ConnectPage() {
           here, next to the pairing they depend on. Renders nothing until the
           extension is actually installed. */}
       <ExtensionSettings />
+
+      <ProbeForm />
 
       {(tokens?.length ?? 0) > 0 && (
         <>

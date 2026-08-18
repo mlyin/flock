@@ -12,6 +12,10 @@ const SELL_PAGE = {
   mercari: "https://www.mercari.com/sell/",
   vinted: "https://www.vinted.com/items/new",
   grailed: "https://www.grailed.com/sell/new",
+  poshmark: "https://poshmark.com/create-listing",
+  // Facebook refuses /marketplace/create/item directly and bounces to
+  // /marketplace/; its own "Create new listing" link points at /create/.
+  facebook: "https://www.facebook.com/marketplace/create/",
 };
 
 /**
@@ -299,6 +303,32 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
         await chrome.storage.local.set(patch);
         sendResponse({ ok: true, data: patch });
+        return;
+      }
+
+      // Read a marketplace form and report its structure, filling nothing.
+      // Pointing browser automation at these sites is itself detectable —
+      // Poshmark refused a request outright with a debugger attached — but
+      // the extension is a normal part of this browser, so it sees the real
+      // page and looks like nobody unusual.
+      if (message.type === "probe") {
+        const url = SELL_PAGE[message.channel];
+        if (!url) throw new Error(`No sell page known for ${message.channel}.`);
+
+        const tab = await chrome.tabs.create({ url, active: false });
+        try {
+          await whenLoaded(tab.id).catch(() => {});
+          // No READY selector for a form nobody has seen yet; give the app a
+          // moment to mount, then report whatever is actually there.
+          await new Promise((r) => setTimeout(r, 6000));
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["probe-form.js"],
+          });
+          sendResponse({ ok: true, data: await chrome.tabs.sendMessage(tab.id, { type: "probe" }) });
+        } finally {
+          await chrome.tabs.remove(tab.id).catch(() => {});
+        }
         return;
       }
 

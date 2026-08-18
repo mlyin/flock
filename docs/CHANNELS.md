@@ -135,6 +135,27 @@ Practical notes for whoever picks this up:
 Worth doing when the inventory actually contains sneakers. Doing it for a closet
 of pullovers would be building a catalog matcher with nothing to match.
 
+### ThredUp
+Requested 18 Aug 2026. **Consignment, like The RealReal** — you request a Clean Out Kit,
+post a bag of clothes, and ThredUp photographs, prices and lists whatever it accepts.
+There is no per-item sell form, so there is nothing for a filler to fill.
+
+Everything already built for The RealReal applies: `items.custody` marks the garment as
+gone so no other channel offers to list it, `projectedPayout()` gives a band rather than
+a figure because you don't set the price, and the intake copy reads as a condition report.
+
+Two differences worth knowing before building it:
+
+- **It rejects a lot, and keeps some of it.** ThredUp accepts a fraction of what's sent
+  and, depending on the option chosen, doesn't return the rest. So custody needs a
+  `rejected` outcome that isn't `returned` — the item may simply be gone, and an
+  inventory that still shows it is wrong in a way that matters at tax time.
+- **The payout is per accepted item, not per bag.** A bag maps to many items with
+  different outcomes, so reconciliation is item-level against a payout statement.
+
+Best done after The RealReal has been through one real consignment cycle, since the two
+share a model and TRR is already wired in.
+
 ### Also queued
 - **Poshmark** — agreed as an MVP channel in the group chat, still not built.
   Renders fine for automated tabs, so its DOM can be read properly first time.
