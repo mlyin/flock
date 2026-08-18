@@ -365,3 +365,25 @@ the fee table; `fill-facebook.js` waits on a signed-in DOM read.
 Worth knowing before that read: Meta's automation detection is aggressive, and
 Marketplace listings settle either as local pickup (no fee) or shipped (fee),
 which is why the fee note there hedges.
+
+## Vinted post-category fields — verified live 18 Aug 2026
+
+`#category`, `#brand`, `#size` and `#condition` are all **read-only inputs that open a
+panel**. `setNativeValue` can never touch any of them. Each panel uses a different
+control type, which is the part that cost two rounds of fills:
+
+| Field | Panel contents | Match on |
+|---|---|---|
+| Category | own search box, `input[placeholder="Find a category"]`, results are `li` with `>` paths | leaf name, filtered by department |
+| Brand | `#brand-search-input`, rows are `input[id^="brand-radio-"]` | exact row text, refuse if not exactly one |
+| **Size** | **`div[role="checkbox"]`** reading `L / US 12-14` | leading segment before `/` |
+| **Condition** | **`div[role="radio"]`**, title line + description line | first line only |
+
+Size and condition were being searched for as `label, [role=option], li`. None of those
+match, so both silently reported missing on every run while the panel sat open on screen.
+There is no single option-element convention on this form — check the role attribute per
+panel rather than assuming.
+
+Condition values: `New with tags` · `New without tags` · `Very good` · `Good` ·
+`Satisfactory`. Flock's `excellent` maps to **Very good**, not "New without tags", which
+asserts the garment is unused.

@@ -168,13 +168,15 @@ async function setVintedSize(size) {
   if (!size) return false;
   return openPanel("#size", async (field) => {
     const want = String(size).trim().toLowerCase();
-    // Options read "L / US 12" — the leading segment is the size itself.
-    const target = [...document.querySelectorAll("label, [role=option], li")]
+    // Size rows are role="checkbox" — not label/option/li, which is what this
+    // searched and why it never matched while the panel sat open on screen.
+    // Read live 18 Aug 2026. Each reads "L / US 12-14"; take the leading part.
+    const target = [...document.querySelectorAll('[role="checkbox"]')]
       .filter((e) => e.offsetParent !== null)
       .find((e) => e.innerText.trim().split("/")[0].trim().toLowerCase() === want);
     if (!target) return false;
     pointerClick(target);
-    await wait(800);
+    await wait(900);
     return Boolean(field.value);
   });
 }
@@ -197,12 +199,16 @@ async function setVintedCondition(condition) {
   if (!label) return false;
   return openPanel("#condition", async (field) => {
     const want = label.toLowerCase();
-    const target = [...document.querySelectorAll("label, [role=option], li")]
+    // Condition rows are role="radio" — not label/option/li, which is what this
+    // searched and why it never matched. Each row is a title line followed by a
+    // description line, so compare the title only. Read live 18 Aug 2026:
+    // New with tags · New without tags · Very good · Good · Satisfactory.
+    const target = [...document.querySelectorAll('[role="radio"]')]
       .filter((e) => e.offsetParent !== null)
       .find((e) => (e.innerText.trim().split("\n")[0] ?? "").trim().toLowerCase() === want);
     if (!target) return false;
     pointerClick(target);
-    await wait(800);
+    await wait(900);
     return Boolean(field.value);
   });
 }
