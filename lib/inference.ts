@@ -66,6 +66,9 @@ export type Extraction = {
   brand: string;
   category: (typeof CATEGORIES)[number];
   size: string;
+  /** Every size system printed on the tag. Only what's legible — see the schema. */
+  sizes: { intl?: string; us?: string; uk?: string; eu?: string; jp?: string; numeric?: string };
+  fit: (typeof FITS)[number] | "";
   color: string;
   /**
    * The same colour, snapped to a vocabulary a marketplace dropdown contains.
@@ -107,11 +110,19 @@ export const MATERIALS = [
 /** Who the garment is cut for. Gates category matching on Grailed and Vinted. */
 export const DEPARTMENTS = ["women", "men", "unisex", "kids"] as const;
 
+/**
+ * How the garment is cut, which is a different question from what size it is.
+ *
+ * An oversized M and a slim M fit differently enough that buyers ask before
+ * buying, and "boxy" is the most common word in those messages.
+ */
+export const FITS = ["slim", "regular", "relaxed", "oversized", "boxy", "cropped", "tailored"] as const;
+
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: [
-    "title", "brand", "category", "size", "color", "color_primary", "swatch",
+    "title", "brand", "category", "size", "sizes", "fit", "color", "color_primary", "swatch",
     "material", "material_primary", "department", "condition", "era", "flaws",
     "questions", "notes", "confidence",
   ],
@@ -130,6 +141,27 @@ const SCHEMA = {
     size: {
       type: "string",
       description: "As printed on the tag (S, 34x32, UK 8, 42). Empty string if no size tag is visible.",
+    },
+    sizes: {
+      type: "object",
+      additionalProperties: false,
+      required: ["intl", "us", "uk", "eu", "jp", "numeric"],
+      description:
+        "Every size system PRINTED ON THE TAG, each as an empty string if that system is not shown. Tags routinely carry several — XL beside US 42 beside EU 54 — and marketplaces each ask for a different one, so recording only the first throws away the answer to the others. Never convert between systems: a conversion is a guess, and a buyer who orders on a guessed size sends it back.",
+      properties: {
+        intl: { type: "string", description: "XS, S, M, L, XL, XXL." },
+        us: { type: "string", description: "US sizing, e.g. 8, 34x32, 10.5." },
+        uk: { type: "string" },
+        eu: { type: "string", description: "European numeric, e.g. 38, 54." },
+        jp: { type: "string" },
+        numeric: { type: "string", description: "Measurement-style sizing with no system: waist 32, 34x32, bust 36." },
+      },
+    },
+    fit: {
+      type: "string",
+      enum: [...FITS, ""],
+      description:
+        "How the garment is cut, from its proportions in the photo — shoulder seam placement, body width against length, sleeve volume. Empty string when the garment is bagged, folded, or otherwise not showing its shape. This is a claim a buyer acts on, so guessing costs a return.",
     },
     color: { type: "string", description: "How a seller would describe it — 'faded black', 'British tan'." },
     color_primary: {
@@ -191,6 +223,7 @@ Be accurate rather than complete. An empty field the seller fills in themselves 
 
 - Brand comes from a tag, label, or woven logo you can actually read. A garment that "looks like Carhartt" is not Carhartt.
 - Report every flaw you can see. Sellers get burned by the ones nobody disclosed.
+- Read EVERY size on the tag, not just the first. A tag showing "XL / US 42 / EU 54" fills three fields, and different marketplaces ask for different ones.
 - Score your confidence honestly. A 0.5 you flag is far more useful than a 0.9 you invented.
 - Anything you scored below 0.7 becomes a question for the seller, who has the garment in their hands and can check.`;
 
