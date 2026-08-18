@@ -16,7 +16,7 @@
   ],
   "host_permissions": [
     "https://sellonflock.com/*",
-    "https://sellonflock.com/*",
+    "https://getthreader.com/*",
     "http://localhost:3737/*",
     "https://*.supabase.co/*",
     "https://www.depop.com/*",
@@ -41,7 +41,7 @@
     {
       "matches": [
         "https://sellonflock.com/*",
-        "https://sellonflock.com/*",
+        "https://getthreader.com/*",
         "http://localhost:3737/*"
       ],
       "js": [

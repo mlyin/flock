@@ -136,7 +136,8 @@ async function renderQueue(listings) {
 
     const button = document.createElement("button");
     button.className = "primary";
-    button.textContent = `Fill on ${listing.channel === "depop" ? "Depop" : "Mercari"}`;
+    const CHANNEL_NAME = { depop: "Depop", mercari: "Mercari", vinted: "Vinted", grailed: "Grailed", ebay: "eBay", poshmark: "Poshmark", facebook: "Facebook" };
+    button.textContent = `Fill on ${CHANNEL_NAME[listing.channel] ?? listing.channel}`;
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "Opening…";

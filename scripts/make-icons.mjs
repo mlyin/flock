@@ -1,57 +1,47 @@
 /**
- * Generates the extension icon set and the Chrome Web Store icon.
+ * Rasterises the Flock brand SVGs into every icon slot that needs a PNG.
  *
  *   node scripts/make-icons.mjs
  *
- * Chrome's store guidelines want the artwork inset inside the 128px square
- * rather than bleeding to the edge, so the tile is 96px centred with 16px of
- * transparent padding. The mark has to survive being shrunk to 16px in a
- * toolbar, which rules out anything fine — hence a single heavy letterform.
+ * Sources live in public/brand/ (drawn by hand, pushed 18 Aug 2026):
+ *
+ *   favicon.svg    sheep face close-up on a lime tile — drawn FOR small sizes,
+ *                  so it feeds the 16/32px slots where the full sheep would
+ *                  smear into a blob
+ *   icon-lime.svg  full sheep on a lime tile — the 48/128px extension icons,
+ *                  the store icon, and the touch icon
+ *
+ * Outputs:
+ *   extension/icons/icon-{16,32,48,128}.png   Chrome toolbar + store
+ *   app/icon.png                              site favicon (Next serves it)
+ *   app/apple-icon.png                        iOS home-screen tile
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HERE, "..");
+const BRAND = path.join(ROOT, "public", "brand");
 const OUT = path.join(ROOT, "extension", "icons");
 
-// The app's own palette, so the extension doesn't look like a stranger.
-const DENIM = "#3A5570";
-const PAPER = "#EFF0EC";
+const face = fs.readFileSync(path.join(BRAND, "favicon.svg"));
+const sheep = fs.readFileSync(path.join(BRAND, "icon-lime.svg"));
 
-/**
- * A "T" with the crossbar drawn as a thread that dips — legible as a letter at
- * 16px, and a stitch at 128px.
- */
-const mark = (size, pad) => {
-  const inner = size - pad * 2;
-  const r = Math.round(inner * 0.22);
-  const stroke = Math.max(2, Math.round(inner * 0.11));
+const jobs = [
+  { src: face, size: 16, to: path.join(OUT, "icon-16.png") },
+  { src: face, size: 32, to: path.join(OUT, "icon-32.png") },
+  { src: sheep, size: 48, to: path.join(OUT, "icon-48.png") },
+  { src: sheep, size: 128, to: path.join(OUT, "icon-128.png") },
+  { src: face, size: 64, to: path.join(ROOT, "app", "icon.png") },
+  { src: sheep, size: 180, to: path.join(ROOT, "app", "apple-icon.png") },
+];
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <rect x="${pad}" y="${pad}" width="${inner}" height="${inner}" rx="${r}" fill="${DENIM}"/>
-  <g stroke="${PAPER}" stroke-width="${stroke}" stroke-linecap="round" fill="none">
-    <path d="M ${pad + inner * 0.24} ${pad + inner * 0.34}
-             Q ${pad + inner * 0.5} ${pad + inner * 0.46}
-               ${pad + inner * 0.76} ${pad + inner * 0.34}"/>
-    <line x1="${pad + inner * 0.5}" y1="${pad + inner * 0.38}"
-          x2="${pad + inner * 0.5}" y2="${pad + inner * 0.74}"/>
-  </g>
-</svg>`;
-};
-
-await fs.promises.mkdir(OUT, { recursive: true });
-
-// Toolbar icons bleed to the edge — at 16px, padding costs legibility.
-for (const size of [16, 32, 48]) {
-  await sharp(Buffer.from(mark(size, 0))).png().toFile(path.join(OUT, `icon-${size}.png`));
+for (const { src, size, to } of jobs) {
+  await sharp(src, { density: 512 }).resize(size, size).png().toFile(to);
+  console.log(`${path.relative(ROOT, to)}  ${size}×${size}`);
 }
 
-// 128 is the store icon: inset, per Chrome's image guidelines.
-await sharp(Buffer.from(mark(128, 16))).png().toFile(path.join(OUT, "icon-128.png"));
-await sharp(Buffer.from(mark(128, 16)))
-  .png()
-  .toFile(path.join(ROOT, "store-icon-128.png"));
-
-console.log("wrote extension/icons/{16,32,48,128} and store-icon-128.png");
+console.log("\nReload the extension at chrome://extensions to see the new toolbar icon.");
