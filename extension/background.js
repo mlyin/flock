@@ -312,6 +312,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
 
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [filler] });
+
+        // Watch for the published URL from BEFORE the fill, not after it.
+        // Auto-submit navigates the tab the instant the form is complete, and
+        // a watcher attached after the fill response misses that navigation —
+        // as does one never attached because the fill timed out but the seller
+        // finished by hand. The watcher self-detaches after ten minutes.
+        watchForPublish(tab.id, message.listingId, payload.channel);
         // Fillers catch their own crashes and respond with { error }, but a
         // response can still fail to arrive — a navigation mid-fill kills the
         // content script without closing the port. The deadline turns that
@@ -336,9 +343,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           await chrome.windows.update(tab.windowId, { state: "normal", focused: true });
         }
 
-        // The seller now reviews and clicks List themselves. Watch that tab so
-        // the resulting URL records itself instead of being typed back in.
-        watchForPublish(tab.id, message.listingId, payload.channel);
 
         sendResponse({ ok: true, data: result });
         return;

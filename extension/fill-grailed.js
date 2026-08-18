@@ -449,17 +449,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // is never complete without the seller typing it. Auto-submit therefore
     // holds until it's there rather than publishing a designer-less listing.
     const designerEmpty = !document.querySelector(FIELD.designer)?.value?.trim();
-    if (Boolean(message.autoSubmit) && blocked.length === 0 && !designerEmpty) {
-      const clicked = await submitListing();
-      if (clicked) filled.push(`clicked ${clicked}`);
-    } else if (Boolean(message.autoSubmit) && designerEmpty) {
-      missing.push("not submitted — designer is still empty");
-    } else if (!message.autoSubmit) {
-      missing.push("auto-submit off — tick it in the popup");
-    }
-
+    // Respond BEFORE clicking Publish — the navigation kills this script,
+    // and a publish that worked was being reported as a 90-second timeout.
+    const submitting = Boolean(message.autoSubmit) && blocked.length === 0 && !designerEmpty;
+    if (Boolean(message.autoSubmit) && designerEmpty) missing.push("not submitted — designer is still empty");
+    if (!message.autoSubmit) missing.push("auto-submit off — tick it in the popup");
+    if (submitting) filled.push("submitting — the tab will land on the listing");
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });
+    if (submitting) await submitListing();
   })().catch((error) => {
     // A filler that dies without responding leaves the page stuck on
     // "Filling…" forever — the seller can't tell a crash from a slow form.

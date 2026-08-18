@@ -467,15 +467,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     await wait(700);
     const blocked = unfilledControls();
 
-    if (Boolean(message.autoSubmit) && blocked.length === 0) {
-      const clicked = await submitListing();
-      if (clicked) filled.push(`clicked ${clicked}`);
-    } else if (!message.autoSubmit) {
-      missing.push("auto-submit off — tick it in the popup");
-    }
-
+    // Respond BEFORE clicking submit: the click navigates this tab, which
+    // kills the content script — waiting to report afterwards turned every
+    // successful publish into "didn't finish within 90 seconds".
+    const submitting = Boolean(message.autoSubmit) && blocked.length === 0;
+    if (!message.autoSubmit) missing.push("auto-submit off — tick it in the popup");
+    if (submitting) filled.push("submitting — the tab will land on the listing");
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });
+    if (submitting) await submitListing();
   })().catch((error) => {
     // A filler that dies without responding leaves the page stuck on
     // "Filling…" forever — the seller can't tell a crash from a slow form.
