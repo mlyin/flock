@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { data: item } = await admin
     .from("items")
-    .select("sku, brand, category, size, color, material, condition, flaws, package_size, depop_category")
+    .select("sku, brand, category, size, color, material, condition, flaws, package_size, depop_category, department")
     .eq("id", listing.item_id)
     .single();
 

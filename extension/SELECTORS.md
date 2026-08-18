@@ -191,3 +191,34 @@ This is the cheapest new-offer signal available: no API exists, and reading a ba
 seller's own browser already rendered costs nothing. `watch-depop.js` observes it and
 only wakes the background script when the count *rises* — a drop just means they read
 them.
+
+## Vinted category — verified 18 Aug 2026 on the live signed-in sell form
+
+`#category` is `<input type="text" readonly data-testid="catalog-select-dropdown-input">`.
+**Read-only** — which is why `setNativeValue` silently did nothing and every run
+reported category as skipped.
+
+Clicking it opens a dropdown carrying its own search box,
+`input[placeholder="Find a category"]` (no test id). Typing there returns flat leaf
+results that spell out their whole path:
+
+```
+Hoodies & sweatshirts / Women > Clothing > Jumpers & sweaters
+Hoodies & sweatshirts / Women > Clothing > Activewear
+Hoodies & sweatshirts / Men   > Clothing > Sweaters & sweatshirts
+Hoodies & sweatshirts / Kids  > Girls clothing > Sweaters & hoodies
+```
+
+Searching beats walking the tree: the tree is four levels deep and its shape differs
+per department, while the results carry the department in their text, which is what
+makes the choice safe. A query of "sweatshirt" returned 19 leaf rows, **most of them
+Men** — so filtering by the item's department is doing real work, not being
+defensive.
+
+Result rows are `li` elements whose innerText contains `>` and splits into exactly two
+parts on `" / "`. **The clickable target is a `div[role="button"][tabindex="0"]` inside
+the li — clicking the `li` itself does nothing.** That cost a debugging cycle.
+
+Not verified end to end: selecting a category redirected to
+`/users/verification?ref_url=/items/new`. This Vinted account has to be verified before
+it can list at all, so the final selection could not be confirmed.

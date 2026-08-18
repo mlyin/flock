@@ -156,6 +156,132 @@ function banner(filled, missing, blocked) {
   document.getElementById("threader-close")?.addEventListener("click", () => el.remove());
 }
 
+
+/* --------------------------------------------------------------------------
+   Category.
+
+   #category is a READ-ONLY input, which is why setNativeValue never touched it
+   and every fill skipped the field. Clicking it opens a dropdown carrying its
+   own "Find a category" search box; typing there returns flat leaf results that
+   each spell out their full path, e.g.
+
+     Hoodies & sweatshirts / Women > Clothing > Jumpers & sweaters
+     Hoodies & sweatshirts / Men   > Clothing > Sweaters & sweatshirts
+
+   Searching beats walking the tree: the tree is four levels deep and its shape
+   differs per department, while the search results hand us the department in
+   the text — which is exactly what makes the choice safe.
+
+   Read off the live form 18 Aug 2026. The clickable target is a
+   div[role="button"] inside the li, not the li itself; clicking the li does
+   nothing at all.
+   -------------------------------------------------------------------------- */
+
+const GARMENT_SYNONYMS = {
+  pullover: ["sweatshirt", "sweater", "jumper"],
+  sweatshirt: ["sweatshirt"],
+  hoodie: ["hoodie"],
+  jumper: ["jumper", "sweater"],
+  sweater: ["sweater", "jumper"],
+  tee: ["t-shirt"],
+  tshirt: ["t-shirt"],
+  shirt: ["shirt"],
+  jeans: ["jeans"],
+  jacket: ["jacket"],
+  coat: ["coat"],
+  dress: ["dress"],
+  skirt: ["skirt"],
+  leggings: ["leggings"],
+  shorts: ["shorts"],
+  boots: ["boots"],
+  sneakers: ["sneakers", "trainers"],
+  bag: ["bag"],
+};
+
+/** Search terms to try, most specific first. */
+function categoryQueries(listing) {
+  const words = String(listing.title || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+  const queries = [];
+  for (const w of words) {
+    for (const syn of GARMENT_SYNONYMS[w] ?? []) {
+      if (!queries.includes(syn)) queries.push(syn);
+    }
+  }
+  if (listing.category && listing.category.toLowerCase() !== "other") {
+    queries.push(String(listing.category).toLowerCase());
+  }
+  return queries;
+}
+
+function departmentOfPath(path) {
+  if (/\bkids\b|\bgirls\b|\bboys\b/i.test(path)) return "kids";
+  if (/\bunisex\b/i.test(path)) return "unisex";
+  if (/\bwomen\b/i.test(path)) return "women";
+  if (/\bmen\b/i.test(path)) return "men";
+  return null;
+}
+
+/** Leaf result rows currently on screen: "Leaf / Dept > A > B". */
+function categoryRows() {
+  return [...document.querySelectorAll("li")]
+    .filter((el) => el.offsetParent !== null)
+    .map((el) => ({ el, text: el.innerText.trim().replace(/\n+/g, " / ") }))
+    .filter((r) => r.text.includes(">") && r.text.split(" / ").length === 2);
+}
+
+async function setCategory(listing) {
+  const field = document.querySelector(FIELD.category);
+  if (!field) return { ok: false, why: "no category field" };
+
+  // Without a department every gendered option is a coin flip, and Vinted
+  // returns mostly Men rows for a query like "sweatshirt". Refuse instead.
+  const department = listing.department || null;
+  if (!department) {
+    return { ok: false, why: "no department recorded on the item" };
+  }
+
+  field.click();
+  await wait(700);
+
+  const search = [...document.querySelectorAll("input")].find(
+    (i) => i.offsetParent !== null && i.placeholder === "Find a category"
+  );
+  if (!search) return { ok: false, why: "category search box didn't open" };
+
+  for (const query of categoryQueries(listing)) {
+    setNativeValue(search, query);
+    await wait(1200);
+
+    const eligible = categoryRows().filter((r) => {
+      const d = departmentOfPath(r.text);
+      return d === null || d === "unisex" || department === "unisex" || d === department;
+    });
+    if (eligible.length === 0) continue;
+
+    // Prefer a leaf whose own name contains the query over a distant cousin.
+    const scored = eligible
+      .map((r) => {
+        const leaf = r.text.split(" / ")[0].toLowerCase();
+        return { r, score: leaf.includes(query) ? 2 : 1 };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const chosen = scored[0].r;
+    const target = chosen.el.querySelector('[role="button"]') || chosen.el;
+    target.click();
+    await wait(1000);
+
+    if (field.value) return { ok: true, chose: chosen.text };
+    // Value didn't take; try the next query rather than leaving it half-open.
+  }
+
+  return { ok: false, why: "no category matched this item's department" };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
@@ -182,8 +308,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     else missing.push("price");
 
     // Category first — brand, size and condition are rendered off the back of it.
-    if (await pick(FIELD.category, item.category, { acceptFirst: false })) filled.push("category");
-    else missing.push("category");
+    //
+    // #category is read-only, so the old pick() could never set it; the field
+    // was skipped on every run. setCategory drives Vinted's own category search
+    // instead, and refuses when the item has no department, because Vinted
+    // returns mostly Men rows for a query like "sweatshirt" and choosing blind
+    // is how a women's garment lands under Men's.
+    const categoryResult = await setCategory({
+      title: p.title ?? item.title,
+      category: item.category,
+      department: item.department,
+    });
+    if (categoryResult.ok) filled.push("category");
+    else missing.push(`category (${categoryResult.why})`);
 
     await wait(1400);
 
