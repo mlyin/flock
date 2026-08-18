@@ -21,6 +21,11 @@ export default function Nav({ email, todo }: { email?: string | null; todo?: num
   return (
     <header className="topbar">
       <Link href="/" className="brandmark">
+        {/* The mark ships as SVG rather than the generated PNG so it stays
+            sharp at any zoom. alt="" because the wordmark beside it already
+            names the product — announcing it twice is noise in a screen
+            reader. */}
+        <img src="/brand/icon-lime.svg" alt="" width={28} height={28} />
         <strong>Flock</strong>
       </Link>
 

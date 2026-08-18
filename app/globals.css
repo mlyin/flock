@@ -1,97 +1,117 @@
+/* ==========================================================================
+   Flock identity — 18 Aug 2026
+
+   Built from the brand SVGs in public/brand/: a lime sheep on ink. Lime
+   (#C0E42A) is the mark's colour, but it is a FILL, not a text colour — at
+   2.4:1 on white it fails every contrast bar. So the interface green is a
+   deeper olive drawn from the same family (the mark's own leg shade, #7E9A12,
+   darkened until it carries text), and the lime is kept for fills, the logo
+   and dark mode, where it belongs.
+
+   Names like --denim and --sage are historical. They're aliases now.
+   ========================================================================== */
+
 :root {
-  --ground:   #E9EAE5;
-  --surface:  #F7F8F4;
+  color-scheme: light;
+
+  /* paper, with a green cast so the lime never looks like it landed on grey */
+  --ground:   #F7F8F1;
+  --surface:  #EFF1E6;
   --raised:   #FFFFFF;
-  --ink:      #1A1F1D;
-  --ink-2:    #5C635E;
-  --ink-3:    #8A918B;
-  --rule:     #D3D6CE;
-  --rule-2:   #E2E4DD;
 
-  --denim:      #3A5570;
-  --denim-ink:  #FFFFFF;
-  --denim-soft: #DFE6EC;
+  --ink:      #171A12;   /* 16.8:1 on --raised */
+  --ink-2:    #545948;   /*  7.6:1 */
+  --ink-3:    #838974;   /*  3.9:1 — metadata only, never body text */
 
-  --sage:  #4E6B49;
-  --sage-soft: #DFE9DC;
-  --ochre: #8C6216;
-  --ochre-soft: #F0E6CF;
-  --brick: #9E3D2E;
-  --brick-soft: #F1DEDA;
+  --rule:     #DCE0CE;
+  --rule-2:   #E8EBDD;
 
-  --shadow: 0 1px 2px rgba(26, 31, 29, .06), 0 1px 1px rgba(26, 31, 29, .04);
+  /* brand */
+  --brand:       #4F7016;   /* 6.4:1 on --raised, 6.0:1 on --ground */
+  --brand-ink:   #FFFFFF;   /* 6.4:1 on --brand */
+  --brand-soft:  #E8F1D0;
+  --brand-line:  #CFDFA6;
+  --lime:        #C0E42A;   /* the mark's colour — fills and accents only */
 
-  --sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(23, 26, 18, .05), 0 1px 3px rgba(23, 26, 18, .04);
+  --shadow-md: 0 2px 4px rgba(23, 26, 18, .04), 0 8px 20px -6px rgba(23, 26, 18, .10);
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+          system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+
+  /* ---- aliases: ~75 existing call sites keep working untouched ----
+     Custom properties resolve at use time, so redefining these in the dark
+     blocks below re-resolves every var(--denim) downstream for free. */
+  --denim:      var(--brand);
+  --denim-ink:  var(--brand-ink);
+  --denim-soft: var(--brand-soft);
+
+  --sage:       #3D6B1E;  --sage-soft:  #E3EFD2;   /* profit */
+  --ochre:      #8A6114;  --ochre-soft: #F3EAD3;   /* attention */
+  --brick:      #A63D2B;  --brick-soft: #F6E2DD;   /* loss */
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --ground:   #131715;
-    --surface:  #1B201D;
-    --raised:   #222724;
-    --ink:      #E6E8E3;
-    --ink-2:    #9AA19B;
-    --ink-3:    #6E756F;
-    --rule:     #2E3531;
-    --rule-2:   #262C29;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
 
-    --denim:      #8FB4D6;
-    --denim-ink:  #101619;
-    --denim-soft: #22303C;
+    --ground:   #12140D;
+    --surface:  #1A1D14;
+    --raised:   #21251A;
 
-    --sage:  #8FB487;
-    --sage-soft: #1E2A1C;
-    --ochre: #D3A653;
-    --ochre-soft: #2C2415;
-    --brick: #DE8878;
-    --brick-soft: #2E1D19;
+    --ink:      #ECEFE2;
+    --ink-2:    #A0A691;
+    --ink-3:    #757B68;
 
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    --rule:     #2F3425;
+    --rule-2:   #262A1D;
+
+    /* lime finally gets to be the brand colour: 12.1:1 on --ground */
+    --brand:       #C0E42A;
+    --brand-ink:   #14180A;
+    --brand-soft:  #2A3312;
+    --brand-line:  #3C4A18;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .34);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, .3), 0 8px 20px -6px rgba(0, 0, 0, .45);
+
+    --sage:  #9CC96A;  --sage-soft:  #212B15;
+    --ochre: #D3A653;  --ochre-soft: #2C2415;
+    --brick: #DE8878;  --brick-soft: #2E1D19;
   }
 }
 
 :root[data-theme="dark"] {
-  --ground:   #131715;
-  --surface:  #1B201D;
-  --raised:   #222724;
-  --ink:      #E6E8E3;
-  --ink-2:    #9AA19B;
-  --ink-3:    #6E756F;
-  --rule:     #2E3531;
-  --rule-2:   #262C29;
-  --denim:      #8FB4D6;
-  --denim-ink:  #101619;
-  --denim-soft: #22303C;
-  --sage:  #8FB487;
-  --sage-soft: #1E2A1C;
-  --ochre: #D3A653;
-  --ochre-soft: #2C2415;
-  --brick: #DE8878;
-  --brick-soft: #2E1D19;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+
+  --ground:   #12140D;
+  --surface:  #1A1D14;
+  --raised:   #21251A;
+
+  --ink:      #ECEFE2;
+  --ink-2:    #A0A691;
+  --ink-3:    #757B68;
+
+  --rule:     #2F3425;
+  --rule-2:   #262A1D;
+
+  --brand:       #C0E42A;
+  --brand-ink:   #14180A;
+  --brand-soft:  #2A3312;
+  --brand-line:  #3C4A18;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .34);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, .3), 0 8px 20px -6px rgba(0, 0, 0, .45);
+
+  --sage:  #9CC96A;  --sage-soft:  #212B15;
+  --ochre: #D3A653;  --ochre-soft: #2C2415;
+  --brick: #DE8878;  --brick-soft: #2E1D19;
 }
 
-:root[data-theme="light"] {
-  --ground:   #E9EAE5;
-  --surface:  #F7F8F4;
-  --raised:   #FFFFFF;
-  --ink:      #1A1F1D;
-  --ink-2:    #5C635E;
-  --ink-3:    #8A918B;
-  --rule:     #D3D6CE;
-  --rule-2:   #E2E4DD;
-  --denim:      #3A5570;
-  --denim-ink:  #FFFFFF;
-  --denim-soft: #DFE6EC;
-  --sage:  #4E6B49;
-  --sage-soft: #DFE9DC;
-  --ochre: #8C6216;
-  --ochre-soft: #F0E6CF;
-  --brick: #9E3D2E;
-  --brick-soft: #F1DEDA;
-  --shadow: 0 1px 2px rgba(26, 31, 29, .06), 0 1px 1px rgba(26, 31, 29, .04);
-}
+/* Light is the bare :root above; this only has to beat the dark media query,
+   which it does on specificity (0,2,0 vs 0,1,0). Nothing to restate. */
+:root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -1717,3 +1737,97 @@ button.mchip:disabled { cursor: default; opacity: .5; }
   cursor: pointer;
 }
 .linkish:hover { color: var(--ink); }
+
+/* ==========================================================================
+   Flock identity, part two — 18 Aug 2026
+
+   The palette above repaints colour. This softens shape and weight, which is
+   what actually made the old screen read as a terminal: 3–4px radii, hairline
+   grids, and monospace uppercase micro-labels on every heading.
+
+   Appended, so it wins over both earlier layers without unpicking them.
+   ========================================================================== */
+
+.brandmark { align-items: center; gap: 9px; }
+.brandmark img { display: block; border-radius: 8px; }
+.brandmark strong { font-size: 18px; letter-spacing: -.03em; }
+
+/* Labels stop shouting. Monospace survives only where digits must line up —
+   prices, SKUs, counts — which is the one job it was actually doing. */
+.sectionhead h2,
+.tile-label,
+.filtergroup > span,
+.grid th {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+.sectionhead h2 { font-size: 15px; font-weight: 650; color: var(--ink); letter-spacing: -.015em; }
+.sectionhead p { font-size: 13px; }
+
+body { font-size: 15px; line-height: 1.55; }
+
+/* Cards, not spreadsheet cells. */
+.tiles {
+  gap: 12px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.tile {
+  background: var(--raised);
+  border: 1px solid var(--rule-2);
+  border-radius: 14px;
+  padding: 18px 20px 20px;
+  box-shadow: var(--shadow);
+}
+.tile-hero { background: var(--raised); }
+.tile-value { font-size: 30px; letter-spacing: -.03em; }
+
+.channelcard, .notice, .tablewrap, .board {
+  border-radius: 14px;
+}
+.channelcard { background: var(--raised); box-shadow: var(--shadow); }
+
+.pill {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  padding: 6px 13px;
+  background: var(--raised);
+  border-color: var(--rule);
+}
+.pill-on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.pill-on:hover { background: var(--brand); color: var(--brand-ink); }
+
+.button {
+  border-radius: 10px;
+  font-family: var(--sans);
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.navlinks { border-radius: 999px; }
+.navlink { font-family: var(--sans); font-size: 13.5px; letter-spacing: 0; text-transform: none; }
+.navlink-on, .navlink-on:hover { background: var(--brand); color: var(--brand-ink); }
+
+.topbar { border-bottom: none; }
+
+/* The item row is the densest thing here, so it gets air rather than a grid. */
+.grid { border-collapse: separate; border-spacing: 0 8px; }
+.grid th { border-bottom: none; padding-bottom: 4px; }
+.grid td {
+  background: var(--raised);
+  border-top: 1px solid var(--rule-2);
+  border-bottom: 1px solid var(--rule-2);
+  padding: 14px;
+}
+.grid td:first-child { border-left: 1px solid var(--rule-2); border-radius: 12px 0 0 12px; }
+.grid td:last-child  { border-right: 1px solid var(--rule-2); border-radius: 0 12px 12px 0; }
+.grid tbody tr:hover td { background: var(--brand-soft); border-color: var(--brand-line); }
+
+.badge { border-radius: 999px; font-family: var(--sans); letter-spacing: 0; text-transform: none; }
