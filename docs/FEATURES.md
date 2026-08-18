@@ -243,3 +243,70 @@ plus non-COGS expenses (supplies, postage, mileage). Feeds the tax-season wedge.
 
 Sourcing intelligence rather than selling. Deferred by agreement, and it needs a corpus
 of sold data Threader won't have for a while.
+
+---
+
+## Architecture question: could this run off the seller's machine?
+
+Asked 18 Aug 2026 — *"some virtual agent managing this so we don't have to run it on our
+main computer, and the VM is provisioned per user."*
+
+**Yes, it's buildable, and it's the only way to get true one-click-lists-everywhere.** A
+browser extension can only drive tabs on the machine it's installed on, while that machine
+is awake. Everything below is the honest trade.
+
+### The shape of it
+
+A per-user headful Chromium in a container — Browserbase, Steel, Kernel, or self-hosted
+Playwright behind Xvfb. Threader stores that user's marketplace session cookies, hydrates
+the container, drives the sell forms, and tears it down. Sessions hibernate between jobs so
+you're not paying for idle browsers.
+
+### What it buys
+
+- One button genuinely fans out to N marketplaces **in parallel**, in seconds.
+- Works with the laptop shut. Polling for offers, messages and sold-status becomes a cron
+  job rather than something that depends on the seller having Chrome open.
+- No extension install, which removes the single biggest onboarding drop-off — and the
+  Chrome Web Store review entirely.
+
+### What it costs
+
+1. **Credential custody is the real one.** Today Threader never holds marketplace
+   credentials; the seller's own browser does. Moving server-side means holding session
+   cookies for every user — a breach becomes mass account takeover across five
+   marketplaces. That changes the security posture from "modest" to "we are now a
+   credentials company", with the encryption, rotation, audit and insurance that implies.
+   The `channel_accounts` plaintext-token gap would have to be closed first, not later.
+2. **Detection gets much harder.** Datacenter IPs, fresh browser fingerprints and
+   server-timed interactions are precisely what Cloudflare, DataDome and reCAPTCHA v3
+   score. Mercari's form already carries invisible reCAPTCHA, and its sell page has served
+   an empty document on repeat visits. Mitigating means per-user residential proxies —
+   more cost, and its own legal texture.
+3. **ToS.** A seller automating their own browser is a grey area sellers themselves take
+   on. Threader running automation from its own infrastructure, holding their credentials,
+   is a much clearer violation and puts the liability on Threader rather than the user.
+4. **Cost per user.** A warm browser is cents per hour but users are many and listings are
+   bursty; this is a real per-seat COGS line that the current architecture simply doesn't
+   have.
+5. **Re-auth.** Sessions expire and 2FA challenges land. Something has to pull the user
+   back in, and that flow is the least fun part of the build.
+
+### Recommended path
+
+- **Keep writes in the seller's browser for now.** Listing is the risky, ban-prone action,
+  and it's the one where "a real person clicked it from their own IP" is doing genuine work.
+- **Move reads to the cloud first.** Polling messages, offers and sold-status is lower risk
+  than posting, is what unlocks auto-delist (L1) and the offers queue, and it's the part
+  that most needs to run while the laptop is shut. Same cookie-custody problem, so encrypt
+  first — but a smaller blast radius and no bot-detected *writes*.
+- **Use real APIs wherever they exist.** eBay has one and Etsy and Shopify do too. Those
+  should never touch a browser, cloud or local. Every channel moved onto an API is one
+  fewer that needs any of this.
+- **Revisit full cloud posting** once there's revenue to justify residential proxies and a
+  security posture worth the name.
+
+The honest summary: the extension is the *right* architecture for a product with no users
+and one engineer, and the *wrong* one for a product with ten thousand. Don't rebuild it
+yet — but assume it gets rebuilt, and keep the fillers as pure DOM functions so they port
+to Playwright with minimal change. They already are.
