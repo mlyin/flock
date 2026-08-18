@@ -226,6 +226,27 @@ const PUBLISHED_URL = {
 };
 
 /**
+ * Pages a marketplace sends you to after publishing that AREN'T the listing.
+ *
+ * Vinted drops you on your own profile (/member/<id>?promo_shown=true) with a
+ * "Item listed" dialog over it — the listing URL is never visited, so watching
+ * for /items/<id> waits forever on a listing that went live seconds ago.
+ *
+ * The listing is still reachable: it's the newest card on that profile. So
+ * treat these as "published" too, and go find the URL rather than give up.
+ */
+const PUBLISHED_VIA = {
+  vinted: {
+    landing: /^https:\/\/(www\.)?vinted\.com\/member\/\d+/i,
+    // Newest first on a profile, so the first item link is the one just made.
+    find: () => {
+      const link = document.querySelector('a[href*="/items/"]');
+      return link ? new URL(link.getAttribute('href'), location.origin).href : null;
+    },
+  },
+};
+
+/**
  * Watch the filled tab until it lands on a listing URL, then record it.
  *
  * Gives up after ten minutes and detaches on tab close, so a seller who fills a
@@ -233,7 +254,8 @@ const PUBLISHED_URL = {
  */
 function watchForPublish(tabId, listingId, channel) {
   const pattern = PUBLISHED_URL[channel];
-  if (!pattern) return;
+  const via = PUBLISHED_VIA[channel];
+  if (!pattern && !via) return;
 
   let done = false;
 
@@ -247,17 +269,40 @@ function watchForPublish(tabId, listingId, channel) {
 
   const onUpdated = async (changedTabId, info) => {
     if (changedTabId !== tabId || !info.url) return;
-    if (!pattern.test(info.url)) return;
+
+    const direct = pattern && pattern.test(info.url);
+    const landed = via && via.landing.test(info.url);
+    if (!direct && !landed) return;
 
     finish();
+
+    let url = info.url;
+    if (!direct && landed) {
+      // The profile renders its cards after load, so give it a moment before
+      // looking. If the link still isn't there, record nothing rather than
+      // save the profile URL as though it were the listing — a wrong link is
+      // worse than none, because it looks like it worked.
+      await new Promise((r) => setTimeout(r, 2500));
+      try {
+        const [hit] = await chrome.scripting.executeScript({
+          target: { tabId },
+          func: via.find,
+        });
+        if (!hit?.result) return;
+        url = hit.result;
+      } catch {
+        return;
+      }
+    }
+
     try {
       await api(`/api/ext/listing/${listingId}/posted`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: info.url }),
+        body: JSON.stringify({ url }),
       });
       await chrome.storage.local.set({
-        lastPublished: { listingId, channel, url: info.url, at: Date.now() },
+        lastPublished: { listingId, channel, url, at: Date.now() },
       });
     } catch {
       // The shop sync will catch it later; don't interrupt the seller with an

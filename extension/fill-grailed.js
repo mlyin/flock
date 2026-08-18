@@ -451,7 +451,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const designerEmpty = !document.querySelector(FIELD.designer)?.value?.trim();
     // Respond BEFORE clicking Publish — the navigation kills this script,
     // and a publish that worked was being reported as a 90-second timeout.
-    const submitting = Boolean(message.autoSubmit) && blocked.length === 0 && !designerEmpty;
+    // A listing with no photos is rejected everywhere, and the rejection
+    // usually clears the form — so never submit one.
+    const hasPhotos = filled.some((x) => /photo/.test(x));
+    const submitting = Boolean(message.autoSubmit) && blocked.length === 0 && !designerEmpty && hasPhotos;
+    if (Boolean(message.autoSubmit) && !hasPhotos) missing.push("not submitted — no photos attached");
     if (Boolean(message.autoSubmit) && designerEmpty) missing.push("not submitted — designer is still empty");
     if (!message.autoSubmit) missing.push("auto-submit off — tick it in the popup");
     if (submitting) filled.push("submitting — the tab will land on the listing");

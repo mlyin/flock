@@ -591,7 +591,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Respond BEFORE clicking submit: the click navigates this tab, which
     // kills the content script — waiting to report afterwards turned every
     // successful publish into "didn't finish within 90 seconds".
-    const submitting = Boolean(message.autoSubmit) && blocked.length === 0;
+    // A listing with no photos is rejected everywhere, and the rejection
+    // usually clears the form — so never submit one.
+    const hasPhotos = filled.some((x) => /photo/.test(x));
+    const submitting = Boolean(message.autoSubmit) && blocked.length === 0 && hasPhotos;
+    if (Boolean(message.autoSubmit) && !hasPhotos) missing.push("not submitted — no photos attached");
     if (!message.autoSubmit) missing.push("auto-submit off — tick it in the popup");
     if (submitting) filled.push("submitting — the tab will land on the listing");
     banner(filled, missing, blocked);

@@ -201,23 +201,63 @@ function unfilledControls() {
     .slice(0, 8);
 }
 
+/**
+ * Attach photos, whatever shape Depop's uploader is in today.
+ *
+ * It used to be one multi-file input. The form now shows named slots — Cover
+ * photo, Front, Back, Side, Label, Detail, Flaw — so a single DataTransfer
+ * assigned to one input can leave the rest empty, and 'no photos' is fatal:
+ * Depop refuses the listing and RESETS the form, which looks to the seller
+ * like the fill worked and then undid itself.
+ *
+ * So: load the files once, try the multi-file input, and if that doesn't take,
+ * fall back to one file per input like Grailed.
+ */
 async function attachPhotos(urls) {
-  const input = document.getElementById(FIELD.photos);
-  if (!input || urls.length === 0) return false;
+  if (!urls || urls.length === 0) return 0;
 
-  const transfer = new DataTransfer();
+  const files = [];
   for (const [i, url] of urls.entries()) {
-    const response = await fetch(url);
-    if (!response.ok) continue;
-    const blob = await response.blob();
-    transfer.items.add(new File([blob], `photo-${i + 1}.jpg`, { type: blob.type || "image/jpeg" }));
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      files.push(new File([blob], `photo-${i + 1}.jpg`, { type: blob.type || "image/jpeg" }));
+    } catch {
+      // One unreachable signed URL shouldn't lose the others.
+    }
   }
-  if (transfer.files.length === 0) return false;
+  if (files.length === 0) return 0;
 
-  input.files = transfer.files;
-  input.dispatchEvent(new Event("change", { bubbles: true }));
-  await wait(2500); // uploads have to finish before Continue will accept
-  return true;
+  const inputs = [...document.querySelectorAll('input[type="file"]')].filter(
+    (el) => !el.disabled
+  );
+  if (inputs.length === 0) return 0;
+
+  // Multi-file input: everything in one go.
+  const multi = inputs.find((el) => el.multiple);
+  if (multi) {
+    const transfer = new DataTransfer();
+    for (const file of files) transfer.items.add(file);
+    multi.files = transfer.files;
+    multi.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(3000); // uploads must finish before Depop accepts Continue
+    if (multi.files.length > 0 || document.querySelector('img[src^="blob:"]')) {
+      return files.length;
+    }
+  }
+
+  // One slot per photo.
+  let attached = 0;
+  for (let i = 0; i < files.length && i < inputs.length; i += 1) {
+    const transfer = new DataTransfer();
+    transfer.items.add(files[i]);
+    inputs[i].files = transfer.files;
+    inputs[i].dispatchEvent(new Event("change", { bubbles: true }));
+    attached += 1;
+    await wait(1500);
+  }
+  return attached;
 }
 
 /**
@@ -270,10 +310,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const autoSubmit = Boolean(message.autoSubmit);
     const filled = [];
     const missing = [];
+    let photoCount = 0;
 
     // Photos first: uploads take time, and Continue won't accept without them.
     try {
-      if (await attachPhotos(p.photos || [])) filled.push("photos");
+      photoCount = await attachPhotos(p.photos || []);
+      if (photoCount > 0) filled.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
       else missing.push("photos");
     } catch (error) {
       missing.push(`photos (${error.message})`);
@@ -325,7 +367,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (!autoSubmit) missing.push("auto-submit off — tick it in the popup");
 
-    if (autoSubmit && blocked.length === 0) {
+    // No photos, no submit. `blocked` is built from required inputs, and a
+    // type=file input is explicitly skipped by that check — so a listing
+    // with zero images looked complete, Post was clicked, and Depop
+    // rejected it and reset the whole form. The seller watches every field
+    // fill and then empty itself, which reads as Flock undoing its own work.
+    if (autoSubmit && photoCount === 0) {
+      missing.push("not submitted — no photos attached");
+    } else if (autoSubmit && blocked.length === 0) {
       for (let step = 0; step < 4; step += 1) {
         const advance = [...document.querySelectorAll("button")].find(
           (b) =>
