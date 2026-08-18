@@ -35,7 +35,7 @@ const jobs = [
   { src: face, size: 32, to: path.join(OUT, "icon-32.png") },
   { src: sheep, size: 48, to: path.join(OUT, "icon-48.png") },
   { src: sheep, size: 128, to: path.join(OUT, "icon-128.png") },
-  { src: face, size: 64, to: path.join(ROOT, "app", "icon.png") },
+  { src: face, size: 512, to: path.join(ROOT, "app", "icon.png") },
   { src: sheep, size: 180, to: path.join(ROOT, "app", "apple-icon.png") },
 ];
 
