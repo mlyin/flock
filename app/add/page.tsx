@@ -15,7 +15,7 @@ export default async function InboxPage() {
 
   const inbox: InboxPhoto[] = photos
     .filter((p) => signed[p.storage_path])
-    .map((p) => ({ id: p.id, url: signed[p.storage_path], bytes: p.bytes }));
+    .map((p) => ({ id: p.id, url: signed[p.storage_path], bytes: p.bytes, createdAt: p.created_at }));
 
   const supabase = await supabaseServer();
   const { data: unreviewed } = await supabase

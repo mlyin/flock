@@ -1928,3 +1928,55 @@ body { font-size: 15px; line-height: 1.55; }
   .landing-hero { padding-top: 40px; }
   .landing-band, .landing-foot { padding: 40px 0; margin-top: 40px; }
 }
+
+/* ==========================================================================
+   Add screen — garments, not a wall of photos
+
+   It used to be one flat grid: with four photos of two garments you had to
+   remember which was which and tick the right boxes. Photos now arrive grouped
+   by when they were taken, as cards you act on one at a time.
+   ========================================================================== */
+
+.garments { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+
+.garment {
+  background: var(--raised);
+  border: 1px solid var(--rule-2);
+  border-radius: 14px;
+  padding: 14px 16px 16px;
+  box-shadow: var(--shadow);
+}
+.garment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.garment-head strong { font-size: 15px; letter-spacing: -.01em; }
+.garment-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.garment-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.garment-shot { margin: 0; }
+.garment-shot img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--surface);
+  display: block;
+}
+.garment-shot figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11.5px;
+}
+.garment-shot-acts { display: flex; gap: 10px; }
