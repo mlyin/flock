@@ -29,6 +29,11 @@ export default async function ConnectPage() {
         </p>
       </div>
 
+      <p>
+        Don&apos;t have the extension yet? <a href="/install">Install it</a> — it&apos;s a
+        one-minute manual install until the Chrome Web Store listing is approved.
+      </p>
+
       <PairExtension existing={tokens?.length ?? 0} />
 
       {(tokens?.length ?? 0) > 0 && (
