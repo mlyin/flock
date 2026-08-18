@@ -336,7 +336,26 @@ So The RealReal is `CHANNEL_ACCESS: "manual"`. Flock tracks custody, projects
 the payout and writes the intake condition report; the consignment itself is
 done by hand.
 
-## Facebook Marketplace — not yet read — 18 Aug 2026
+## Facebook Marketplace — still not read — 18 Aug 2026 (second attempt)
+
+Retried with the account signed in elsewhere. Three things, in order:
+
+1. `facebook.com/marketplace/create/item` **redirects to `/marketplace/`**. So does
+   `/marketplace/create/`. The create route is not directly addressable.
+2. Clicking Marketplace's own "Create new listing" link (`a[href="/marketplace/create/"]`)
+   also lands back on `/marketplace/`.
+3. The page is serving the **logged-out** Marketplace: `document.cookie` has no
+   `c_user`, and `input[name="email"]` / `input[name="pass"]` are present.
+
+So the blocker is a missing session in this browser profile, not a selector problem —
+Depop, Vinted, Grailed and The RealReal all had live sessions in the same profile at the
+same time. Sign in to facebook.com here and the form can be read properly.
+
+Worth expecting once it is: Meta's automation detection is the most aggressive of any
+channel here, and Marketplace listings settle as local pickup (no fee) or shipped (fee),
+which is why `lib/fees.ts` models the shipped case and says so.
+
+## Facebook Marketplace — not yet read — 18 Aug 2026 (first attempt)
 
 `facebook.com/marketplace/create/item` redirected to `/marketplace/` and served
 a login wall (`Email or phone number` / `Password`), so **no selectors have been
