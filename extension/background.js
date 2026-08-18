@@ -176,6 +176,76 @@ async function syncDepopMessages(maxThreads = 20) {
   }
 }
 
+
+/**
+ * Published-listing URL shapes.
+ *
+ * After the seller clicks List, the marketplace navigates the very tab we
+ * filled to the new listing. That navigation is the notification nobody was
+ * sending us — no "I published it" button required.
+ *
+ * depop is verified against a real listing:
+ *   /products/yumseller21-ivory-soho-pullover-brand-alo-ab33/
+ * The others follow each site's public listing URLs and will be confirmed the
+ * first time one is published. A miss is not fatal: the shop sync backfills the
+ * URL within the hour, and the manual control is still there.
+ */
+const PUBLISHED_URL = {
+  depop: /^https:\/\/(www\.)?depop\.com\/products\/(?!create|edit)[^/]+\/?$/i,
+  vinted: /^https:\/\/(www\.)?vinted\.com\/items\/\d+/i,
+  grailed: /^https:\/\/(www\.)?grailed\.com\/listings\/\d+/i,
+  mercari: /^https:\/\/(www\.)?mercari\.com\/(item|us\/item)\/[^/]+/i,
+};
+
+/**
+ * Watch the filled tab until it lands on a listing URL, then record it.
+ *
+ * Gives up after ten minutes and detaches on tab close, so a seller who fills a
+ * form and wanders off doesn't leave a listener running for the session.
+ */
+function watchForPublish(tabId, listingId, channel) {
+  const pattern = PUBLISHED_URL[channel];
+  if (!pattern) return;
+
+  let done = false;
+
+  const finish = () => {
+    if (done) return;
+    done = true;
+    chrome.tabs.onUpdated.removeListener(onUpdated);
+    chrome.tabs.onRemoved.removeListener(onRemoved);
+    clearTimeout(timer);
+  };
+
+  const onUpdated = async (changedTabId, info) => {
+    if (changedTabId !== tabId || !info.url) return;
+    if (!pattern.test(info.url)) return;
+
+    finish();
+    try {
+      await api(`/api/ext/listing/${listingId}/posted`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: info.url }),
+      });
+      await chrome.storage.local.set({
+        lastPublished: { listingId, channel, url: info.url, at: Date.now() },
+      });
+    } catch {
+      // The shop sync will catch it later; don't interrupt the seller with an
+      // error about bookkeeping they didn't ask for.
+    }
+  };
+
+  const onRemoved = (closedTabId) => {
+    if (closedTabId === tabId) finish();
+  };
+
+  const timer = setTimeout(finish, 10 * 60 * 1000);
+  chrome.tabs.onUpdated.addListener(onUpdated);
+  chrome.tabs.onRemoved.addListener(onRemoved);
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
@@ -227,6 +297,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         if (result?.missing?.length || result?.blocked?.length) {
           await chrome.windows.update(tab.windowId, { state: "normal", focused: true });
         }
+
+        // The seller now reviews and clicks List themselves. Watch that tab so
+        // the resulting URL records itself instead of being typed back in.
+        watchForPublish(tab.id, message.listingId, payload.channel);
 
         sendResponse({ ok: true, data: result });
         return;

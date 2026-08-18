@@ -24,7 +24,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (body.url) {
     try {
       const parsed = new URL(body.url);
-      const allowed = ["depop.com", "www.depop.com", "mercari.com", "www.mercari.com"];
+      const allowed = [
+        "depop.com", "www.depop.com",
+        "mercari.com", "www.mercari.com",
+        "vinted.com", "www.vinted.com",
+        "grailed.com", "www.grailed.com",
+        "ebay.com", "www.ebay.com",
+        "poshmark.com", "www.poshmark.com",
+      ];
       if (parsed.protocol === "https:" && allowed.includes(parsed.hostname)) url = parsed.toString();
     } catch {
       // ignore an unparseable url; the status update still matters

@@ -31,7 +31,6 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
   const [installed, setInstalled] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ channel: Channel; text: string; ok: boolean } | null>(null);
-  const [justFilled, setJustFilled] = useState<Channel | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,9 +59,8 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
               ? `Left for you: ${problems.slice(0, 4).join(", ")}.`
               : "Everything went in — review it there and hit publish.",
         });
-        // The form is filled but not submitted. Ask for the link once they've
-        // published, because nothing else will tell us it went live.
-        if (data.ok) setJustFilled(row.channel);
+        // No prompt here any more: background.js watches this tab and records
+        // the URL itself as soon as the marketplace navigates to the listing.
         router.refresh();
       }
     };
@@ -141,11 +139,16 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
                       Post step by step
                     </Link>
                   )}
+                  {/* Fallback only. The extension watches the tab it filled and
+                      records the URL the moment the marketplace navigates to the
+                      new listing, so this is for the cases it can't see: a
+                      listing published from another tab, another device, or
+                      before the watcher was added. */}
                   <UrlBox
                     listingId={row!.listingId!}
                     mode="publish"
-                    label="I published it"
-                    open={justFilled === channel}
+                    label="Mark live by hand"
+                    subtle
                   />
                 </>
               )}
@@ -171,11 +174,13 @@ function UrlBox({
   mode,
   label,
   open: initiallyOpen,
+  subtle,
 }: {
   listingId: string;
   mode: "publish" | "save";
   label: string;
   open?: boolean;
+  subtle?: boolean;
 }) {
   const [open, setOpen] = useState(Boolean(initiallyOpen));
   const [url, setUrl] = useState("");
@@ -189,7 +194,11 @@ function UrlBox({
 
   if (!open) {
     return (
-      <button type="button" className="button button-sm button-quiet" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className={subtle ? "linkish" : "button button-sm button-quiet"}
+        onClick={() => setOpen(true)}
+      >
         {label}
       </button>
     );
