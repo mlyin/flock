@@ -125,7 +125,14 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
 
               {!live && drafted && (
                 <>
-                  {installed ? (
+                  {/* A manual channel has no form to fill — The RealReal takes
+                      the item in by hand and lists it itself. Offering "Fill"
+                      there would be a button whose only outcome is an error. */}
+                  {CHANNEL_ACCESS[channel] === "manual" ? (
+                    <Link href={`/post/${item}`} className="button button-sm button-quiet">
+                      Intake copy
+                    </Link>
+                  ) : installed ? (
                     <button
                       type="button"
                       className="button button-sm"

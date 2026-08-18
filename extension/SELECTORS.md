@@ -299,3 +299,50 @@ from the seller. The filler detects the revert and names the exact string to typ
 (`designer — type "Alo Yoga"`) rather than reporting a vague skip. Filling it
 automatically would need `chrome.debugger`, whose permanent "debugging this browser"
 banner is not worth one field.
+
+---
+
+## The RealReal — no filler, and why — 18 Aug 2026
+
+Read live while signed in. Recorded here so nobody spends a day writing
+`fill-therealreal.js` before discovering the same three things.
+
+**There is no per-item listing form.** `therealreal.com/sell` redirects to
+`/sell-trr` and its "SELL NOW" opens a lead capture, not a listing:
+
+```
+input[name="firstName"]   input[name="lastName"]   input[name="email"]
+input[name="phone"]       input[name="postalCode"] input[name="tos"]  (checkbox)
+button "Continue"
+```
+
+That form starts a consignment *conversation*. After it you ship the item in,
+and The RealReal photographs, authenticates, prices and lists it. The seller
+never writes a listing, so there is nothing for a filler to fill.
+
+**Its ids are React-generated and unstable** — `field-_R_grn9l6klmlst6_` and
+similar, regenerated per render. Anything here must key off `name`, never `id`.
+This is worth remembering for other React sites that look id-addressable.
+
+**It blocks automated navigation.** `therealreal.com/dashboard` returned
+`Access to this page has been denied` in an automated tab on a signed-in
+session — bot mitigation, the same family of problem as Mercari serving an
+empty document. Not investigated further, because there was nothing to reach.
+
+**Not submitted.** The Continue button was deliberately not clicked: it posts a
+real name, email and phone and starts an actual consignment request.
+
+So The RealReal is `CHANNEL_ACCESS: "manual"`. Flock tracks custody, projects
+the payout and writes the intake condition report; the consignment itself is
+done by hand.
+
+## Facebook Marketplace — not yet read — 18 Aug 2026
+
+`facebook.com/marketplace/create/item` redirected to `/marketplace/` and served
+a login wall (`Email or phone number` / `Password`), so **no selectors have been
+read and none should be guessed.** The channel exists in the data model and in
+the fee table; `fill-facebook.js` waits on a signed-in DOM read.
+
+Worth knowing before that read: Meta's automation detection is aggressive, and
+Marketplace listings settle either as local pickup (no fee) or shipped (fee),
+which is why the fee note there hedges.

@@ -1612,6 +1612,11 @@ button.mchip:disabled { cursor: default; opacity: .5; }
 .chanmark-vinted::after   { content: "V"; }
 .chanmark-grailed  { background: #303030; }
 .chanmark-grailed::after  { content: "G"; }
+.chanmark-facebook { background: #1877f2; }
+.chanmark-facebook::after { content: "f"; }
+/* Consignment, so it reads differently on purpose — this one takes the item away. */
+.chanmark-therealreal { background: #6b5b95; }
+.chanmark-therealreal::after { content: "R"; }
 
 .boardrow-money { margin-left: auto; text-align: right; }
 .boardrow-price {

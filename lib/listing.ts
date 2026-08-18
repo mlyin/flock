@@ -11,9 +11,24 @@ import type { Channel } from "./fees";
  * why this generates both from one record rather than reusing one string.
  */
 
-export const LISTABLE: Channel[] = ["ebay", "depop", "mercari", "vinted", "grailed"];
+export const LISTABLE: Channel[] = [
+  "ebay",
+  "depop",
+  "mercari",
+  "vinted",
+  "grailed",
+  "facebook",
+  "therealreal",
+];
 
-export const CHANNEL_BRIEF: Record<"ebay" | "depop" | "vinted" | "grailed", string> = {
+export const CHANNEL_BRIEF: Record<
+  "ebay" | "depop" | "vinted" | "grailed" | "facebook" | "therealreal",
+  string
+> = {
+  facebook:
+    "Local and plain-spoken. Most Marketplace buyers are nearby and skimming on a phone, so lead with what it is, the size and the condition in the first line. No hashtags, no marketplace slang. Mention if you'd meet up.",
+  therealreal:
+    "Written for an authenticator, not a buyer. The RealReal writes its own copy — this is the intake description, so it should read like a condition report: brand, exact model or line if known, material, measurements, and every flaw stated plainly. Understating wear here gets an item rejected on arrival.",
   ebay: "Keyword-dense and literal. Buyers arrive by search, so the title carries brand, garment, size, colour, and any collectible detail. No slang, no personality.",
   depop: "Conversational and scroll-stopping. Buyers browse a feed, so lead with the vibe and the fit. Lowercase is normal. Never sound like a catalogue.",
   vinted: "Plain and practical. A clear product name and a straight description of what arrives. Vinted buyers are bargain-minded and read carefully — measurements and honest wear notes matter more than atmosphere.",

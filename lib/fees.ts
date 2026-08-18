@@ -6,9 +6,26 @@
  * pages and will go stale. `verifiedOn` is there to shame you into rechecking.
  */
 
-export type Channel = "ebay" | "poshmark" | "depop" | "mercari" | "vinted" | "grailed";
+export type Channel =
+  | "ebay"
+  | "poshmark"
+  | "depop"
+  | "mercari"
+  | "vinted"
+  | "grailed"
+  | "therealreal"
+  | "facebook";
 
-export const CHANNELS: Channel[] = ["ebay", "poshmark", "depop", "mercari", "vinted", "grailed"];
+export const CHANNELS: Channel[] = [
+  "ebay",
+  "poshmark",
+  "depop",
+  "mercari",
+  "vinted",
+  "grailed",
+  "facebook",
+  "therealreal",
+];
 
 export const CHANNEL_LABEL: Record<Channel, string> = {
   ebay: "eBay",
@@ -17,6 +34,8 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   mercari: "Mercari",
   grailed: "Grailed",
   vinted: "Vinted",
+  facebook: "Facebook",
+  therealreal: "The RealReal",
 };
 
 /** Short form for the channel matrix, where horizontal space is scarce. */
@@ -27,17 +46,52 @@ export const CHANNEL_ABBR: Record<Channel, string> = {
   mercari: "MC",
   grailed: "GR",
   vinted: "VT",
+  facebook: "FB",
+  therealreal: "TRR",
 };
 
-/** How each channel can be written to. Drives what stage 03 can automate. */
-export const CHANNEL_ACCESS: Record<Channel, "api" | "extension"> = {
+/**
+ * How each channel can be written to.
+ *
+ * `manual` is not "we haven't got to it yet" — it means automation is the wrong
+ * tool. The RealReal has no per-item listing form to fill: its Sell flow is a
+ * lead capture (name, email, phone, postcode) that starts a consignment
+ * conversation, after which you ship the item and *they* photograph, price and
+ * list it. Its dashboard also returns "Access to this page has been denied" to
+ * an automated tab, so it actively blocks this kind of driving. Read live,
+ * 18 Aug 2026.
+ *
+ * Flock still earns its keep on a manual channel: it tracks custody, projects
+ * the payout, and writes the intake condition report. It just doesn't pretend
+ * to click through a form that doesn't exist.
+ */
+export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
   ebay: "api",
   poshmark: "extension",
   depop: "extension",
   mercari: "extension",
   grailed: "extension",
   vinted: "extension",
+  facebook: "extension",
+  therealreal: "manual",
 };
+
+/**
+ * Channels that take physical custody of the item.
+ *
+ * You ship the garment to them; they authenticate, photograph, price and sell
+ * it. Two consequences the rest of the app has to respect:
+ *
+ * 1. **Consigning is exclusive.** While they hold it you cannot fulfil a sale
+ *    anywhere else, so a consigned item must not be offered for listing on
+ *    another channel. See `items.custody`.
+ * 2. **You don't set the price.** Every other channel's net is "what I clear at
+ *    my ask". Here the consignor prices it, so the honest projection is a
+ *    payout band against an *estimated* sale price, not a number.
+ */
+export const CONSIGNMENT: Channel[] = ["therealreal"];
+
+export const isConsignment = (channel: Channel) => CONSIGNMENT.includes(channel);
 
 type Basis = "item" | "item_plus_shipping";
 export type FeeKind = "commission" | "payment" | "shipping" | "promo";
@@ -115,6 +169,29 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
     note: "No seller-side fee — the buyer pays the protection fee. This is why Vinted nets highest per sale.",
     rules: [],
   },
+  facebook: {
+    verifiedOn: "unverified",
+    note:
+      "Local pickup is free — cash changes hands and Meta isn't involved. The fee only applies to shipped orders, " +
+      "with a minimum on cheap items. Because the same listing can settle either way, a net figure here is a " +
+      "guess about how it sells, not a property of the channel. Modelled as shipped, the worse case.",
+    rules: [
+      { kind: "commission", label: "Selling fee (shipped orders)", type: "percent", rate: 0.05, basis: "item" },
+    ],
+  },
+  therealreal: {
+    verifiedOn: "unverified",
+    note:
+      "CONSIGNMENT — read this before trusting any number. The RealReal sets the sale price, not you, and pays a " +
+      "commission on whatever it eventually sells for. The rate is tiered by category and by your trailing annual " +
+      "sales, so a single percentage is a simplification of a table that moves. Fine jewellery and watches are on " +
+      "different terms again. The commission below is a placeholder standing in for the lowest ordinary tier: it " +
+      "will understate what a high-volume consignor earns and may overstate a first-timer's. Verify against a real " +
+      "payout statement before showing anyone a net.",
+    rules: [
+      { kind: "commission", label: "Consignment commission", type: "percent", rate: 0.45, basis: "item" },
+    ],
+  },
 };
 
 export type ComputedFee = { kind: FeeKind; label: string; amount: number };
@@ -148,8 +225,35 @@ export function computeFees(
 }
 
 /**
+ * What a consignor would pay you if the item sold at this price.
+ *
+ * Separate from `projectedNet` because the input means something different. On
+ * Depop, `price` is a decision you made and the net follows from it. Here it's
+ * an assumption about what a stranger will price it at and what a buyer will
+ * pay — so the honest presentation is a band and a label saying "if it sells
+ * around this", never a figure sitting next to real ones as though it were the
+ * same kind of fact.
+ */
+export function projectedPayout(
+  channel: Channel,
+  estimatedSalePrice: number
+): { low: number; high: number } {
+  const fees = computeFees(channel, { soldPrice: estimatedSalePrice, shippingCollected: 0 });
+  const commission = fees.reduce((sum, f) => sum + f.amount, 0);
+  const mid = estimatedSalePrice - commission;
+
+  // ±20% around the point estimate. The commission tier alone moves the payout
+  // by more than that, and pretending otherwise is how a guess starts looking
+  // like a quote.
+  return { low: cents(mid * 0.8), high: cents(mid * 1.2) };
+}
+
+/**
  * What you'd clear on this item, on this channel, at this price — before cost basis.
  * Use it to answer "where should I list this?" rather than guessing at headline rates.
+ *
+ * Not meaningful for consignment channels, where you don't set the price —
+ * use `projectedPayout` for those.
  */
 export function projectedNet(
   channel: Channel,
