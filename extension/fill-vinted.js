@@ -119,6 +119,93 @@ function findByLabel(patterns) {
   return null;
 }
 
+/**
+ * The post-category fields are read-only inputs that OPEN A PANEL, exactly
+ * like #category. Typing into them does nothing, which is why brand, size and
+ * condition were never filled. Each panel was read live on 18 Aug 2026:
+ *
+ *   #brand      -> #brand-search-input, rows are input[id^="brand-radio-"]
+ *   #size       -> grid of labels reading "L / US 12"
+ *   #condition  -> list of five rows titled New with tags / New without tags /
+ *                  Very good / Good / Satisfactory
+ */
+async function openPanel(fieldSel, choose) {
+  const field = document.querySelector(fieldSel);
+  if (!field) return false;
+  pointerClick(field);
+  await wait(800);
+  const ok = await choose(field);
+  if (!ok) {
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await wait(300);
+  }
+  return ok;
+}
+
+async function setVintedBrand(candidates) {
+  for (const candidate of candidates.filter(Boolean)) {
+    const ok = await openPanel("#brand", async (field) => {
+      const search = document.querySelector("#brand-search-input");
+      if (!search) return false;
+      setNativeValue(search, String(candidate));
+      await wait(1200);
+      const want = String(candidate).trim().toLowerCase();
+      // Exact and unambiguous, or nothing: the Aloye incident rule.
+      const rows = [...document.querySelectorAll('input[id^="brand-radio-"]')]
+        .map((radio) => ({ radio, holder: radio.closest("li, [class*=item], [class*=cell]") }))
+        .filter((r) => r.holder && r.holder.innerText.trim().toLowerCase() === want);
+      if (rows.length !== 1) return false;
+      pointerClick(rows[0].holder.querySelector("label") ?? rows[0].radio);
+      await wait(900);
+      return field.value.trim().toLowerCase() === want;
+    });
+    if (ok) return candidate;
+  }
+  return null;
+}
+
+async function setVintedSize(size) {
+  if (!size) return false;
+  return openPanel("#size", async (field) => {
+    const want = String(size).trim().toLowerCase();
+    // Options read "L / US 12" — the leading segment is the size itself.
+    const target = [...document.querySelectorAll("label, [role=option], li")]
+      .filter((e) => e.offsetParent !== null)
+      .find((e) => e.innerText.trim().split("/")[0].trim().toLowerCase() === want);
+    if (!target) return false;
+    pointerClick(target);
+    await wait(800);
+    return Boolean(field.value);
+  });
+}
+
+/**
+ * Flock's condition -> Vinted's label. nwt/excellent/good/fair on one side,
+ * five fixed rows on the other. excellent maps to "Very good" because
+ * Vinted's "New without tags" asserts the item is UNUSED — a claim we can't
+ * make for a worn-but-clean garment.
+ */
+const VINTED_CONDITION = {
+  nwt: "New with tags",
+  excellent: "Very good",
+  good: "Good",
+  fair: "Satisfactory",
+};
+
+async function setVintedCondition(condition) {
+  const label = VINTED_CONDITION[condition];
+  if (!label) return false;
+  return openPanel("#condition", async (field) => {
+    const want = label.toLowerCase();
+    const target = [...document.querySelectorAll("label, [role=option], li")]
+      .filter((e) => e.offsetParent !== null)
+      .find((e) => (e.innerText.trim().split("\n")[0] ?? "").trim().toLowerCase() === want);
+    if (!target) return false;
+    pointerClick(target);
+    await wait(800);
+    return Boolean(field.value);
+  });
+}
 async function attachPhotos(urls) {
   const input = document.querySelector(FIELD.photos);
   if (!input || urls.length === 0) return false;
@@ -363,29 +450,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // candidate: an alias is a statement that two names are the same company,
     // not a licence to prefix-match, which is what once put "Aloye" on a live
     // Alo listing.
-    const brandEl = item.brand && findByLabel([/brand/]);
     const candidates = item.brandCandidates?.length ? item.brandCandidates : [item.brand];
-    let brandSet = null;
-    if (brandEl) {
-      for (const candidate of candidates) {
-        if (candidate && (await pick(`#${brandEl.id}`, candidate, { exact: true }))) {
-          brandSet = candidate;
-          break;
-        }
-      }
-    }
+    const brandSet = item.brand ? await setVintedBrand(candidates) : null;
     if (brandSet) {
       filled.push(brandSet === item.brand ? "brand" : `brand (as "${brandSet}")`);
     } else if (item.brand) {
       missing.push(`brand (no exact match for "${item.brand}")`);
     }
 
-    const sizeEl = item.size && findByLabel([/\bsize\b/]);
-    if (sizeEl && (await pick(`#${sizeEl.id}`, item.size, { exact: true }))) filled.push("size");
+    if (await setVintedSize(item.size)) filled.push("size");
     else if (item.size) missing.push("size");
 
-    const conditionEl = findByLabel([/condition/]);
-    if (conditionEl && (await pick(`#${conditionEl.id}`, item.condition))) filled.push("condition");
+    if (await setVintedCondition(item.condition)) filled.push(`condition (${VINTED_CONDITION[item.condition]})`);
     else missing.push("condition");
 
     await wait(700);

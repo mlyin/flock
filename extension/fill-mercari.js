@@ -37,10 +37,26 @@ const CONDITION_RADIO = {
 };
 
 function setNativeValue(el, value) {
-  const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-  Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
+  // Mercari serves automated tabs an empty page, so this form can only be
+  // inspected by RUNNING against it — and a run crashed here with "Illegal
+  // invocation": some field is no longer a plain input or textarea, and the
+  // prototype setter refuses any other receiver. Handle the three shapes a
+  // text field can take, and if one still throws, say WHICH element died
+  // instead of an anonymous crash.
+  try {
+    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+      const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
+    } else if (el.isContentEditable) {
+      el.textContent = String(value);
+    } else {
+      el.value = value; // custom element exposing a value property
+    }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  } catch (error) {
+    throw new Error(`${el.tagName.toLowerCase()}#${el.id || el.name || "?"}: ${error.message}`);
+  }
 }
 
 function setText(selector, value, max) {
