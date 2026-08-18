@@ -14,6 +14,22 @@
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Real pointer events, not HTMLElement.click().
+ *
+ * Vinted's category rows and Grailed's whole cascade are built on menus that
+ * listen for pointerdown/pointerup. A plain .click() dispatches a click nothing
+ * is listening for, so the menu never responds and the field is reported as
+ * skipped — which is exactly what was happening on every run.
+ */
+function pointerClick(el) {
+  for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+    el.dispatchEvent(
+      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0 })
+    );
+  }
+}
+
 const FIELD = {
   photos: 'input[data-testid="add-photos-input"]',
   title: "#title",
@@ -244,7 +260,7 @@ async function setCategory(listing) {
     return { ok: false, why: "no department recorded on the item" };
   }
 
-  field.click();
+  pointerClick(field);
   await wait(700);
 
   const search = [...document.querySelectorAll("input")].find(
@@ -272,7 +288,7 @@ async function setCategory(listing) {
 
     const chosen = scored[0].r;
     const target = chosen.el.querySelector('[role="button"]') || chosen.el;
-    target.click();
+    pointerClick(target);
     await wait(1000);
 
     if (field.value) return { ok: true, chose: chosen.text };

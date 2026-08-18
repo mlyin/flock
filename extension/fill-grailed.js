@@ -129,6 +129,156 @@ function banner(filled, missing, blocked) {
   document.getElementById("threader-close")?.addEventListener("click", () => el.remove());
 }
 
+
+/* --------------------------------------------------------------------------
+   Grailed's dropdowns are Radix menus, and .click() does not open them.
+
+   This is the whole reason the cascade was never filled. Radix listens on
+   pointerdown/pointerup, so a plain HTMLElement.click() sets aria-expanded on
+   nothing and silently does nothing at all. Dispatching real pointer events
+   opens it. Verified on the live sell form, 18 Aug 2026.
+
+   Department and Category live in ONE control: opening it lists
+   Menswear/Womenswear, and choosing one replaces the list with that
+   department's categories (Tops, Bottoms, Outerwear, Dresses, Footwear,
+   Accessories, Bags & Luggage, Jewelry). Only once both are chosen do
+   Sub-category, Size and Designer stop being disabled.
+   -------------------------------------------------------------------------- */
+
+function pointerClick(el) {
+  for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+    el.dispatchEvent(
+      new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0 })
+    );
+  }
+}
+
+const onScreen = (selector) =>
+  [...document.querySelectorAll(selector)].filter((el) => el.offsetParent !== null);
+
+const menuItems = () => onScreen('[role="menuitem"],[role="option"],[role="menuitemradio"]');
+
+function triggerMatching(pattern) {
+  return [...document.querySelectorAll("button[class*='DropdownMenu-module__trigger']")].find((b) =>
+    pattern.test(b.textContent.trim())
+  );
+}
+
+/** Open a Radix dropdown and choose the first item matching any candidate. */
+async function chooseFrom(trigger, candidates) {
+  if (!trigger || trigger.disabled) return null;
+
+  pointerClick(trigger);
+  await wait(600);
+
+  for (const candidate of candidates) {
+    const item = menuItems().find((el) => {
+      const text = el.textContent.trim().toLowerCase();
+      return text === candidate.toLowerCase() || text.includes(candidate.toLowerCase());
+    });
+    if (item) {
+      pointerClick(item);
+      await wait(900);
+      return item.textContent.trim();
+    }
+  }
+
+  // Nothing matched — close it rather than leaving a menu hanging open over the
+  // rest of the form.
+  document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(300);
+  return null;
+}
+
+const DEPARTMENT_LABEL = { women: "Womenswear", men: "Menswear", unisex: "Menswear" };
+
+/** Garment type -> Grailed's top-level category, from the live option list. */
+const GRAILED_CATEGORY = {
+  pullover: ["Tops"], sweatshirt: ["Tops"], hoodie: ["Tops"], sweater: ["Tops"],
+  jumper: ["Tops"], shirt: ["Tops"], tee: ["Tops"], tshirt: ["Tops"], top: ["Tops"],
+  jeans: ["Bottoms"], trousers: ["Bottoms"], pants: ["Bottoms"], shorts: ["Bottoms"],
+  skirt: ["Bottoms"],
+  jacket: ["Outerwear"], coat: ["Outerwear"], parka: ["Outerwear"], puffer: ["Outerwear"],
+  dress: ["Dresses"],
+  boots: ["Footwear"], sneakers: ["Footwear"], shoes: ["Footwear"],
+  bag: ["Bags & Luggage"], handbag: ["Bags & Luggage"], tote: ["Bags & Luggage"],
+  hat: ["Accessories"], belt: ["Accessories"], scarf: ["Accessories"],
+  necklace: ["Jewelry"], ring: ["Jewelry"], earrings: ["Jewelry"],
+};
+
+function categoryCandidates(item) {
+  const words = String(item.title || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const out = [];
+  for (const w of words) for (const c of GRAILED_CATEGORY[w] ?? []) if (!out.includes(c)) out.push(c);
+  return out;
+}
+
+/**
+ * Department -> Category -> Sub-category -> Size -> Condition.
+ *
+ * Refuses without a department: Grailed's first choice is literally
+ * Menswear or Womenswear, so there is no neutral option to fall back on and
+ * guessing is a coin flip on the most visible field in the listing.
+ */
+async function setGrailedCascade(item) {
+  const result = { filled: [], missing: [] };
+
+  const department = item.department;
+  if (!department || !DEPARTMENT_LABEL[department]) {
+    result.missing.push("category (no department recorded on the item)");
+    return result;
+  }
+
+  const trigger = triggerMatching(/department\s*\/\s*category|womenswear|menswear/i);
+  const chosenDept = await chooseFrom(trigger, [DEPARTMENT_LABEL[department]]);
+  if (!chosenDept) {
+    result.missing.push("category (couldn't open the department menu)");
+    return result;
+  }
+
+  // Same control, now showing that department's categories.
+  const candidates = categoryCandidates(item);
+  if (candidates.length === 0) {
+    result.missing.push("category (nothing in the title maps to a Grailed category)");
+    return result;
+  }
+
+  const chosenCategory = await chooseFrom(triggerMatching(/womenswear|menswear|department/i), candidates);
+  if (!chosenCategory) {
+    result.missing.push(`category (no match for ${candidates.join(", ")})`);
+    return result;
+  }
+  result.filled.push(`category (${DEPARTMENT_LABEL[department]} / ${chosenCategory})`);
+
+  // Sub-category, size and condition only exist now that a category is set.
+  const sub = await chooseFrom(triggerMatching(/^sub-?category/i), [
+    ...candidates,
+    "Sweatshirts & Hoodies",
+    "Sweaters & Knitwear",
+    "Other",
+  ]);
+  if (sub) result.filled.push(`sub-category (${sub})`);
+  else result.missing.push("sub-category");
+
+  if (item.size) {
+    const size = await chooseFrom(triggerMatching(/select size/i), [item.size, String(item.size).toUpperCase()]);
+    if (size) result.filled.push("size");
+    else result.missing.push(`size (no "${item.size}" option)`);
+  }
+
+  const conditionLabel = {
+    new_with_tags: "New with tags", new_without_tags: "New without tags",
+    excellent: "Gently used", good: "Used", fair: "Very worn", poor: "Very worn",
+  }[item.condition];
+  if (conditionLabel) {
+    const cond = await chooseFrom(triggerMatching(/item condition/i), [conditionLabel]);
+    if (cond) result.filled.push("condition");
+    else result.missing.push("condition");
+  }
+
+  return result;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
@@ -155,10 +305,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (setText(FIELD.price, p.price)) filled.push("price");
     else missing.push("price");
 
-    // Designer stays disabled until a category is picked, so this usually needs
-    // a second pass after the seller sets the cascade.
-    if (item.brand && (await pickDesigner(item.brand))) filled.push("designer");
-    else if (item.brand) missing.push(`designer (set category first, then "${item.brand}")`);
+    // The cascade first: Department, Category, Sub-category, Size and Condition
+    // are Radix menus that .click() never opened, which is why every one of them
+    // was left to the seller. Designer is disabled until a category is set, so
+    // this has to run before it.
+    const cascade = await setGrailedCascade({
+      title: p.title ?? item.title,
+      department: item.department,
+      size: item.size,
+      condition: item.condition,
+    });
+    filled.push(...cascade.filled);
+    missing.push(...cascade.missing);
+
+    await wait(800);
+
+    // Try the brand as recorded, then any name the same company is listed under
+    // here — Grailed calls it Designer and its list is curated, so "Alo" may
+    // only exist as "Alo Yoga".
+    const designerCandidates = item.brandCandidates?.length ? item.brandCandidates : [item.brand];
+    let designerSet = null;
+    for (const candidate of designerCandidates) {
+      if (candidate && (await pickDesigner(candidate))) {
+        designerSet = candidate;
+        break;
+      }
+    }
+    if (designerSet) {
+      filled.push(designerSet === item.brand ? "designer" : `designer (as "${designerSet}")`);
+    } else if (item.brand) {
+      missing.push(`designer (no exact match for "${item.brand}")`);
+    }
 
     await wait(600);
     const blocked = unfilledControls();

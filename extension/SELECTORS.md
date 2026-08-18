@@ -222,3 +222,43 @@ the li — clicking the `li` itself does nothing.** That cost a debugging cycle.
 Not verified end to end: selecting a category redirected to
 `/users/verification?ref_url=/items/new`. This Vinted account has to be verified before
 it can list at all, so the final selection could not be confirmed.
+
+## Radix menus need pointer events — verified 18 Aug 2026
+
+**The single most useful thing in this file.** Grailed's whole cascade and Vinted's
+category rows are Radix-style menus. `HTMLElement.click()` **does not open them** —
+they listen on `pointerdown`/`pointerup`, so a plain click dispatches an event nothing
+is subscribed to. `aria-expanded` stays `false`, no menu appears, and the filler
+reports the field as skipped. That one fact is why category, sub-category, size,
+condition and designer were never filled on either site.
+
+What works:
+
+```js
+for (const type of ["pointerdown","mousedown","pointerup","mouseup","click"]) {
+  el.dispatchEvent(new PointerEvent(type, {
+    bubbles: true, cancelable: true, pointerId: 1, isPrimary: true, button: 0,
+  }));
+}
+```
+
+### Grailed cascade
+
+Trigger buttons are `button[class*="DropdownMenu-module__trigger"]`; menu entries are
+`[role="menuitem"]` rendered in a portal.
+
+**Department and Category are one control.** Opening it lists exactly two items —
+`Menswear`, `Womenswear`. Choosing one *replaces the list in the same menu* with that
+department's categories:
+
+```
+Tops · Bottoms · Outerwear · Dresses · Footwear · Accessories · Bags & Luggage · Jewelry
+```
+
+Only once both are chosen do **Sub-category**, **Select Size** and
+`#designer-autocomplete` stop being `disabled`. Confirmed: after picking
+Womenswear then Tops, the trigger read `Womenswear / Tops` and all three unlocked.
+
+There is no neutral department option, so an item with no `department` cannot be
+categorised here at all — the filler refuses rather than flipping a coin on the most
+visible field in the listing.
