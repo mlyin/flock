@@ -12,14 +12,34 @@ import sharp from "sharp";
  *      Brand is the field to be paranoid about — a wrong brand is a wrong price.
  */
 
-export const MODEL = "claude-opus-5";
+/**
+ * Two tiers, because most garments are easy and a few are not.
+ *
+ * Nearly all the cost here is IMAGE tokens, not text: an image costs roughly
+ * (width x height) / 750 tokens, so a 2000px photo is about 4,000 tokens and
+ * a 1100px one about 1,200. Two photos at full size cost more than the entire
+ * prompt, schema and answer combined.
+ *
+ * So the first pass is a small model on smaller images, which reads a plain
+ * garment perfectly well. When it comes back unsure about the fields that
+ * actually move money — brand above all — the item is re-read by the big
+ * model at full resolution. Easy items cost a fraction; hard ones cost what
+ * they always did.
+ */
+export const MODEL_FAST = "claude-haiku-4-5-20251001";
+export const MODEL_CAREFUL = "claude-opus-5";
+
+/** Kept as the historical export; callers that just want a label use this. */
+export const MODEL = MODEL_CAREFUL;
 
 /**
- * Long-edge pixels sent to the model. Care-label text is the hardest thing in the
- * frame to read, and it's also the highest-value field, so this is deliberately
- * generous. Drop it to ~1200 if you want cheaper calls and don't shoot tags.
+ * Long-edge pixels. Care-label text is the hardest thing in the frame and the
+ * highest-value field, which is why the careful pass stays generous — but
+ * sending every photo at that size on every read was paying tag prices for
+ * pictures of a jumper on a bed.
  */
-const MAX_EDGE = 2000;
+const EDGE_FAST = 1100;
+const EDGE_CAREFUL = 2000;
 
 export const CATEGORIES = [
   "Outerwear", "Denim", "Tops", "Knitwear", "Shirts", "Sweats", "Fleece",
@@ -173,7 +193,7 @@ const MEDIA: Record<string, string> = {
 
 export class UnsupportedPhotoError extends Error {}
 
-async function encode(image: GarmentPhoto) {
+async function encode(image: GarmentPhoto, maxEdge: number) {
   const ext = path.extname(image.name).toLowerCase();
   if (ext === ".heic" || ext === ".heif") {
     throw new UnsupportedPhotoError(
@@ -188,7 +208,7 @@ async function encode(image: GarmentPhoto) {
   // 12-megapixel phone photo costing more tokens than the answer is worth.
   const buffer = await sharp(image.data)
     .rotate() // honour EXIF orientation — phone photos are frequently sideways otherwise
-    .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+    .resize(maxEdge, maxEdge, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 85 })
     .toBuffer();
 
@@ -204,22 +224,41 @@ export type InferenceResult = {
 
 export type GarmentPhoto = { name: string; data: Buffer };
 
-export async function identifyGarment(photos: GarmentPhoto[]): Promise<InferenceResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error(
-      "ANTHROPIC_API_KEY isn't set. Put it in .env.local at the project root and restart the dev server."
-    );
+/**
+ * Fields worth paying more to get right.
+ *
+ * A wrong brand is a wrong price, and a missed size is a return. Everything
+ * else the seller can correct in ten seconds on the review screen, so a low
+ * score there is not worth a second call.
+ */
+const CRITICAL = ["brand", "size", "condition"] as const;
+const ESCALATE_BELOW = 0.7;
+
+function needsCarefulRead(x: Extraction): string | null {
+  for (const field of CRITICAL) {
+    const score = x.confidence?.[field];
+    if (typeof score === "number" && score < ESCALATE_BELOW) {
+      return `${field} scored ${score.toFixed(2)}`;
+    }
   }
-  if (photos.length === 0) throw new Error("No photos to look at.");
+  // A tag was photographed and no brand came out of it — exactly the case the
+  // big model at full resolution exists for.
+  if (!x.brand) return "no brand read";
+  return null;
+}
 
-  const client = new Anthropic();
-
+async function readOnce(
+  client: Anthropic,
+  photos: GarmentPhoto[],
+  model: string,
+  maxEdge: number
+): Promise<InferenceResult> {
   const content: Anthropic.ContentBlockParam[] = [];
   for (const photo of photos) {
     content.push({ type: "text", text: `Photo: ${photo.name}` });
     content.push({
       type: "image",
-      source: { type: "base64", media_type: "image/jpeg", data: await encode(photo) },
+      source: { type: "base64", media_type: "image/jpeg", data: await encode(photo, maxEdge) },
     });
   }
   content.push({
@@ -228,12 +267,15 @@ export async function identifyGarment(photos: GarmentPhoto[]): Promise<Inference
   });
 
   const response = await client.messages.create({
-    model: MODEL,
+    model,
     max_tokens: 8000,
-    system: SYSTEM,
+    // The system prompt and schema are byte-identical on every call and are
+    // most of the non-image input. Caching them means only the photos are
+    // charged at full rate after the first read.
+    system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     output_config: {
-      // `medium` is a deliberate default: extraction is not a reasoning-heavy task
-      // and this runs on every photo. Raise it if the reads come back sloppy.
+      // `medium` is deliberate: extraction is not reasoning-heavy, and this
+      // runs on every garment.
       effort: "medium",
       format: { type: "json_schema", schema: SCHEMA },
     },
@@ -256,3 +298,39 @@ export async function identifyGarment(photos: GarmentPhoto[]): Promise<Inference
     usage: { input: response.usage.input_tokens, output: response.usage.output_tokens },
   };
 }
+
+/**
+ * Read a garment from its photos, cheaply when that's enough.
+ *
+ * Pass one is a small model on smaller images. If it comes back confident about
+ * brand, size and condition, that's the answer. If it doesn't, the same photos
+ * go to the big model at full resolution — the case where the extra cost buys
+ * something, rather than paying it on every jumper photographed on a bed.
+ */
+export async function identifyGarment(photos: GarmentPhoto[]): Promise<InferenceResult> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error(
+      "ANTHROPIC_API_KEY isn't set. Put it in .env.local at the project root and restart the dev server."
+    );
+  }
+  if (photos.length === 0) throw new Error("No photos to look at.");
+
+  const client = new Anthropic();
+  const fast = await readOnce(client, photos, MODEL_FAST, EDGE_FAST);
+
+  const reason = needsCarefulRead(fast.extraction);
+  if (!reason) return fast;
+
+  const careful = await readOnce(client, photos, MODEL_CAREFUL, EDGE_CAREFUL);
+  return {
+    ...careful,
+    // Both reads are billed, so report both — a token count that hides half
+    // the spend is worse than no token count.
+    usage: {
+      input: fast.usage.input + careful.usage.input,
+      output: fast.usage.output + careful.usage.output,
+    },
+    raw: careful.raw,
+  };
+}
+
