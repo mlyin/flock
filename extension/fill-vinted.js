@@ -298,6 +298,23 @@ async function setCategory(listing) {
   return { ok: false, why: "no category matched this item's department" };
 }
 
+
+/**
+ * Click Upload — only when the form is actually complete.
+ *
+ * Gated on `blocked`, the required fields still empty. Submitting a form with
+ * holes in it doesn't publish a listing, it produces a rejected or half-made
+ * one that then has to be found and cleaned up. Off unless the seller ticks
+ * "Submit automatically" in the popup.
+ */
+async function submitListing() {
+  const button = document.querySelector('[data-testid="upload-form-save-button"]');
+  if (!button || button.disabled) return null;
+  button.click();
+  await wait(3000);
+  return "Upload";
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
@@ -373,6 +390,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     await wait(700);
     const blocked = unfilledControls();
+
+    if (Boolean(message.autoSubmit) && blocked.length === 0) {
+      const clicked = await submitListing();
+      if (clicked) filled.push(`clicked ${clicked}`);
+    } else if (!message.autoSubmit) {
+      missing.push("auto-submit off — tick it in the popup");
+    }
 
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });

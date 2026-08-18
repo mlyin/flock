@@ -354,6 +354,25 @@ async function setGrailedCascade(item) {
   return result;
 }
 
+
+/**
+ * Click Publish — only when the form is actually complete.
+ *
+ * Gated on `blocked`, the required fields still empty. Submitting a form with
+ * holes in it doesn't publish a listing, it produces a rejected or half-made
+ * one that then has to be found and cleaned up. Off unless the seller ticks
+ * "Submit automatically" in the popup.
+ */
+async function submitListing() {
+  const button = [...document.querySelectorAll("button")].find(
+    (b) => b.textContent.trim() === "Publish" && b.offsetParent !== null
+  );
+  if (!button || button.disabled) return null;
+  button.click();
+  await wait(3000);
+  return "Publish";
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
@@ -425,6 +444,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     await wait(600);
     const blocked = unfilledControls();
+
+    // The designer field can't be filled by script at all, so a Grailed listing
+    // is never complete without the seller typing it. Auto-submit therefore
+    // holds until it's there rather than publishing a designer-less listing.
+    const designerEmpty = !document.querySelector(FIELD.designer)?.value?.trim();
+    if (Boolean(message.autoSubmit) && blocked.length === 0 && !designerEmpty) {
+      const clicked = await submitListing();
+      if (clicked) filled.push(`clicked ${clicked}`);
+    } else if (Boolean(message.autoSubmit) && designerEmpty) {
+      missing.push("not submitted — designer is still empty");
+    } else if (!message.autoSubmit) {
+      missing.push("auto-submit off — tick it in the popup");
+    }
 
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });
