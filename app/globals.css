@@ -1645,3 +1645,56 @@ button.mchip:disabled { cursor: default; opacity: .5; }
   .urlbox { flex-basis: 100%; }
   .urlbox .field { min-width: 0; flex: 1 1 100%; }
 }
+
+/* ==========================================================================
+   Channel chips: icons or names
+   --------------------------------------------------------------------------
+   Both labels are rendered; this picks one. Keyed off data-chanview on <html>
+   so the choice costs no React re-render and server-rendered rows need nothing
+   passed down to them. Default (attribute absent) is icons, matching what the
+   page has always done.
+   ========================================================================== */
+
+.mchip-full { display: none; }
+.mchip-abbr { display: inline; }
+
+:root[data-chanview="names"] .mchip-abbr { display: none; }
+:root[data-chanview="names"] .mchip-full { display: inline; }
+
+/* Names need room; the fixed 26px icon box would clip them. */
+:root[data-chanview="names"] .mchip {
+  width: auto;
+  min-width: 0;
+  padding: 0 8px;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+  border-radius: 5px;
+}
+:root[data-chanview="names"] .matrix { gap: 5px; flex-wrap: wrap; }
+
+/* A channel with nothing drafted was 30% opacity — legible on the mock, not on
+   a dark background at small sizes. Keep it recessive, but readable. */
+.mchip-off { opacity: 1; color: var(--ink-3); border-color: var(--rule-2); border-style: dotted; }
+
+.filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.filterbar .filters { flex: 1 1 auto; }
+.filters-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-right: 2px;
+}
+
+@media (max-width: 900px) {
+  .filterbar { align-items: flex-start; }
+  :root[data-chanview="names"] .mchip { font-size: 10.5px; padding: 0 7px; }
+}

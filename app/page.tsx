@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ChannelActions from "@/components/ChannelActions";
 import Filters from "@/components/Filters";
+import ChannelViewToggle from "@/components/ChannelViewToggle";
 import { CHANNEL_ABBR, CHANNEL_LABEL } from "@/lib/fees";
 import { usd, usdShort, pct } from "@/lib/money";
 import { bestProjection, getItems, shelfAge, signPhotos, summarize } from "@/lib/data";
@@ -132,7 +133,10 @@ export default async function Inventory({
         </p>
       </details>
 
-      <Filters params={params} />
+      <div className="filterbar">
+        <Filters params={params} />
+        <ChannelViewToggle />
+      </div>
 
       {/* Seven columns on a laptop, stacked cards on a phone. Same markup. */}
       <div className="tablewrap">

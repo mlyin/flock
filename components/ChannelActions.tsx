@@ -82,6 +82,16 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
 
   const byChannel = new Map(states.map((s) => [s.channel, s]));
 
+  // Both labels are always in the DOM. CSS shows one, keyed off data-chanview
+  // on <html>, so switching costs no re-render and screen readers still get the
+  // full marketplace name either way.
+  const label2 = (channel: Channel) => (
+    <>
+      <span className="mchip-abbr" aria-hidden>{CHANNEL_ABBR[channel]}</span>
+      <span className="mchip-full">{CHANNEL_LABEL[channel]}</span>
+    </>
+  );
+
   return (
     <>
       <div className="matrix">
@@ -100,7 +110,7 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
                 rel="noreferrer"
                 title={`Open on ${label}`}
               >
-                {abbr}
+                {label2(channel)}
               </a>
             );
           }
@@ -108,7 +118,7 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
           if (state?.status === "live") {
             return (
               <span key={channel} className="mchip mchip-live" title={`Listed on ${label}`}>
-                {abbr}
+                {label2(channel)}
               </span>
             );
           }
@@ -124,7 +134,7 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
                 disabled={Boolean(busy)}
                 title={`Fill on ${label}`}
               >
-                {isBusy ? "…" : abbr}
+                {isBusy ? "…" : label2(channel)}
               </button>
             );
           }
@@ -135,7 +145,7 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
               className={state?.listingId ? "mchip mchip-draft" : "mchip mchip-off"}
               title={state?.listingId ? `Drafted for ${label}` : `Nothing drafted for ${label}`}
             >
-              {abbr}
+              {label2(channel)}
             </span>
           );
         })}
