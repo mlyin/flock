@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>flock — list once. sell everywhere.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--lime:#C0E42A;--ink:#111010;--wool:#fff;--fog:#F4F7E8;--deep:#7E9A12;--sold:#FF4D2E}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hanken Grotesk',system-ui,sans-serif;color:var(--ink);background:var(--wool);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.dsp{font-family:Outfit,sans-serif;font-weight:600;letter-spacing:-.03em;line-height:.95}
+.mono{font-family:'JetBrains Mono',monospace}
+nav{position:sticky;top:0;z-index:50;background:var(--lime);border-bottom:2px solid var(--ink)}
+nav .wrap{display:flex;align-items:center;gap:14px;height:64px}
+nav .mark{width:34px;height:34px}
+nav .nm{font-family:Outfit;font-weight:600;font-size:26px;letter-spacing:-.03em}
+nav .sp{flex:1}
+nav a{color:var(--ink);text-decoration:none;font-weight:600;font-size:15px;margin-left:22px}
+.btn{display:inline-block;background:var(--ink);color:var(--lime);padding:14px 26px;border-radius:999px;font-family:Outfit;font-weight:600;font-size:17px;text-decoration:none;border:none;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+nav .btn{padding:9px 18px;font-size:14px;margin-left:22px}
+
+/* HERO */
+header{background:var(--lime);padding:36px 0 60px;overflow:hidden}
+#stage{width:100%;max-width:640px;margin:0 auto;display:block;cursor:pointer}
+.hcopy{text-align:center;margin-top:26px}
+h1{font-family:Outfit;font-weight:600;letter-spacing:-.04em;line-height:.96;font-size:clamp(38px,7.4vw,76px)}
+.sub{max-width:640px;margin:20px auto 0;font-size:clamp(16px,2.2vw,19px);line-height:1.5;opacity:.85}
+.cta{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* TICKER */
+.ticker{background:var(--ink);color:var(--wool);padding:16px 0;overflow:hidden;white-space:nowrap;border-top:2px solid var(--ink)}
+.tk{display:inline-block;animation:slide 34s linear infinite}
+.tk span{font-family:'JetBrains Mono';font-size:14px;margin:0 26px;opacity:.72}
+.tk b{color:var(--lime);font-weight:700}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--sold);margin-right:8px;vertical-align:1px}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* SECTIONS */
+section{padding:96px 0}
+.eyebrow{font-family:'JetBrains Mono';font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;display:inline-block;padding:6px 12px;border-radius:6px;background:var(--ink);color:var(--lime);margin-bottom:22px}
+h2{font-family:Outfit;font-weight:600;letter-spacing:-.03em;line-height:1.02;font-size:clamp(30px,4.6vw,50px);max-width:15ch}
+.lede{margin-top:16px;max-width:52ch;font-size:18px;line-height:1.6;opacity:.8}
+.fog{background:var(--fog)}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));margin-top:44px}
+.card{background:var(--wool);border:2px solid var(--ink);border-radius:22px;padding:26px}
+.fog .card{background:var(--wool)}
+.card h3{font-family:Outfit;font-weight:600;font-size:21px;margin-bottom:8px}
+.card p{font-size:16px;line-height:1.55;opacity:.78}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* DELIST DEMO */
+.demo{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:36px}
+.lst{background:var(--ink);color:var(--wool);border-radius:18px;padding:16px;text-align:center;transition:.45s cubic-bezier(.2,.7,.2,1)}
+.lst svg{width:56px;height:56px;display:block;margin:0 auto 8px}
+.lst .p{font-family:'JetBrains Mono';font-size:13px;opacity:.8}
+.lst .pr{font-family:'JetBrains Mono';font-weight:700;font-size:13px;background:var(--lime);color:var(--ink);border-radius:999px;padding:3px 10px;display:inline-block;margin-top:8px}
+.lst.gone{opacity:.18;transform:scale(.86)}
+.lst.won{background:var(--sold)}
+.lst.won .pr{background:var(--wool)}
+
+/* PRICING */
+.price{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin-top:44px}
+.tier{border:2px solid var(--ink);border-radius:24px;padding:30px}
+.tier.hi{background:var(--lime)}
+.tier .amt{font-family:Outfit;font-weight:600;font-size:46px;letter-spacing:-.03em;margin:10px 0 4px}
+.tier ul{list-style:none;margin:20px 0 26px}
+.tier li{padding:8px 0 8px 26px;position:relative;font-size:16px}
+.tier li:before{content:"";position:absolute;left:0;top:15px;width:12px;height:12px;border-radius:50%;background:var(--ink)}
+.tier .btn{width:100%;text-align:center}
+.tier.hi .btn{background:var(--ink);color:var(--lime)}
+
+/* BRAND KIT */
+.kit{background:var(--ink);color:var(--wool)}
+.kit h2,.kit .eyebrow{color:var(--lime)}
+.kit .eyebrow{background:var(--lime);color:var(--ink)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:36px}
+.sw{border-radius:16px;padding:18px;height:120px;display:flex;flex-direction:column;justify-content:flex-end}
+.sw code{font-family:'JetBrains Mono';font-size:12px;display:block}
+.sw b{font-family:Outfit;font-size:15px}
+.marks{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:24px}
+.mk{border-radius:18px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;padding:18px}
+.mk svg{width:100%;height:100%}
+
+footer{background:var(--lime);padding:80px 0 46px;text-align:center}
+footer .big{font-family:Outfit;font-weight:600;font-size:clamp(56px,15vw,150px);letter-spacing:-.05em;line-height:.85}
+footer .tag{font-family:Outfit;font-weight:600;font-size:clamp(14px,2.6vw,22px);margin-top:10px}
+footer .fine{margin-top:44px;font-size:13px;opacity:.6}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+</style></head><body>
+
+<nav><div class="wrap">
+  <svg class="mark" viewBox="0 0 200 200" id="navmark"></svg>
+  <span class="nm">flock</span><span class="sp"></span>
+  <a href="#how">How it works</a><a href="#pricing">Pricing</a>
+  <a class="btn" href="#pricing">Start free</a>
+</div></nav>
+
+<header>
+  <svg id="stage" viewBox="0 0 1080 760" role="img" aria-label="One listing multiplying onto six marketplaces"></svg>
+  <div class="wrap hcopy">
+    <h1>One upload.<br>Six storefronts.<br>Zero copy&#8209;paste.</h1>
+    <p class="sub">Flock posts your listing to Depop, Poshmark, eBay, Mercari, Grailed and Vinted at the same time — then pulls it down everywhere the second it sells on one.</p>
+    <div class="cta"><a class="btn" href="#pricing">Start listing free</a><button class="btn ghost" onclick="play()">Replay</button></div>
+  </div>
+</header>
+
+<div class="ticker"><div class="tk" id="tk"></div></div>
+
+<section id="how"><div class="wrap">
+  <span class="eyebrow">Draft</span>
+  <h2>Write the listing the way you'd write it anywhere.</h2>
+  <p class="lede">One composer. Photos, measurements, condition, tags. Flock reshapes it to fit each marketplace's fields instead of making you retype them six times.</p>
+  <div class="grid">
+    <div class="card reveal"><h3>Photos once</h3><p>Crop and order them once. Every marketplace gets its own aspect ratio automatically.</p></div>
+    <div class="card reveal"><h3>Fields mapped</h3><p>Grailed wants a designer. Poshmark wants a category. Flock fills both from the same draft.</p></div>
+    <div class="card reveal"><h3>Your templates</h3><p>Save the measurement block and shipping note you always paste. Drop it in with one tap.</p></div>
+  </div>
+</div></section>
+
+<section class="fog"><div class="wrap">
+  <span class="eyebrow">Sold</span>
+  <h2>Sold on one. Gone from the other five.</h2>
+  <p class="lede">The thing that actually loses you money is a double sale — two buyers, one jacket, one cancellation strike. Flock watches every listing and delists the rest in seconds. Tap a card to see it.</p>
+  <div class="demo" id="demo"></div>
+</div></section>
+
+<section id="pricing"><div class="wrap">
+  <span class="eyebrow">Pricing</span>
+  <h2>Free until it's earning you money.</h2>
+  <div class="price">
+    <div class="tier">
+      <b class="mono" style="font-size:13px;letter-spacing:.1em">SOLO</b>
+      <div class="amt">$0</div><p style="opacity:.7">For testing the water.</p>
+      <ul><li>25 active listings</li><li>All six marketplaces</li><li>Automatic delisting</li><li>Sales in one inbox</li></ul>
+      <a class="btn ghost" href="#">Start free</a>
+    </div>
+    <div class="tier hi">
+      <b class="mono" style="font-size:13px;letter-spacing:.1em">FLOCK</b>
+      <div class="amt">$19<span style="font-size:18px;font-weight:500">/mo</span></div><p style="opacity:.75">For people doing this properly.</p>
+      <ul><li>Unlimited listings</li><li>Bulk relist and price drops</li><li>Sales and fee reporting</li><li>Offer replies while you sleep</li></ul>
+      <a class="btn" href="#">Start 14 days free</a>
+    </div>
+  </div>
+</div></section>
+
+<section class="kit"><div class="wrap">
+  <span class="eyebrow">Brand kit</span>
+  <h2>The pieces, if you need them.</h2>
+  <div class="swatches">
+    <div class="sw" style="background:#C0E42A;color:#111"><b>Lime</b><code>#C0E42A</code></div>
+    <div class="sw" style="background:#111010;color:#fff;box-shadow:inset 0 0 0 2px #333"><b>Ink</b><code>#111010</code></div>
+    <div class="sw" style="background:#fff;color:#111"><b>Wool</b><code>#FFFFFF</code></div>
+    <div class="sw" style="background:#F4F7E8;color:#111"><b>Fog</b><code>#F4F7E8</code></div>
+    <div class="sw" style="background:#7E9A12;color:#fff"><b>Deep</b><code>#7E9A12</code></div>
+    <div class="sw" style="background:#FF4D2E;color:#fff"><b>Sold</b><code>#FF4D2E</code></div>
+  </div>
+  <div class="marks">
+    <div class="mk" style="background:#C0E42A"><svg viewBox="0 0 200 200" class="s1"></svg></div>
+    <div class="mk" style="background:#111010;box-shadow:inset 0 0 0 2px #333"><svg viewBox="0 0 200 200" class="s2"></svg></div>
+    <div class="mk" style="background:#fff"><svg viewBox="0 0 200 200" class="s3"></svg></div>
+    <div class="mk" style="background:#C0E42A"><svg viewBox="0 0 200 200" class="s4"></svg></div>
+  </div>
+  <p class="lede" style="color:#fff;opacity:.6;margin-top:26px">Display: Outfit 600. Body: Hanken Grotesk. Data, prices and marketplace names: JetBrains Mono.</p>
+</div></section>
+
+<footer>
+  <div class="big">flock</div>
+  <div class="tag">list once. sell everywhere.</div>
+  <div class="fine">Marketplace names are used to describe compatibility. Flock is not affiliated with them.</div>
+</footer>
+
+<script>
+const LIME="#C0E42A",INK="#111010",WOOL="#fff";
+const CIRC='<circle cx="100" cy="88" r="47"/><circle cx="100" cy="50.3" r="27"/><circle cx="124.1" cy="57.5" r="27"/><circle cx="139" cy="76.3" r="27"/><circle cx="139" cy="99.7" r="27"/><circle cx="124.1" cy="118.5" r="27"/><circle cx="100" cy="125.7" r="27"/><circle cx="75.9" cy="118.5" r="27"/><circle cx="61" cy="99.7" r="27"/><circle cx="61" cy="76.3" r="27"/><circle cx="75.9" cy="57.5" r="27"/>';
+function sheep(w,i,l){l=l||i;return `<rect x="68" y="138" width="18" height="38" rx="9" fill="${l}"/><rect x="114" y="138" width="18" height="38" rx="9" fill="${l}"/><g fill="${w}">${CIRC}</g><path d="M79 94 C68 82 53 73 42 76 C33 79 35 93 49 101 C59 107 70 111 81 110 Z" fill="${i}"/><path d="M121 94 C132 82 147 73 158 76 C167 79 165 93 151 101 C141 107 130 111 119 110 Z" fill="${i}"/><ellipse cx="100" cy="102" rx="31" ry="37" fill="${i}"/>`;}
+navmark.innerHTML=sheep(WOOL,INK);
+document.querySelector('.s1').innerHTML=sheep(WOOL,INK);
+document.querySelector('.s2').innerHTML=sheep(LIME,INK,LIME);
+document.querySelector('.s3').innerHTML=sheep(INK,LIME,INK);
+document.querySelector('.s4').innerHTML=sheep(WOOL,INK);
+
+const P=[["depop","$48"],["poshmark","$62"],["ebay","$35"],["mercari","$27"],["grailed","$145"],["vinted","$19"]];
+
+/* ---- ticker ---- */
+const rows=["carhartt detroit jacket","90s levi's 501 w32","acne studios knit","nike air max 90 us9","stussy 8-ball tee","the north face nuptse","dr. martens 1461 uk7","polo bear sweatshirt"];
+let tkh="";for(let r=0;r<2;r++)rows.forEach((t,n)=>{tkh+=`<span><i class="dot"></i>${t} <b>sold on ${P[n%6][0]} ${P[n%6][1]}</b> · delisted from 5</span>`});
+tk.innerHTML=tkh;
+
+/* ---- hero multiply ---- */
+const NS="http://www.w3.org/2000/svg",CX=540,CY=330,R=250;
+const pts=[-90,-30,30,90,150,210].map(a=>[CX+R*Math.cos(a*Math.PI/180),CY+R*Math.sin(a*Math.PI/180)]);
+function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function play(){
+  const s=document.getElementById('stage');s.innerHTML="";
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const g=el('g');s.appendChild(g);
+  // origin sheep
+  const o=el('g',{transform:`translate(${CX-155} ${CY-143}) scale(1.55)`,style:'transform-box:fill-box'});
+  o.innerHTML=sheep(WOOL,INK);g.appendChild(o);
+  o.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.2)'}],
+    {duration:reduce?1:420,delay:reduce?0:700,fill:'forwards',easing:'cubic-bezier(.5,0,.75,0)'});
+  pts.forEach((p,i)=>{
+    const d=reduce?0:700+i*70;
+    const c=el('g',{transform:`translate(${p[0]} ${p[1]})`});
+    const card=el('rect',{x:-100,y:-120,width:200,height:240,rx:30,fill:INK});
+    const sg=el('g',{transform:'translate(-72 -118) scale(.72)'});sg.innerHTML=sheep(WOOL,INK);
+    const nm=el('text',{y:52,'text-anchor':'middle',fill:WOOL,'font-family':'JetBrains Mono','font-size':22});nm.textContent=P[i][0];
+    const pill=el('g',{transform:'translate(0 82)'});
+    const pw=P[i][1].length*16+34;
+    pill.appendChild(el('rect',{x:-pw/2,y:-21,width:pw,height:42,rx:21,fill:LIME}));
+    const pt=el('text',{y:8,'text-anchor':'middle',fill:INK,'font-family':'JetBrains Mono','font-weight':700,'font-size':24});pt.textContent=P[i][1];
+    pill.appendChild(pt);
+    c.append(card,sg,nm,pill);g.appendChild(c);
+    if(reduce)return;
+    c.animate([{transform:`translate(${CX-p[0]}px,${CY-p[1]}px) scale(.15)`,opacity:0},{opacity:1,offset:.3},{transform:'none',opacity:1}],
+      {duration:820,delay:d,fill:'backwards',easing:'cubic-bezier(.2,.85,.25,1.05)'});
+    card.animate([{opacity:0},{opacity:0,offset:.45},{opacity:1}],{duration:900,delay:d+250,fill:'backwards'});
+    nm.animate([{opacity:0},{opacity:1}],{duration:400,delay:d+700,fill:'backwards'});
+    pill.animate([{opacity:0,transform:'translate(0px,82px) scale(1.7)'},{opacity:1,transform:'translate(0px,82px) scale(1)'}],
+      {duration:520,delay:d+900,fill:'backwards',easing:'cubic-bezier(.2,1.4,.4,1)'});
+  });
+}
+play();document.getElementById('stage').addEventListener('click',play);
+
+/* ---- delist demo ---- */
+const demo=document.getElementById('demo');
+P.forEach((p,i)=>{const d=document.createElement('div');d.className='lst';
+  d.innerHTML=`<svg viewBox="0 0 200 200">${sheep(WOOL,INK)}</svg><div class="p">${p[0]}</div><div class="pr">${p[1]}</div>`;
+  d.onclick=()=>{
+    [...demo.children].forEach((c,j)=>{
+      c.className='lst '+(j===i?'won':'gone');
+      c.querySelector('.pr').textContent = (j===i) ? 'SOLD' : 'delisted';
+    });
+    setTimeout(()=>{
+      [...demo.children].forEach((c,j)=>{
+        c.className='lst';
+        c.querySelector('.pr').textContent=P[j][1];
+      });
+    },2600);
+  };
+  demo.appendChild(d);});
+
+/* ---- reveals ---- */
+const io=new IntersectionObserver(e=>e.forEach(x=>x.isIntersecting&&x.target.classList.add('in')),{threshold:.2});
+document.querySelectorAll('.reveal').forEach(n=>io.observe(n));
+</script></body></html>
