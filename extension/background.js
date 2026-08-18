@@ -305,9 +305,16 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
   try {
     const result = await syncDepopMessages();
+    // Shop sync is best-effort: no username stored just means the seller
+    // hasn't set one yet, which shouldn't fail the message sync.
+    const { depopUsername } = await chrome.storage.local.get(["depopUsername"]);
+    let shop = null;
+    if (depopUsername) {
+      shop = await syncDepopListings(depopUsername).catch((e) => ({ error: e.message }));
+    }
     await chrome.storage.local.set({
       lastSyncAt: Date.now(),
-      lastSyncResult: { ok: true, ...result },
+      lastSyncResult: { ok: true, ...result, shop },
     });
   } catch (error) {
     await chrome.storage.local.set({
@@ -315,4 +322,77 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       lastSyncResult: { ok: false, error: error.message },
     });
   }
+});
+
+/* --------------------------------------------------------------------------
+   Depop shop sync — which listings are live, and where.
+
+   This is what makes a channel chip clickable. Threader fills a form, the
+   seller publishes on Depop, and nothing came back with the URL it landed at.
+   Rather than ask them to paste it, read their shop.
+   -------------------------------------------------------------------------- */
+
+async function syncDepopListings(username) {
+  if (!username) throw new Error("No Depop username stored. Set it in the extension popup.");
+
+  const tab = await chrome.tabs.create({
+    url: `https://www.depop.com/${encodeURIComponent(username)}/`,
+    active: false,
+  });
+
+  try {
+    await whenLoaded(tab.id);
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["read-depop-listings.js"],
+    });
+
+    const result = await chrome.tabs.sendMessage(tab.id, { type: "depop-read-shop" });
+    const listings = result?.listings ?? [];
+
+    if (listings.length) {
+      await api("/api/ext/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel: "depop", listings }),
+      });
+    }
+
+    return { found: listings.length };
+  } finally {
+    await chrome.tabs.remove(tab.id).catch(() => {});
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Badge-driven sync.
+
+   watch-depop.js reports Depop's own "See N new offers" header badge whenever
+   the seller has any Depop tab open. A change there is a far better trigger
+   than a timer: it costs nothing, and it fires within seconds of an offer
+   arriving rather than up to half an hour later.
+   -------------------------------------------------------------------------- */
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "depop-badge") return;
+
+  (async () => {
+    try {
+      const { token, lastBadge } = await chrome.storage.local.get(["token", "lastBadge"]);
+      if (!token) return sendResponse({ ok: true, skipped: "unpaired" });
+
+      // Only act on a rise. Going 2 -> 0 just means they read them.
+      const previous = lastBadge ?? 0;
+      await chrome.storage.local.set({ lastBadge: message.count });
+      if (message.count <= previous) return sendResponse({ ok: true, skipped: "no increase" });
+
+      const data = await syncDepopMessages();
+      await chrome.storage.local.set({ lastSyncAt: Date.now(), lastSyncResult: { ok: true, ...data } });
+      sendResponse({ ok: true, synced: true });
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message });
+    }
+  })();
+
+  return true;
 });

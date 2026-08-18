@@ -163,3 +163,31 @@ conversation, 11 were noise: timestamps, `Item(s)`, `Total`, `$80.00`,
 `Shipping calculated at checkout`, `Refresh`, `Active today`, the safety notice,
 the report/block notice, and the product card repeating the listing description.
 Filtering by content (see `isMessageText`) kept exactly the two real messages.
+
+## Depop shop + header badge — verified 18 Aug 2026, live and signed in
+
+**Shop** — `depop.com/<username>/`. Product cards are `a[href^="/products/"]`, but
+Depop's own "Sell now" button is also an `/products/create/` link, so filter it out.
+Real cards carry `aria-label="item listed by <username>"` — the only stable hook on
+the card itself, since the anchor has no text and the grid is images only.
+
+The price is **not** on the anchor. It sits two levels up (`$80.00` was found on the
+card's grandparent). Walk outward at most 4 levels and stop at the first money-shaped
+match; going further reaches the whole grid and picks a neighbour's price.
+
+Sold marking on a card is **unverified** — no sold item existed on the shop when this
+was read.
+
+Note the shop slug does not have to match the seller's username: `yumseller22`'s live
+listing is `/products/yumseller21-ivory-soho-pullover-brand-alo-ab33/`. Don't derive
+one from the other. `depop.com/yumseller21/` 404s.
+
+**Header badge** — Depop renders `See 2 new offers` as a leaf `<span>` in the header on
+*every* page, including the shop and the inbox. Matched with
+`/see\s+(\d+)\s+new\s+(offers?|messages?)/i` on text rather than a class, since Depop's
+class names are hashed per deploy.
+
+This is the cheapest new-offer signal available: no API exists, and reading a badge the
+seller's own browser already rendered costs nothing. `watch-depop.js` observes it and
+only wakes the background script when the count *rises* — a drop just means they read
+them.
