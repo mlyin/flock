@@ -1,23 +1,11 @@
 import Link from "next/link";
 import SyncMessages from "@/components/SyncMessages";
-import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
+import OfferQueue, { type OfferView } from "@/components/OfferQueue";
+import { CHANNEL_LABEL } from "@/lib/fees";
 import { usd } from "@/lib/money";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getMessages, getOpenOffers, groupByItem, scoreOffer } from "@/lib/offers";
 
 export const dynamic = "force-dynamic";
-
-type Row = {
-  id: string;
-  channel: Channel;
-  sender: string | null;
-  body: string | null;
-  kind: string;
-  offer_amount: number | string | null;
-  received_at: string;
-  read_at: string | null;
-  item_id: string | null;
-  items: { id: string; sku: string; title: string; brand: string | null; floor_price: number | string | null } | null;
-};
 
 const ago = (iso: string) => {
   const mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -26,35 +14,68 @@ const ago = (iso: string) => {
   return `${Math.round(mins / 1440)}d ago`;
 };
 
-export default async function InboxPage() {
-  const supabase = await supabaseServer();
-  const { data } = await supabase
-    .from("messages")
-    .select("*, items (id, sku, title, brand, floor_price)")
-    .order("received_at", { ascending: false })
-    .limit(200);
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const view = sp.view === "messages" ? "messages" : "offers";
 
-  const rows = (data ?? []) as unknown as Row[];
+  const [offers, messages] = await Promise.all([getOpenOffers(), getMessages()]);
 
-  // Grouped by garment, because the question is almost always "what's happening
-  // with this item" rather than "what came in at 3pm".
-  const groups = new Map<string, { item: Row["items"]; messages: Row[] }>();
-  for (const row of rows) {
-    const key = row.item_id ?? "unmatched";
-    if (!groups.has(key)) groups.set(key, { item: row.items, messages: [] });
-    groups.get(key)!.messages.push(row);
-  }
+  // Serialise for the client component — Dates don't cross the boundary.
+  const offerViews: OfferView[] = offers.map((o) => ({
+    id: o.row.id,
+    channel: o.channel,
+    sender: o.row.sender,
+    body: o.row.body,
+    amount: o.amount,
+    net: o.net,
+    floor: o.floor,
+    profit: o.profit,
+    aboveFloor: o.aboveFloor,
+    hoursLeft: o.hoursLeft,
+    offerUrl: o.row.offer_url ?? null,
+    receivedAt: o.row.received_at,
+    item: o.item
+      ? {
+          id: o.item.id,
+          sku: o.item.sku,
+          title: o.item.title,
+          brand: o.item.brand,
+          listPrice: o.item.list_price == null ? null : Number(o.item.list_price),
+        }
+      : null,
+  }));
+
+  const groups = groupByItem(messages);
+  const unread = messages.filter((m) => !m.read_at).length;
 
   return (
     <>
-      <div className="sectionhead">
-        <h2>Inbox</h2>
-        <p>Buyer messages and offers, every channel, grouped by garment</p>
+      <div className="pagehead">
+        <h1>Inbox</h1>
+        <p>
+          Offers and buyer messages from every channel, in one place, grouped by garment.
+          {unread > 0 && ` ${unread} unread.`}
+        </p>
+      </div>
+
+      <div className="tabs">
+        <Link href="/inbox" className={view === "offers" ? "tab tab-on" : "tab"}>
+          Offers{offers.length > 0 && <b>{offers.length}</b>}
+        </Link>
+        <Link href="/inbox?view=messages" className={view === "messages" ? "tab tab-on" : "tab"}>
+          All messages{unread > 0 && <b>{unread}</b>}
+        </Link>
       </div>
 
       <SyncMessages />
 
-      {rows.length === 0 ? (
+      {view === "offers" ? (
+        <OfferQueue offers={offerViews} />
+      ) : messages.length === 0 ? (
         <div className="notice">
           <strong>No messages yet</strong>
           <p>
@@ -64,19 +85,23 @@ export default async function InboxPage() {
         </div>
       ) : (
         <div className="threads">
-          {[...groups.entries()].map(([key, group]) => {
-            const floor = group.item?.floor_price == null ? null : Number(group.item.floor_price);
-            const best = group.messages
-              .filter((m) => m.offer_amount != null)
-              .map((m) => Number(m.offer_amount))
-              .sort((a, b) => b - a)[0];
+          {groups.map((group) => {
+            const scored = group.rows
+              .filter((r) => r.kind === "offer")
+              .map(scoreOffer)
+              .filter((o): o is NonNullable<typeof o> => o !== null);
+            const best = scored.sort((a, b) => b.amount - a.amount)[0];
+            const floor = best?.floor ?? null;
 
             return (
-              <div key={key} className="thread">
+              <div key={group.key} className="thread">
                 <div className="thread-head">
                   {group.item ? (
                     <Link href={`/items/${group.item.id}`} className="thread-item">
-                      <strong>{group.item.brand ? `${group.item.brand} ` : ""}{group.item.title}</strong>
+                      <strong>
+                        {group.item.brand ? `${group.item.brand} ` : ""}
+                        {group.item.title}
+                      </strong>
                       <span className="muted">{group.item.sku}</span>
                     </Link>
                   ) : (
@@ -89,37 +114,43 @@ export default async function InboxPage() {
                   {floor !== null && (
                     <span className="thread-floor">
                       floor {usd(floor)}
-                      {best !== undefined && (
-                        <span className={best >= floor ? "num-pos" : "num-neg"}>
-                          {" · "}best offer {usd(best)}
+                      {best && (
+                        <span className={best.amount >= floor ? "num-pos" : "num-neg"}>
+                          {" · "}best offer {usd(best.amount)}
                         </span>
                       )}
                     </span>
                   )}
                 </div>
 
-                {group.messages.map((message) => {
-                  const amount = message.offer_amount == null ? null : Number(message.offer_amount);
-                  const net = amount === null ? null : projectedNet(message.channel, amount);
-                  const belowFloor = amount !== null && floor !== null && amount < floor;
-
+                {group.rows.map((message) => {
+                  const offer = message.kind === "offer" ? scoreOffer(message) : null;
                   return (
                     <div key={message.id} className={message.read_at ? "msg" : "msg msg-unread"}>
                       <div className="msg-head">
-                        <span className="msg-sender">{message.sender ?? "Buyer"}</span>
+                        <span className="msg-sender">
+                          {message.direction === "outgoing" ? "You" : message.sender ?? "Buyer"}
+                        </span>
                         <span className="msg-channel">{CHANNEL_LABEL[message.channel]}</span>
                         <span className="msg-time">{ago(message.received_at)}</span>
                       </div>
 
-                      {amount !== null ? (
+                      {offer && (
                         <div className="msg-offer">
-                          <strong>{usd(amount)}</strong>
+                          <strong>{usd(offer.amount)}</strong>
                           <span className="muted">
-                            nets {usd(net!)}
-                            {belowFloor ? " — below your floor" : floor !== null ? " — above your floor" : ""}
+                            nets {usd(offer.net)}
+                            {offer.aboveFloor === null
+                              ? ""
+                              : offer.aboveFloor
+                                ? " — above your floor"
+                                : " — below your floor"}
                           </span>
+                          {offer.status !== "open" && (
+                            <span className="badge badge-draft">{offer.status}</span>
+                          )}
                         </div>
-                      ) : null}
+                      )}
 
                       {message.body && <p className="msg-body">{message.body}</p>}
                     </div>

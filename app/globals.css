@@ -1101,3 +1101,447 @@ button.mchip:disabled { cursor: default; opacity: .5; }
 .msg-offer strong { font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
 .msg-offer .muted { font-size: 12px; }
 .msg-body { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); max-width: 70ch; }
+
+/* ==========================================================================
+   Redesign layer — Aug 2026
+   Appended deliberately: later rules win, so this refines the sheet above
+   without having to unpick rules the other pages still depend on.
+
+   The problem being fixed: the home page read as an accountant's dashboard —
+   five tiles, a channel breakdown, then a ten-column table — with no primary
+   action and nothing saying what needed doing. And none of it worked on a
+   phone, which is where garments actually get photographed and listed.
+   ========================================================================== */
+
+/* ---------- shell + top bar ---------- */
+
+.shell { max-width: 1180px; padding: 0 20px 96px; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+/* The stale "Stage 01 · photo intake" caption is gone from the markup; this
+   keeps any stray span from reintroducing the clutter. */
+.brandmark { align-items: center; gap: 8px; }
+.brandmark strong { font-size: 17px; letter-spacing: -.025em; }
+.brandmark span { display: none; }
+
+.navlinks {
+  display: flex;
+  gap: 2px;
+  margin-right: auto;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--rule-2);
+  border-radius: 999px;
+}
+.navlink {
+  position: relative;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+  padding: 7px 14px;
+  border-radius: 999px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.navlink:hover { background: var(--raised); color: var(--ink); }
+.navlink-on, .navlink-on:hover { background: var(--ink); color: var(--ground); }
+
+.navdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--brick);
+  display: inline-block;
+}
+
+.navright { display: flex; align-items: center; gap: 14px; }
+.navuser { display: flex; align-items: center; gap: 8px; }
+.navuser span {
+  font-size: 12px;
+  color: var(--ink-3);
+  max-width: 168px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.navuser .navlink { background: none; padding: 6px 8px; font-size: 12px; }
+
+.button-sm { padding: 7px 14px; font-size: 13px; min-height: 34px; }
+
+/* ---------- page header ---------- */
+
+.pagehead { margin: 14px 0 18px; }
+.pagehead h1 {
+  font-size: 26px;
+  font-weight: 680;
+  letter-spacing: -.03em;
+  margin: 0;
+  line-height: 1.15;
+}
+.pagehead p {
+  margin: 5px 0 0;
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+
+/* ---------- what needs doing ----------
+   The single biggest legibility win: three counts that were previously only
+   discoverable by reading a status column row by row. */
+
+.todo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.todochip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  background: var(--raised);
+  min-height: 36px;
+  transition: border-color .12s ease, transform .04s ease;
+}
+.todochip:hover { border-color: var(--ink-3); }
+.todochip:active { transform: scale(.99); }
+.todochip b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.todochip-act { border-color: color-mix(in srgb, var(--denim) 45%, transparent); }
+.todochip-act b { color: var(--denim); }
+.todochip-warn { border-color: color-mix(in srgb, var(--ochre) 50%, transparent); }
+.todochip-warn b { color: var(--ochre); }
+
+/* ---------- summary tiles ---------- */
+
+.tiles {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin: 0 0 20px;
+  border-radius: 10px;
+}
+.tile { padding: 15px 17px 17px; }
+.tile-value { font-size: 27px; }
+.tile-label { letter-spacing: .12em; }
+
+/* ---------- progressive disclosure ----------
+   Channel take-rate analysis is something you read monthly, not daily. It was
+   occupying prime vertical space above the inventory it was meant to explain. */
+
+.disclose {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0 16px;
+  margin-bottom: 22px;
+}
+.disclose > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 13px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.disclose > summary::-webkit-details-marker { display: none; }
+.disclose > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(-45deg);
+  transition: transform .15s ease;
+}
+.disclose[open] > summary::before { transform: rotate(45deg); }
+.disclose[open] > summary { border-bottom: 1px solid var(--rule-2); }
+.disclose .channels { padding: 14px 0 4px; }
+.disclose .prose-fine { padding-bottom: 14px; margin: 0; }
+
+/* ---------- inventory table ---------- */
+
+.filters { border-bottom: none; padding: 0 0 12px; }
+.tablewrap { border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.grid-lean { min-width: 0; }
+.grid-lean th { padding: 11px 14px; background: var(--surface); }
+.grid-lean td { padding: 12px 14px; }
+.grid-lean tbody tr:last-child td { border-bottom: none; }
+
+.cell-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.cell-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }
+.rowthumb img, .rowthumb-empty { border-radius: 6px; }
+
+/* ---------- phone: the table becomes cards ----------
+   Same markup, no JS. Each row is a card; the header row is hidden and the
+   data-label attributes carry the column names inline. */
+
+@media (max-width: 900px) {
+  .shell { padding: 0 14px 96px; }
+
+  .topbar { padding: 14px 0; gap: 10px; }
+  .navlinks {
+    order: 3;
+    width: 100%;
+    margin-right: 0;
+    justify-content: space-between;
+  }
+  .navlink { flex: 1; justify-content: center; padding: 8px 6px; }
+  .navright { margin-left: auto; }
+  .navuser span { display: none; }
+
+  .pagehead h1 { font-size: 23px; }
+
+  .tablewrap { border: none; border-radius: 0; overflow: visible; }
+  .grid-lean, .grid-lean tbody, .grid-lean tr, .grid-lean td { display: block; width: 100%; }
+  .grid-lean thead { display: none; }
+
+  .grid-lean tr {
+    position: relative;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--raised);
+    margin-bottom: 10px;
+    padding: 12px 12px 12px 76px;
+    min-height: 84px;
+  }
+  .grid-lean tbody tr:hover td { background: none; }
+  .grid-lean td { border: none; padding: 0; }
+
+  /* Thumbnail pinned into the padding gutter. */
+  .grid-lean td[data-cell="thumb"] {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    width: 52px;
+  }
+  .grid-lean td[data-cell="thumb"] .rowthumb,
+  .grid-lean td[data-cell="thumb"] img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+  }
+  .grid-lean td[data-cell="thumb"] .rowthumb-empty { width: 52px; height: 52px; }
+
+  .grid-lean td[data-cell="item"] { padding-right: 72px; }
+  .grid-lean td[data-cell="item"] .cell-title { font-size: 14.5px; line-height: 1.3; }
+
+  /* Status floats top-right rather than taking a whole row. */
+  .grid-lean td[data-cell="status"] { position: absolute; top: 12px; right: 12px; }
+
+  .grid-lean td[data-cell="channels"] { margin-top: 10px; }
+
+  /* Money and age sit on one labelled line. */
+  .grid-lean td[data-cell="ask"],
+  .grid-lean td[data-cell="net"],
+  .grid-lean td[data-cell="age"] {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 8px 16px 0 0;
+    text-align: left;
+  }
+  .grid-lean td[data-label]::before {
+    content: attr(data-label);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .grid-lean td[data-cell="channels"]::before { display: block; margin-bottom: 5px; }
+  .grid-lean .cell-sub { display: inline; margin-left: 5px; }
+
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .tiles .tile-hero { grid-column: 1 / -1; }
+}
+
+@media (max-width: 420px) {
+  .tiles { grid-template-columns: 1fr; }
+  .navlink { font-size: 12px; }
+}
+
+/* Respect people who don't want motion. */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* Settings: the two former nav destinations, now cards. */
+.settingslinks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-bottom: 30px;
+}
+.settingslink {
+  display: block;
+  padding: 15px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--raised);
+  transition: border-color .12s ease;
+}
+.settingslink:hover { border-color: var(--ink-3); }
+.settingslink strong { display: block; font-size: 14px; font-weight: 620; margin-bottom: 3px; }
+.settingslink span { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
+
+/* ==========================================================================
+   Offers queue + unified inbox
+   ========================================================================== */
+
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  min-height: 38px;
+}
+.tab:hover { border-color: var(--ink-3); color: var(--ink); }
+.tab-on, .tab-on:hover { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.tab b {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--rule);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.tab-on b { background: color-mix(in srgb, var(--ground) 26%, transparent); color: var(--ground); }
+
+.offerlist { display: grid; gap: 12px; }
+
+.offercard {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--raised);
+  padding: 15px 16px;
+}
+.offercard-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+.offercard-who { min-width: 0; }
+.offercard-item { font-weight: 620; font-size: 15px; letter-spacing: -.01em; display: block; }
+.offercard-item:hover { text-decoration: underline; text-underline-offset: 2px; }
+.offercard-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.offercard-money { text-align: right; flex-shrink: 0; }
+.offercard-amount {
+  font-size: 24px;
+  font-weight: 680;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* The line the whole screen exists for. */
+.offercard-maths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.offercard-maths b { color: var(--ink); font-weight: 650; }
+
+.offercard-actions, .offercard-counter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.offercard-counter .field { max-width: 130px; }
+.offercard-counter .field-label { margin: 0; }
+
+.button-quiet {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+}
+.button-quiet:hover { border-color: var(--ink-3); }
+
+.offercard-error {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--brick);
+  line-height: 1.45;
+}
+.offercard-fine {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+/* Outgoing messages read as yours, in the per-product conversation. */
+.msg-out { background: var(--denim-soft); border-color: transparent; }
+
+/* ---------- mobile fixes ---------- */
+
+@media (max-width: 900px) {
+  /* The three summary numbers were eating the entire first screen before you
+     reached any actual stock. One compact row instead. */
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+  .tiles .tile-hero { grid-column: auto; }
+  .tile { padding: 11px 11px 13px; }
+  .tile-value { font-size: 17px; letter-spacing: -.03em; }
+  .tile-label { font-size: 9px; letter-spacing: .08em; margin-bottom: 5px; }
+  .tile-sub { font-size: 9.5px; line-height: 1.35; }
+
+  /* The status badge was absolutely positioned into the same corner as the
+     thumbnail's gutter and collided with it. Put it back in flow, under the
+     title, where it can't overlap anything. */
+  .grid-lean td[data-cell="status"] { position: static; margin-top: 8px; }
+  .grid-lean td[data-cell="item"] { padding-right: 0; }
+
+  .offercard-top { flex-direction: column; gap: 8px; }
+  .offercard-money { text-align: left; }
+  .offercard-amount { font-size: 21px; }
+  .offercard-actions .button { flex: 1 1 auto; justify-content: center; }
+  .tabs { overflow-x: auto; }
+}
+
+@media (max-width: 420px) {
+  /* Below this the three-across strip stops being readable. */
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+  .tile-value { font-size: 15px; }
+}

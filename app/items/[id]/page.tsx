@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReviewForm from "@/components/ReviewForm";
 import ListingDrafts from "@/components/ListingDrafts";
+import ItemMessages from "@/components/ItemMessages";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, computeFees, projectedNet } from "@/lib/fees";
 import { LISTABLE } from "@/lib/listing";
 import { usd, shortDate, daysSince } from "@/lib/money";
@@ -274,6 +275,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
       </div>
+      <ItemMessages itemId={item.id} />
     </>
   );
 }
