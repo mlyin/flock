@@ -17,14 +17,17 @@ export const LISTABLE: Channel[] = [
   "mercari",
   "vinted",
   "grailed",
+  "poshmark",
   "facebook",
   "therealreal",
 ];
 
 export const CHANNEL_BRIEF: Record<
-  "ebay" | "depop" | "vinted" | "grailed" | "facebook" | "therealreal",
+  "ebay" | "depop" | "vinted" | "grailed" | "poshmark" | "facebook" | "therealreal",
   string
 > = {
+  poshmark:
+    "Warm and personal, the way Poshmark's own sellers write. Styling suggestions land well here and so does saying why you loved it. Measurements still matter — Poshmark buyers ask for them constantly, so putting them in saves a conversation.",
   facebook:
     "Local and plain-spoken. Most Marketplace buyers are nearby and skimming on a phone, so lead with what it is, the size and the condition in the first line. No hashtags, no marketplace slang. Mention if you'd meet up.",
   therealreal:

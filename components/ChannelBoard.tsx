@@ -129,7 +129,7 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
                       the item in by hand and lists it itself. Offering "Fill"
                       there would be a button whose only outcome is an error. */}
                   {CHANNEL_ACCESS[channel] === "manual" ? (
-                    <Link href={`/post/${item}`} className="button button-sm button-quiet">
+                    <Link href={`/post/${row!.listingId}`} className="button button-sm button-quiet">
                       Intake copy
                     </Link>
                   ) : installed ? (
@@ -142,7 +142,7 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
                       {isBusy ? "Filling…" : `Fill on ${CHANNEL_LABEL[channel]}`}
                     </button>
                   ) : (
-                    <Link href={`/post/${item}`} className="button button-sm button-quiet">
+                    <Link href={`/post/${row!.listingId}`} className="button button-sm button-quiet">
                       Post step by step
                     </Link>
                   )}
