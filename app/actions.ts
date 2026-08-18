@@ -12,7 +12,7 @@ export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome
 
   const outcome = await identifyAndDraft(photoIds);
   if (outcome.ok) {
-    revalidatePath("/inbox");
+    revalidatePath("/add");
     revalidatePath("/");
   }
   return outcome;
@@ -38,7 +38,7 @@ export async function registerPhoto(storagePath: string, bytes: number) {
 
   if (error) return { ok: false as const, error: error.message };
 
-  revalidatePath("/inbox");
+  revalidatePath("/add");
   return { ok: true as const };
 }
 
@@ -56,7 +56,7 @@ export async function deleteInboxPhoto(photoId: string) {
 
   await supabase.storage.from(BUCKET).remove([photo.storage_path]);
   await supabase.from("photos").delete().eq("id", photoId);
-  revalidatePath("/inbox");
+  revalidatePath("/add");
 }
 
 export type DraftOutcome = { ok: true } | { ok: false; error: string };
@@ -191,6 +191,7 @@ export async function confirmItem(formData: FormData) {
       condition: text("condition") ?? "good",
       cost_basis: Number(formData.get("cost_basis") ?? 0) || 0,
       list_price: Number(formData.get("list_price") ?? 0) || null,
+      floor_price: Number(formData.get("floor_price") ?? 0) || null,
       package_size: text("package_size"),
       source: text("source"),
       flaws,
@@ -242,7 +243,7 @@ export async function addItemByHand(photoIds: string[]): Promise<IdentifyOutcome
   const outcome = await createItemByHand(photoIds);
   if (!outcome.ok) return outcome;
 
-  revalidatePath("/inbox");
+  revalidatePath("/add");
   revalidatePath("/");
   return { ok: true, itemId: outcome.itemId, sku: outcome.sku, questions: [] };
 }

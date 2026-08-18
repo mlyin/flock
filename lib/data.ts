@@ -25,6 +25,7 @@ export type Item = {
   condition: string;
   flaws: string[];
   cost_basis: number;
+  floor_price: number | null;
   list_price: number | null;
   package_size: string | null;
   acquired_at: string | null;
@@ -93,6 +94,7 @@ function shapeItem(row: Record<string, unknown>): Item {
   return {
     ...(row as unknown as Item),
     cost_basis: num(row.cost_basis),
+    floor_price: row.floor_price == null ? null : num(row.floor_price),
     list_price: row.list_price == null ? null : num(row.list_price),
     flaws: Array.isArray(row.flaws) ? (row.flaws as string[]) : [],
   };

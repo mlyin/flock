@@ -38,7 +38,7 @@ export default async function Dashboard({
       <div className="notice">
         <strong>Your closet is empty</strong>
         <p>
-          Head to the <Link href="/inbox" className="link">Inbox</Link>, upload a garment and its
+          Head to <Link href="/add" className="link">Add</Link>, upload a garment and its
           brand tag, and let it identify the piece. Everything here fills in from there.
         </p>
       </div>

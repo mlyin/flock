@@ -103,6 +103,17 @@ export default function ReviewForm({
             defaultValue={item.list_price ?? ""}
           />
         </Field>
+        <Field name="floor_price" label="Won't go below">
+          <input
+            id="floor_price"
+            name="floor_price"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={item.floor_price ?? ""}
+            placeholder="optional"
+          />
+        </Field>
         <Field name="source" label="Sourced from" value={item.source} />
         <Field name="package_size" label="Package size">
           {/* Depop and Mercari both refuse a listing without this, and it's a
