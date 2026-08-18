@@ -41,7 +41,13 @@ function setText(selector, value) {
   return true;
 }
 
-/** Designer is an autocomplete; an exact match or nothing. */
+/**
+ * Designer is an autocomplete; an exact match or nothing.
+ *
+ * Returns "untypable" when the field rejects scripted input — see the note
+ * below. That's distinct from false ("we typed it, nothing matched"), because
+ * the two need completely different advice in the banner.
+ */
 async function pickDesigner(brand) {
   const input = document.querySelector(FIELD.designer);
   if (!input || !brand) return false;
@@ -49,6 +55,18 @@ async function pickDesigner(brand) {
 
   input.focus();
   setNativeValue(input, String(brand));
+
+  // Grailed's designer field is the one control on the page that refuses a
+  // scripted value: the prototype setter lands, then dispatching `input`
+  // synchronously reverts it to "" as React re-renders from state the handler
+  // never updated. Verified on the live form 18 Aug 2026 — title, description
+  // and price all take setNativeValue fine, this one does not, and typing the
+  // same string on a real keyboard matches "Alo Yoga" immediately.
+  //
+  // Nothing a content script can dispatch is trusted, so this is not a selector
+  // bug to be fixed later; it needs the seller's own keystrokes.
+  if (input.value !== String(brand)) return "untypable";
+
   await wait(1000);
 
   const options = [...document.querySelectorAll('[role="option"], li')].filter(
@@ -190,6 +208,31 @@ async function chooseFrom(trigger, candidates) {
   return null;
 }
 
+/**
+ * Pick from the menu that's already open.
+ *
+ * Choosing a department swaps the same open menu to that department's
+ * categories without closing it (observed live, 18 Aug 2026). Re-clicking the
+ * trigger at that point toggles the menu SHUT, which is why the category was
+ * never found: the filler was closing the list it meant to read.
+ */
+async function pickFromOpen(candidates) {
+  for (const candidate of candidates) {
+    const item = menuItems().find((el) => {
+      const text = el.textContent.trim().toLowerCase();
+      return text === candidate.toLowerCase() || text.includes(candidate.toLowerCase());
+    });
+    if (item) {
+      pointerClick(item);
+      await wait(900);
+      return item.textContent.trim();
+    }
+  }
+  document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(300);
+  return null;
+}
+
 const DEPARTMENT_LABEL = { women: "Womenswear", men: "Menswear", unisex: "Menswear" };
 
 /** Garment type -> Grailed's top-level category, from the live option list. */
@@ -205,6 +248,41 @@ const GRAILED_CATEGORY = {
   hat: ["Accessories"], belt: ["Accessories"], scarf: ["Accessories"],
   necklace: ["Jewelry"], ring: ["Jewelry"], earrings: ["Jewelry"],
 };
+
+/**
+ * Garment word -> sub-category labels, most specific first.
+ *
+ * Womenswear/Tops (read live, 18 Aug 2026): Blouses, Bodysuits, Button Ups,
+ * Crop Tops, Hoodies, Long Sleeve T-Shirts, Polos, Short Sleeve T-Shirts,
+ * Sweaters, Sweatshirts, Tank Tops. Menswear uses combined labels
+ * ("Sweatshirts & Hoodies"), so both forms are listed.
+ *
+ * No generic fallback on purpose: "Tops" as a candidate substring-matched
+ * "Crop Tops" and put a pullover in the wrong sub-category on a real fill.
+ * An empty sub-category is visible and fixable; a wrong one is neither.
+ */
+const GRAILED_SUBCATEGORY = {
+  pullover: ["Sweatshirts", "Sweatshirts & Hoodies"],
+  sweatshirt: ["Sweatshirts", "Sweatshirts & Hoodies"],
+  crewneck: ["Sweatshirts", "Sweatshirts & Hoodies"],
+  hoodie: ["Hoodies", "Sweatshirts & Hoodies"],
+  sweater: ["Sweaters", "Sweaters & Knitwear"],
+  jumper: ["Sweaters", "Sweaters & Knitwear"],
+  cardigan: ["Sweaters", "Sweaters & Knitwear"],
+  knit: ["Sweaters", "Sweaters & Knitwear"],
+  blouse: ["Blouses"],
+  bodysuit: ["Bodysuits"],
+  polo: ["Polos"],
+  tee: ["Short Sleeve T-Shirts"],
+  tshirt: ["Short Sleeve T-Shirts"],
+};
+
+function subcategoryCandidates(item) {
+  const words = String(item.title || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const out = [];
+  for (const w of words) for (const c of GRAILED_SUBCATEGORY[w] ?? []) if (!out.includes(c)) out.push(c);
+  return out;
+}
 
 function categoryCandidates(item) {
   const words = String(item.title || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
@@ -243,7 +321,7 @@ async function setGrailedCascade(item) {
     return result;
   }
 
-  const chosenCategory = await chooseFrom(triggerMatching(/womenswear|menswear|department/i), candidates);
+  const chosenCategory = await pickFromOpen(candidates);
   if (!chosenCategory) {
     result.missing.push(`category (no match for ${candidates.join(", ")})`);
     return result;
@@ -251,14 +329,12 @@ async function setGrailedCascade(item) {
   result.filled.push(`category (${DEPARTMENT_LABEL[department]} / ${chosenCategory})`);
 
   // Sub-category, size and condition only exist now that a category is set.
-  const sub = await chooseFrom(triggerMatching(/^sub-?category/i), [
-    ...candidates,
-    "Sweatshirts & Hoodies",
-    "Sweaters & Knitwear",
-    "Other",
-  ]);
+  const subCandidates = subcategoryCandidates(item);
+  const sub = subCandidates.length
+    ? await chooseFrom(triggerMatching(/^sub-?category/i), subCandidates)
+    : null;
   if (sub) result.filled.push(`sub-category (${sub})`);
-  else result.missing.push("sub-category");
+  else result.missing.push("sub-category (pick it by hand)");
 
   if (item.size) {
     const size = await chooseFrom(triggerMatching(/select size/i), [item.size, String(item.size).toUpperCase()]);
@@ -326,13 +402,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const designerCandidates = item.brandCandidates?.length ? item.brandCandidates : [item.brand];
     let designerSet = null;
     for (const candidate of designerCandidates) {
-      if (candidate && (await pickDesigner(candidate))) {
+      if (!candidate) continue;
+      const outcome = await pickDesigner(candidate);
+      if (outcome === "untypable") {
+        designerSet = "untypable";
+        break; // retrying other spellings can't help; the field takes no script input
+      }
+      if (outcome) {
         designerSet = candidate;
         break;
       }
     }
-    if (designerSet) {
+    if (designerSet && designerSet !== "untypable") {
       filled.push(designerSet === item.brand ? "designer" : `designer (as "${designerSet}")`);
+    } else if (designerSet === "untypable") {
+      // We know the name Grailed lists this brand under, so say exactly what to
+      // type rather than leaving the seller to guess at a required field.
+      const best = designerCandidates[designerCandidates.length - 1] ?? item.brand;
+      missing.push(`designer — type "${best}" (this field only takes real typing)`);
     } else if (item.brand) {
       missing.push(`designer (no exact match for "${item.brand}")`);
     }
@@ -342,7 +429,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });
-  })();
+  })().catch((error) => {
+    // A filler that dies without responding leaves the page stuck on
+    // "Filling…" forever — the seller can't tell a crash from a slow form.
+    // Report the crash as the result instead.
+    console.error('[threader] fill crashed:', error);
+    sendResponse({ error: error.message });
+  });
 
   return true;
 });

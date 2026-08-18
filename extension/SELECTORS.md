@@ -249,7 +249,10 @@ Trigger buttons are `button[class*="DropdownMenu-module__trigger"]`; menu entrie
 
 **Department and Category are one control.** Opening it lists exactly two items —
 `Menswear`, `Womenswear`. Choosing one *replaces the list in the same menu* with that
-department's categories:
+department's categories — **the menu stays open**. Clicking the trigger again at that
+point toggles the menu closed and the category list is gone; the filler must pick the
+category from the already-open menu (`pickFromOpen`, not a second `chooseFrom`).
+Verified by driving the live menu with pointer events, 18 Aug 2026:
 
 ```
 Tops · Bottoms · Outerwear · Dresses · Footwear · Accessories · Bags & Luggage · Jewelry
@@ -262,3 +265,37 @@ Womenswear then Tops, the trigger read `Womenswear / Tops` and all three unlocke
 There is no neutral department option, so an item with no `department` cannot be
 categorised here at all — the filler refuses rather than flipping a coin on the most
 visible field in the listing.
+
+**Womenswear / Tops sub-categories** (read live, 18 Aug 2026):
+
+```
+Blouses · Bodysuits · Button Ups · Crop Tops · Hoodies · Long Sleeve T-Shirts
+Polos · Short Sleeve T-Shirts · Sweaters · Sweatshirts · Tank Tops
+```
+
+Menswear uses combined labels (`Sweatshirts & Hoodies`, `Sweaters & Knitwear`), so the
+filler carries both spellings. Do **not** feed the top-level category in as a
+sub-category candidate: `"Tops"` substring-matched `Crop Tops` and filed a pullover
+under it on a real fill.
+
+### `#designer-autocomplete` cannot be filled by script — 18 Aug 2026
+
+The one control on the page that refuses a scripted value. Verified directly, with the
+category set and the field enabled and focused:
+
+```
+setNativeValue(input, "Alo Yoga")     → input.value === "Alo Yoga"
+input.dispatchEvent(new Event("input")) → input.value === ""   ← synchronously
+```
+
+React re-renders from state its handler never updated. `execCommand("insertText")` and
+per-character synthetic `keydown`/`input`/`keyup` were also tried; all revert the same
+way. Typing the identical string on a **real keyboard** matches `Alo Yoga` instantly, so
+this is not a bad selector and not a missing alias — the field wants trusted events,
+which no content script can produce.
+
+Grailed requires a designer, so every Grailed listing takes one manual keystroke-field
+from the seller. The filler detects the revert and names the exact string to type
+(`designer — type "Alo Yoga"`) rather than reporting a vague skip. Filling it
+automatically would need `chrome.debugger`, whose permanent "debugging this browser"
+banner is not worth one field.

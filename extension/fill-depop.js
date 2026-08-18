@@ -347,7 +347,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });
-  })();
+  })().catch((error) => {
+    // A filler that dies without responding leaves the page stuck on
+    // "Filling…" forever — the seller can't tell a crash from a slow form.
+    // Report the crash as the result instead.
+    console.error('[threader] fill crashed:', error);
+    sendResponse({ error: error.message });
+  });
 
   return true;
 });

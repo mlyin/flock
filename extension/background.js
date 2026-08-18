@@ -268,8 +268,36 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         // A minimised window keeps the page out of your way while it fills.
         // An extension can't drive a truly headless page — the marketplace is a
         // React app and needs a real renderer to mount its form at all.
+        //
+        // If the sell page is already open in some tab, reuse it: retrying a
+        // fill shouldn't pile up tabs, and a tab you opened to watch the fill
+        // happen stays the one being filled. Reloading it first resets any
+        // half-filled form to a known-clean state.
         let tab;
-        if (background === true) {
+        const [existing] = await chrome.tabs.query({ url: `${url}*` });
+        if (existing) {
+          // Navigating a tab to the URL it is already on races: tabs.update
+          // resolves while the tab still reports the OLD page's "complete", so
+          // whenLoaded sails through and the filler lands in a document the
+          // reload is about to destroy — everything fills, then vanishes.
+          // Listen for the new load actually starting before waiting for it to
+          // finish. The timeout covers Chrome deciding not to navigate at all.
+          const navStarted = new Promise((resolve) => {
+            const onUpdated = (id, info) => {
+              if (id !== existing.id || info.status !== "loading") return;
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              clearTimeout(fallback);
+              resolve();
+            };
+            const fallback = setTimeout(() => {
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              resolve();
+            }, 3000);
+            chrome.tabs.onUpdated.addListener(onUpdated);
+          });
+          tab = await chrome.tabs.update(existing.id, { url });
+          await navStarted;
+        } else if (background === true) {
           const win = await chrome.windows.create({ url, state: "minimized", focused: false });
           tab = win.tabs[0];
         } else {
@@ -285,11 +313,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
 
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [filler] });
-        const result = await chrome.tabs.sendMessage(tab.id, {
-          type: "apply",
-          payload,
-          autoSubmit: Boolean(autoSubmit),
-        });
+        // Fillers catch their own crashes and respond with { error }, but a
+        // response can still fail to arrive — a navigation mid-fill kills the
+        // content script without closing the port. The deadline turns that
+        // silence into an error the page can show. 90s covers the slowest real
+        // fill (nine photos plus a cascade) with room to spare.
+        const result = await Promise.race([
+          chrome.tabs.sendMessage(tab.id, {
+            type: "apply",
+            payload,
+            autoSubmit: Boolean(autoSubmit),
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("The fill didn't finish within 90 seconds.")), 90000)
+          ),
+        ]);
+        if (result?.error) throw new Error(`The ${payload.channel} filler crashed: ${result.error}`);
 
         // If anything is still missing, the decision is yours — bring the
         // window forward rather than leaving a half-filled form minimised
