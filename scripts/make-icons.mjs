@@ -3,13 +3,19 @@
  *
  *   node scripts/make-icons.mjs
  *
- * Sources live in public/brand/ (drawn by hand, pushed 18 Aug 2026):
+ * The mark is composed here rather than shrunk, because neither hand-drawn
+ * tile survives being scaled down to a browser tab:
  *
- *   favicon.svg    sheep face close-up on a lime tile — drawn FOR small sizes,
- *                  so it feeds the 16/32px slots where the full sheep would
- *                  smear into a blob
- *   icon-lime.svg  full sheep on a lime tile — the 48/128px extension icons,
- *                  the store icon, and the touch icon
+ *   favicon.svg    the face close-up. Bold in isolation, but mostly BLACK — at
+ *                  16px it reads as a dark blob with a few lime corner pixels,
+ *                  which is exactly what it looked like in the tab.
+ *   icon-lime.svg  the full sheep, but inset in its tile. Shrunk to 16px the
+ *                  sheep itself is only ~8px across and the legs disappear.
+ *
+ * So: draw the rounded lime tile at the target size, and composite the sheep
+ * over it at 80% — no inherited padding, and the silhouette stays as large as
+ * the tile allows. The corner radius is a ratio, so it looks right at 16px and
+ * at 512px instead of being tuned for one of them.
  *
  * Outputs:
  *   extension/icons/icon-{16,32,48,128}.png   Chrome toolbar + store
@@ -27,21 +33,45 @@ const ROOT = path.resolve(HERE, "..");
 const BRAND = path.join(ROOT, "public", "brand");
 const OUT = path.join(ROOT, "extension", "icons");
 
-const face = fs.readFileSync(path.join(BRAND, "favicon.svg"));
-const sheep = fs.readFileSync(path.join(BRAND, "icon-lime.svg"));
+const LIME = "#C0E42A";
 
-const jobs = [
-  { src: face, size: 16, to: path.join(OUT, "icon-16.png") },
-  { src: face, size: 32, to: path.join(OUT, "icon-32.png") },
-  { src: sheep, size: 48, to: path.join(OUT, "icon-48.png") },
-  { src: sheep, size: 128, to: path.join(OUT, "icon-128.png") },
-  { src: face, size: 512, to: path.join(ROOT, "app", "icon.png") },
-  { src: sheep, size: 180, to: path.join(ROOT, "app", "apple-icon.png") },
-];
+// The sheep alone, white body with ink legs, on transparent — 200×200 viewBox.
+const sheepFile = fs.readFileSync(path.join(BRAND, "sheep-wool.svg"), "utf8");
 
-for (const { src, size, to } of jobs) {
-  await sharp(src, { density: 512 }).resize(size, size).png().toFile(to);
+// Composition happens in SVG, not in raster. Rasterising the sheep separately
+// and compositing it produced a speck in the corner: sharp renders a
+// viewBox-only SVG at its own idea of a size, so `resize(inner, inner)` was
+// scaling something already tiny. Inlining the artwork into one SVG and
+// rendering that once has no intermediate size to get wrong.
+const sheepInner = sheepFile.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+
+/**
+ * The sheep's own drawing spans roughly x 34–166, y 23–176 of its 200 box, so
+ * it already fills most of it. 0.88 pulls it in just enough to clear the
+ * rounded corners without shrinking back into a dot.
+ */
+const composed = (size) =>
+  Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 200 200">` +
+      `<rect width="200" height="200" rx="45" fill="${LIME}"/>` +
+      `<g transform="translate(100 100) scale(0.88) translate(-100 -100)">${sheepInner}</g>` +
+      `</svg>`
+  );
+
+async function icon(size, to) {
+  await sharp(composed(size), { density: 900 }).resize(size, size).png().toFile(to);
   console.log(`${path.relative(ROOT, to)}  ${size}×${size}`);
+}
+
+for (const [size, to] of [
+  [16, path.join(OUT, "icon-16.png")],
+  [32, path.join(OUT, "icon-32.png")],
+  [48, path.join(OUT, "icon-48.png")],
+  [128, path.join(OUT, "icon-128.png")],
+  [512, path.join(ROOT, "app", "icon.png")],
+  [180, path.join(ROOT, "app", "apple-icon.png")],
+]) {
+  await icon(size, to);
 }
 
 console.log("\nReload the extension at chrome://extensions to see the new toolbar icon.");

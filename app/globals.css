@@ -1831,3 +1831,100 @@ body { font-size: 15px; line-height: 1.55; }
 .grid tbody tr:hover td { background: var(--brand-soft); border-color: var(--brand-line); }
 
 .badge { border-radius: 999px; font-family: var(--sans); letter-spacing: 0; text-transform: none; }
+
+/* ==========================================================================
+   Landing page — what a stranger sees at sellonflock.com
+
+   Deliberately wider and airier than the app. The signed-in product is dense
+   because it's a working tool; this has one job, which is to explain what the
+   thing is before anyone commits a garment to it.
+   ========================================================================== */
+
+.landing { max-width: 1000px; margin: 0 auto; padding: 0 24px 80px; }
+
+.landing-nav { padding: 26px 0 8px; }
+.landing-brand { display: inline-flex; align-items: center; gap: 10px; }
+.landing-brand img { display: block; border-radius: 9px; }
+.landing-brand strong { font-size: 19px; letter-spacing: -.03em; }
+
+.landing-hero { padding: 64px 0 8px; }
+.landing-hero h1 {
+  font-size: clamp(38px, 7vw, 60px);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+  font-weight: 700;
+  margin: 0 0 20px;
+}
+.landing-lead {
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 60ch;
+  margin: 0 0 28px;
+}
+.landing-lead-sm { font-size: 16px; margin-bottom: 22px; }
+
+.landing-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.landing-fine { font-size: 13px; color: var(--ink-3); margin: 14px 0 0; }
+.landing-fine a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+
+.landing-band { padding: 56px 0; border-top: 1px solid var(--rule-2); margin-top: 56px; }
+.landing-band h2 {
+  font-size: 25px;
+  letter-spacing: -.03em;
+  font-weight: 650;
+  margin: 0 0 12px;
+}
+
+.landing-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
+.landing-steps h3 { font-size: 17px; font-weight: 650; letter-spacing: -.02em; margin: 0 0 8px; }
+.landing-steps p { color: var(--ink-2); margin: 0; line-height: 1.6; }
+.landing-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.landing-chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
+.landing-chips li {
+  padding: 8px 15px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  font-weight: 600;
+  font-size: 14px;
+}
+/* Named, but visibly not claimed. */
+.landing-chip-soon {
+  background: none;
+  border-style: dashed;
+  border-color: var(--rule);
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.landing-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 36px; }
+.landing-two h2 { font-size: 20px; }
+.landing-two p { color: var(--ink-2); margin: 0; line-height: 1.6; }
+
+.landing-foot {
+  padding: 56px 0 0;
+  border-top: 1px solid var(--rule-2);
+  margin-top: 56px;
+  text-align: center;
+}
+.landing-foot .landing-lead { margin-left: auto; margin-right: auto; }
+.landing-foot .landing-cta { justify-content: center; }
+
+@media (max-width: 640px) {
+  .landing-hero { padding-top: 40px; }
+  .landing-band, .landing-foot { padding: 40px 0; margin-top: 40px; }
+}

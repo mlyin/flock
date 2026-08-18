@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Landing from "@/components/Landing";
+import { currentUser, supabaseConfigured } from "@/lib/supabase/server";
 import ChannelActions from "@/components/ChannelActions";
 import Filters from "@/components/Filters";
 import ChannelViewToggle from "@/components/ChannelViewToggle";
@@ -15,6 +17,10 @@ export default async function Inventory({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Signed out, this is the landing page. The local SQLite mode has no auth
+  // at all, so it keeps going straight to the inventory.
+  if (supabaseConfigured() && !(await currentUser())) return <Landing />;
+
   const sp = await searchParams;
   const params = {
     status: typeof sp.status === "string" ? sp.status : "all",

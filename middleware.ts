@@ -36,6 +36,11 @@ export async function middleware(request: NextRequest) {
   const { data } = await supabase.auth.getUser();
 
   const isPublic =
+    // The root is the landing page when signed out and the inventory when
+    // signed in — app/page.tsx decides. Redirecting it away from strangers
+    // meant sellonflock.com showed a bare Google button and no explanation
+    // of what the product was.
+    request.nextUrl.pathname === "/" ||
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth") ||
     request.nextUrl.pathname.startsWith("/privacy") ||
