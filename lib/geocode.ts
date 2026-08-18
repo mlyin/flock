@@ -49,7 +49,7 @@ export async function search(query: string, signal?: AbortSignal): Promise<Addre
   const response = await fetch(url, {
     signal,
     // Photon's usage policy asks callers to identify themselves.
-    headers: { "User-Agent": "Flock/0.1 (sellonflock.com)" },
+    headers: { "User-Agent": "Flock/0.1 (www.sellonflock.com)" },
   });
 
   if (!response.ok) throw new Error(`Address lookup failed (${response.status})`);

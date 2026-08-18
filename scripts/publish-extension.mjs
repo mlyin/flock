@@ -75,4 +75,4 @@ for (const name of [`flock-extension-${manifest.version}.zip`, "flock-extension-
 
 const { data } = supabase.storage.from("extension").getPublicUrl("flock-extension-latest.zip");
 console.log(`\npublic URL  ${data.publicUrl}`);
-console.log("install page  https://sellonflock.com/install");
+console.log("install page  https://www.sellonflock.com/install");

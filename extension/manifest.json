@@ -15,8 +15,8 @@
     "alarms"
   ],
   "host_permissions": [
+    "https://www.sellonflock.com/*",
     "https://sellonflock.com/*",
-    "https://getthreader.com/*",
     "http://localhost:3737/*",
     "https://*.supabase.co/*",
     "https://www.depop.com/*",
@@ -40,8 +40,8 @@
   "content_scripts": [
     {
       "matches": [
+        "https://www.sellonflock.com/*",
         "https://sellonflock.com/*",
-        "https://getthreader.com/*",
         "http://localhost:3737/*"
       ],
       "js": [

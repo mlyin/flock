@@ -52,7 +52,7 @@ export default function InstallPage() {
       <h2>Pair it with your account</h2>
       <ol>
         <li>
-          Sign in at <a href="https://sellonflock.com">sellonflock.com</a>, then go to{" "}
+          Sign in at <a href="https://www.sellonflock.com">sellonflock.com</a>, then go to{" "}
           <strong>Settings → Browser extension</strong>.
         </li>
         <li>Click the Flock icon in Chrome&apos;s toolbar and paste the pairing code.</li>

@@ -34,16 +34,28 @@ const FILLER = {
   grailed: "fill-grailed.js",
 };
 
-const HOME = "https://sellonflock.com";
-const OLD_HOME = "https://sellonflock.com";
+const HOME = "https://www.sellonflock.com";
+
+/**
+ * Hosts a paired install might still have stored.
+ *
+ * getthreader.com is the pre-rename name. The bare apex is here too because it
+ * 308s to www, and following a redirect on every API call is a wasted round
+ * trip on something that also runs on a timer.
+ *
+ * (The rename sweep previously set OLD_HOME to the same string as HOME, so this
+ * check compared a value against itself and migrated nobody. Same blind
+ * find-replace that broke the manifest.)
+ */
+const OLD_HOMES = ["https://getthreader.com", "https://sellonflock.com"];
 
 async function config() {
   const { token, apiBase } = await chrome.storage.local.get(["token", "apiBase"]);
 
-  // Anyone paired before the rename has the old host STORED, and a stored value
-  // beats the default forever — they'd keep calling sellonflock.com until they
-  // re-paired, with no sign anything was wrong. Move them once, here.
-  if (apiBase === OLD_HOME) {
+  // A stored value beats the default forever, so an install paired before the
+  // move would keep calling the old host with nothing pointing at the cause.
+  // Move it once, here.
+  if (OLD_HOMES.includes(apiBase)) {
     await chrome.storage.local.set({ apiBase: HOME });
     return { token, apiBase: HOME };
   }
