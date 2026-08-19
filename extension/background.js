@@ -19,6 +19,9 @@ const SELL_PAGE = {
   // Not a listing form: the consignment packing list, reached via
   // Sell → Ship to Us → START. Landing here directly works when signed in.
   therealreal: "https://www.therealreal.com/sell-trr/packing-list",
+  // Verified 19 Aug 2026. No filler yet — the form hasn't been read, and a
+  // Fill button with nothing behind it is the mistake The RealReal taught us.
+  vestiaire: "https://www.vestiairecollective.com/sell-clothes-online/",
   // StockX has no create form — selling starts from a catalog search. The
   // filler's job there is search-and-select, not form-fill.
   stockx: "https://stockx.com/sell",

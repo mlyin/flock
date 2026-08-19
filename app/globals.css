@@ -1601,44 +1601,11 @@ button.mchip:disabled { cursor: default; opacity: .5; }
 
 /* A coloured mark per marketplace — recognisable at a glance in a way that
    "EB / PM / DP / MC / VT / GR" never was. */
-.chanmark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  flex-shrink: 0;
-  display: inline-block;
-  position: relative;
-}
-.chanmark::after {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-}
-.chanmark-ebay     { background: #4b5cc4; }
-.chanmark-ebay::after     { content: "e"; }
-.chanmark-poshmark { background: #8c3a4a; }
-.chanmark-poshmark::after { content: "P"; }
-.chanmark-depop    { background: #b3312a; }
-.chanmark-depop::after    { content: "D"; }
-.chanmark-mercari  { background: #2f6d8c; }
-.chanmark-mercari::after  { content: "M"; }
-.chanmark-vinted   { background: #2c7a68; }
-.chanmark-vinted::after   { content: "V"; }
-.chanmark-grailed  { background: #303030; }
-.chanmark-grailed::after  { content: "G"; }
-.chanmark-facebook { background: #1877f2; }
-.chanmark-facebook::after { content: "f"; }
-/* Consignment, so it reads differently on purpose — this one takes the item away. */
-.chanmark-therealreal { background: #6b5b95; }
-.chanmark-therealreal::after { content: "R"; }
-
-.boardrow-money { margin-left: auto; text-align: right; }
+/* The hand-coloured letter squares that used to live here are gone. They
+   were a stand-in from before the real marks existed, and once ChannelIcon
+   landed every row carried two marks for one channel — the invented letter
+   and the actual logo. See components/ChannelIcon.tsx. */
+.boardrow-id .chan-icon { border-radius: 5px; flex: 0 0 auto; }
 .boardrow-price {
   display: block;
   font-weight: 650;

@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   // Columns that exist regardless of which migrations have run.
   const BASE =
-    "sku, brand, category, size, color, material, condition, flaws, package_size, depop_category, department";
+    "sku, brand, category, size, color, material, condition, flaws, package_size, depop_category, department, list_price";
 
   // Columns added by 0012 and 0013.
   const PENDING = "color_primary, material_primary, measurements, sizes, fit, style_code";
@@ -81,7 +81,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     channel: listing.channel,
     title: listing.title,
     description: listing.description,
-    price: Number(listing.price),
+    // Fall back to the item's asking price. Listings are drafted the moment a
+    // garment is identified, which is before anyone has priced it — so the row
+    // carries 0 until it's re-drafted, and a marketplace form filled with 0 is
+    // rejected outright ("Please insert a valid price"). The item's own price
+    // is the truer answer and it's already here.
+    price: Number(listing.price) || Number((item as { list_price?: number } | null)?.list_price ?? 0),
     shipping_price: Number(listing.shipping_price),
     tags: draft.tags ?? [],
     specifics: draft.specifics ?? {},

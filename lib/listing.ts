@@ -19,6 +19,7 @@ export const LISTABLE: Channel[] = [
   "grailed",
   "poshmark",
   "facebook",
+  "vestiaire",
   "therealreal",
 ];
 

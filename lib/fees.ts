@@ -15,7 +15,8 @@ export type Channel =
   | "grailed"
   | "therealreal"
   | "facebook"
-  | "stockx";
+  | "stockx"
+  | "vestiaire";
 
 export const CHANNELS: Channel[] = [
   "ebay",
@@ -26,6 +27,7 @@ export const CHANNELS: Channel[] = [
   "grailed",
   "facebook",
   "stockx",
+  "vestiaire",
   "therealreal",
 ];
 
@@ -38,6 +40,7 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   vinted: "Vinted",
   facebook: "Facebook Marketplace",
   stockx: "StockX",
+  vestiaire: "Vestiaire Collective",
   therealreal: "The RealReal",
 };
 
@@ -51,6 +54,7 @@ export const CHANNEL_ABBR: Record<Channel, string> = {
   vinted: "VT",
   facebook: "FB",
   stockx: "SX",
+  vestiaire: "VC",
   therealreal: "TRR",
 };
 
@@ -84,6 +88,7 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
   vinted: "extension",
   facebook: "extension",
   stockx: "extension",
+  vestiaire: "extension",
   therealreal: "extension",
 };
 
@@ -123,7 +128,16 @@ type Basis = "item" | "item_plus_shipping";
 export type FeeKind = "commission" | "payment" | "shipping" | "promo";
 
 type Rule =
-  | { kind: FeeKind; label: string; type: "percent"; rate: number; basis: Basis }
+  | {
+      kind: FeeKind;
+      label: string;
+      type: "percent";
+      rate: number;
+      basis: Basis;
+      /** Vestiaire: 12% but never less than $10 and never more than $2,000. */
+      min?: number;
+      max?: number;
+    }
   | { kind: FeeKind; label: string; type: "flat"; amount: number }
   | {
       kind: FeeKind;
@@ -279,6 +293,36 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
       { kind: "payment", label: "Payment processing", type: "percent", rate: 0.03, basis: "item" },
     ],
   },
+  vestiaire: {
+    verifiedOn: "2026-08-19",
+    note:
+      "MARKETPLACE, not consignment — the SELLER sets the price (Seller T&Cs, updated 9 Mar 2026: Vestiaire may " +
+      "suggest a price but it 'shall only become effective upon acceptance by the Seller'). Selling fee is a flat " +
+      "12% of the item price with a $10 floor (items under $83) and a $2,000 cap (items over $16,667) — the " +
+      "five-band 25/20/18/15/12 schedule that circulates on blogs is NOT Vestiaire's and is contradicted by their " +
+      "own page. Seller also pays 3% payment processing, minimum $3. " +
+      "BUYER-paid and therefore NOT deducted here: the Buyer Service Fee (5-28%, min $5, capped $300) and the $15 " +
+      "authentication fee — they inflate what the buyer pays, which suppresses sell-through at a given ask, but " +
+      "they never touch the seller's net. Minimum listing price $18. Seller T&Cs also cap total seller fees at " +
+      "30% of the price, which only binds on cheap items where the $10 + $3 minimums exceed it — not modelled, " +
+      "and Vestiaire don't explain how the cap interacts with the floors. " +
+      "Outbound shipping is on a Vestiaire-issued prepaid label; whether US sellers are ever charged for it is " +
+      "NOT confirmed from an official page, so no shipping deduction is modelled. Effective for USD from " +
+      "18 Jul 2025. Sources: faq.vestiairecollective.com/hc/en-us/articles/24659638721425-Seller-Selling-Fees " +
+      "and .../8982306039313-Seller-Terms-Conditions",
+    rules: [
+      {
+        kind: "commission",
+        label: "Selling fee",
+        type: "percent",
+        rate: 0.12,
+        basis: "item",
+        min: 10,
+        max: 2000,
+      },
+      { kind: "payment", label: "Payment processing", type: "percent", rate: 0.03, basis: "item", min: 3 },
+    ],
+  },
   therealreal: {
     verifiedOn: "unverified",
     note:
@@ -308,8 +352,12 @@ export function computeFees(
 
   return FEE_RULES[channel].rules.map((rule): ComputedFee => {
     switch (rule.type) {
-      case "percent":
-        return { kind: rule.kind, label: rule.label, amount: cents(basisAmount(rule.basis) * rule.rate) };
+      case "percent": {
+        const raw = basisAmount(rule.basis) * rule.rate;
+        const floored = typeof rule.min === "number" ? Math.max(raw, rule.min) : raw;
+        const capped = typeof rule.max === "number" ? Math.min(floored, rule.max) : floored;
+        return { kind: rule.kind, label: rule.label, amount: cents(capped) };
+      }
       case "flat":
         return { kind: rule.kind, label: rule.label, amount: cents(rule.amount) };
       case "tiered":

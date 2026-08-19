@@ -26,7 +26,9 @@
     "https://poshmark.com/*",
     "https://www.facebook.com/*",
     "https://stockx.com/*",
-    "https://www.therealreal.com/*"
+    "https://www.therealreal.com/*",
+    "https://www.vestiairecollective.com/*",
+    "https://us.vestiairecollective.com/*"
   ],
   "action": {
     "default_title": "Flock",

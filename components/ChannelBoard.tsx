@@ -98,12 +98,13 @@ export default function ChannelBoard({
         return (
           <div key={channel} className={`boardrow ${live ? "boardrow-live" : ""}`}>
             <div className="boardrow-id">
-              <span className={`chanmark chanmark-${channel}`} aria-hidden />
+              {/* One mark per row, and it's the marketplace's own. There used
+                  to be a hand-coloured letter square here AND the real logo
+                  beside the name — two competing marks for the same channel,
+                  where the invented one ("D", "P") was the harder to read. */}
+              <ChannelIcon channel={channel} size={22} />
               <div>
-                <span className="boardrow-name">
-                  <ChannelIcon channel={channel} />{" "}
-                  {CHANNEL_LABEL[channel]}
-                </span>
+                <span className="boardrow-name">{CHANNEL_LABEL[channel]}</span>
                 <span className="boardrow-sub">
                   {live
                     ? "live"

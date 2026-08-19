@@ -108,14 +108,30 @@ const TRR_CATEGORY = {
 };
 
 /**
- * No item-type map, on purpose.
+ * Our category words -> The RealReal's item types, where they differ.
  *
- * The Item Type options are scoped to the DESIGNER, not to the category:
- * Maison Margiela under Men offers Jeans, Sweaters, Outerwear, Ties, Suiting
- * Accessories and so on, and a different designer offers a different set. A
- * static map would be a guess about a list that changes per brand — so we type
- * the garment's own category and accept an exact match or report the miss.
+ * Item Type options are scoped to the DESIGNER, not just the category, so this
+ * cannot be a complete map and isn't meant to be — it's a translation of the
+ * few words where Flock and The RealReal simply use different nouns. Typing
+ * "Footwear" into their box returns NOTHING; "Shoes" returns exactly one
+ * option. Without this, every pair of shoes reported a miss and the seller
+ * filled the field by hand for no reason.
+ *
+ * Verified against the live form on 19 Aug 2026 with Men + Maison Margiela
+ * selected, which offered: Grooming Products, Jeans, Accessories, Suiting
+ * Accessories, Ties, Sweaters, Sweatshirts & Hoodies, Outerwear, Shoes.
+ *
+ * Anything not here is typed through unchanged and still has to match exactly.
  */
+const TRR_ITEM_TYPE = {
+  footwear: "Shoes",
+  denim: "Jeans",
+  knitwear: "Sweaters",
+  sweats: "Sweatshirts & Hoodies",
+  fleece: "Sweatshirts & Hoodies",
+  outerwear: "Outerwear",
+  accessories: "Accessories",
+};
 
 function banner(filled, missing) {
   document.getElementById("flock-banner")?.remove();
@@ -160,8 +176,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     else missing.push(`designer — ${designer.reason}`);
 
     if (designer.ok) {
-      const taxon = await pickExact("taxon-dropdown-input", "taxon-dropdown-menu", item.category);
-      if (taxon.ok) filled.push(`item type (${item.category})`);
+      const wanted =
+        TRR_ITEM_TYPE[String(item.category ?? "").trim().toLowerCase()] ?? item.category;
+      const taxon = await pickExact("taxon-dropdown-input", "taxon-dropdown-menu", wanted);
+      if (taxon.ok) filled.push(`item type (${wanted})`);
       else missing.push(`item type — ${taxon.reason}`);
     } else {
       missing.push("item type — stays locked until the designer is set");

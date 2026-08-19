@@ -72,19 +72,127 @@ function setText(id, value) {
  * leaves the field for the seller. An unset category is a form you finish by
  * hand; a wrong one is a public listing describing something you don't own.
  */
+/**
+ * Our words -> DEPOP'S REAL LEAF NAMES, read off the live category menu on
+ * 19 Aug 2026 by typing each term and recording what came back.
+ *
+ * The previous table was written from imagination and it showed. `shoes` mapped
+ * to "Shoes", which is not a Depop category at all — typing it returns only
+ * "Boat shoes", "Ballet shoes", "Baby shoes". So every pair of shoes silently
+ * failed to match, and since Depop renders size, brand and condition only after
+ * a category is chosen, one missing leaf name took the whole listing down with
+ * it. That is exactly what happened to a Maison Margiela loafer: category
+ * empty, condition empty, "This field is required".
+ *
+ * The real footwear leaves are:
+ *   Sneakers · Slides · Sandals · Flip flops · Slippers · Brogues · Oxfords
+ *   Loafers · Boots · Boat shoes · Espadrilles · Ballet shoes · Clogs · Pumps
+ *
+ * Flock's own CATEGORIES vocabulary is mapped too. It wasn't: of the thirteen
+ * canonical categories only "Trousers" appeared here, so a category matched
+ * only when the TITLE happened to contain a word from this table.
+ */
 const DEPOP_CATEGORY = {
+  // Flock's canonical categories (lib/inference.ts CATEGORIES)
+  denim: ["Jeans"],
+  knitwear: ["Jumpers", "Cardigans"],
+  shirts: ["Shirts"],
+  sweats: ["Sweatshirts", "Hoodies"],
+  fleece: ["Sweatshirts"],
+  trousers: ["Trousers"],
+  dresses: ["Dresses"],
+  outerwear: ["Coats", "Jackets"],
+  // "Footwear", "Tops", "Activewear", "Accessories" and "Other" are families,
+  // not leaves — they need a word from the title to land on a real category.
+
+  // Tops
   tshirt: ["T-shirts"], "t-shirt": ["T-shirts"], tee: ["T-shirts"], tees: ["T-shirts"],
   shirt: ["Shirts"], blouse: ["Blouses"], polo: ["Polo shirts"],
   hoodie: ["Hoodies"], hoodies: ["Hoodies"],
   sweatshirt: ["Sweatshirts"], crewneck: ["Sweatshirts"], pullover: ["Sweatshirts", "Jumpers"],
   jumper: ["Jumpers"], sweater: ["Jumpers"], knit: ["Jumpers"], cardigan: ["Cardigans"],
   tank: ["Tank tops"], vest: ["Tank tops"],
+
+  // Outerwear
   jacket: ["Jackets"], coat: ["Coats"], parka: ["Coats"], puffer: ["Jackets"],
-  jeans: ["Jeans"], trousers: ["Trousers"], pants: ["Trousers"], chinos: ["Trousers"],
+
+  // Bottoms
+  jeans: ["Jeans"], pants: ["Trousers"], chinos: ["Trousers"],
   shorts: ["Shorts"], skirt: ["Skirts"], dress: ["Dresses"],
-  sneakers: ["Trainers"], trainers: ["Trainers"], boots: ["Boots"], shoes: ["Shoes"],
+
+  // Footwear — verified leaf names
+  loafer: ["Loafers"], loafers: ["Loafers"],
+  sneaker: ["Sneakers"], sneakers: ["Sneakers"], trainers: ["Sneakers"],
+  boot: ["Boots"], boots: ["Boots"],
+  sandal: ["Sandals"], sandals: ["Sandals"],
+  slides: ["Slides"], slippers: ["Slippers"], "flip-flops": ["Flip flops"],
+  brogue: ["Brogues"], brogues: ["Brogues"], oxford: ["Oxfords"], oxfords: ["Oxfords"],
+  espadrilles: ["Espadrilles"], clogs: ["Clogs"], pumps: ["Pumps"], heels: ["Pumps"],
+  mule: ["Loafers"], mules: ["Loafers"],
+
+  // Accessories
   hat: ["Hats"], cap: ["Hats"], bag: ["Bags"], belt: ["Belts"],
 };
+
+/** Our department -> the prefix Depop puts on the option's path. */
+const DEPOP_DEPARTMENT = { men: "MEN", mens: "MEN", women: "WOMEN", womens: "WOMEN", kids: "KIDS" };
+
+/**
+ * Pick a category leaf IN THE RIGHT DEPARTMENT.
+ *
+ * Typing "Loafer" offers three options whose visible text is identical —
+ * "Loafers", "Loafers", "Loafers". They are not the same category. The
+ * department lives on a sibling <p> in the option's wrapper:
+ *
+ *   ul._optionList
+ *     div
+ *       p    "MEN > FOOTWEAR"     <- the only thing telling them apart
+ *       li[role=option]  "Loafers"
+ *
+ * Matching on option text alone takes the first, which is how a men's shoe
+ * gets filed under Womenswear — the same failure that once published a men's
+ * XL tee as a Crop-top. Read the path, match the department, or take nothing.
+ */
+async function pickCategory(leaf, department) {
+  const input = document.getElementById(FIELD.category);
+  if (!input || !leaf) return null;
+
+  input.focus();
+  setNativeValue(input, String(leaf));
+  await wait(1000);
+
+  const menu = document.getElementById(input.getAttribute("aria-controls") ?? "");
+  const options = [...(menu ?? document).querySelectorAll("[role=option]")];
+  if (options.length === 0) return null;
+
+  const want = String(leaf).trim().toLowerCase();
+  const wantDept = DEPOP_DEPARTMENT[String(department ?? "").trim().toLowerCase()] ?? null;
+  const pathOf = (o) => (o.parentElement?.querySelector("p")?.textContent ?? "").trim().toUpperCase();
+
+  const exact = options.filter((o) => o.textContent.trim().toLowerCase() === want);
+  if (exact.length === 0) return null;
+
+  let target;
+  if (exact.length === 1) {
+    target = exact[0];
+  } else if (wantDept) {
+    target = exact.find((o) => pathOf(o).startsWith(wantDept)) ?? null;
+  } else {
+    // Several departments offer this leaf and we don't know which the garment
+    // is. Guessing puts menswear in the womenswear listings; leave it.
+    target = null;
+  }
+
+  if (!target) {
+    input.blur();
+    return null;
+  }
+
+  const path = pathOf(target);
+  target.click();
+  await wait(500);
+  return path ? `${path} > ${leaf}` : leaf;
+}
 
 function depopCategoryCandidates(item, title) {
   const words = `${title ?? ""} ${item.category ?? ""}`
@@ -249,8 +357,23 @@ function unfilledControls() {
  * So: load the files once, try the multi-file input, and if that doesn't take,
  * fall back to one file per input like Grailed.
  */
-async function attachPhotos(urls) {
-  if (!urls || urls.length === 0) return 0;
+/**
+ * Depop accepts EIGHT. Send it eleven and it keeps none.
+ *
+ * This is what failed on a real Maison Margiela listing: the form showed
+ * "Please insert at least one image" and "You can upload a maximum of 8 photos"
+ * side by side, which reads like a contradiction until you notice they're the
+ * same event — the batch was over the cap, so the whole batch was discarded and
+ * the listing had zero. Sending fewer than the seller has is a compromise;
+ * sending more is a silent total failure.
+ */
+const MAX_PHOTOS = 8;
+
+async function attachPhotos(all) {
+  if (!all || all.length === 0) return 0;
+
+  // First N by sort_order — the cover shot and the angles the seller put first.
+  const urls = all.slice(0, MAX_PHOTOS);
 
   const files = [];
   for (const [i, url] of urls.entries()) {
@@ -350,9 +473,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     // Photos first: uploads take time, and Continue won't accept without them.
     try {
+      const offered = (p.photos || []).length;
       photoCount = await attachPhotos(p.photos || []);
-      if (photoCount > 0) filled.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
-      else missing.push("photos");
+      if (photoCount > 0) {
+        filled.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
+        if (offered > MAX_PHOTOS) {
+          // Say it rather than quietly dropping three photos the seller shot.
+          missing.push(`only the first ${MAX_PHOTOS} of ${offered} photos — Depop's limit`);
+        }
+      } else missing.push("photos");
     } catch (error) {
       missing.push(`photos (${error.message})`);
     }
@@ -374,8 +503,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     let categorySet = null;
     for (const candidate of categoryOptions) {
-      if (await combo(FIELD.category, candidate, { exact: true, acceptFirst: false })) {
-        categorySet = candidate;
+      const chosen = await pickCategory(candidate, item.department);
+      if (chosen) {
+        categorySet = chosen;
         break;
       }
     }

@@ -1,0 +1,15 @@
+-- Vestiaire Collective joins the channel list.
+--
+-- A MARKETPLACE, not consignment — the seller sets the price. Worth stating
+-- because The RealReal sits beside it in designer resale and works the opposite
+-- way, and the two get conflated constantly.
+--
+-- Fee schedule verified against Vestiaire's own help centre on 19 Aug 2026; the
+-- numbers and their sources are in lib/fees.ts. Headline: 12% selling fee with
+-- a $10 floor and a $2,000 cap, plus 3% (min $3) payment processing paid by the
+-- SELLER. Buyer Protection and the $15 authentication fee are BUYER-paid and
+-- must never be subtracted from a seller's net.
+--
+-- Postgres won't let a new enum value be used in the transaction that creates
+-- it, so this is its own migration.
+alter type channel add value if not exists 'vestiaire';

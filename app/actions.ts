@@ -159,6 +159,21 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         drafted_by: model,
         drafted_at: now,
       },
+      {
+        // Vestiaire reuses the Grailed copy. Both sell to people who already
+        // know the piece and want the era, the model and the measurements
+        // rather than adjectives — a sixth generation would buy nothing.
+        user_id: user.id,
+        item_id: itemId,
+        channel: "vestiaire" as const,
+        title: draft.grailed.title,
+        description: draft.grailed.description,
+        price: draft.price.suggested,
+        status: "draft" as const,
+        draft: { price: draft.price },
+        drafted_by: model,
+        drafted_at: now,
+      },
     ];
 
     // Re-drafting replaces the previous copy rather than stacking duplicates.
@@ -218,6 +233,18 @@ export async function confirmItem(formData: FormData) {
     .eq("id", id);
 
   if (error) throw new Error(`Saving failed: ${error.message}`);
+
+  // Push the new asking price onto every listing that hasn't gone live yet.
+  // Without this the drafts keep whatever price they were created with — which
+  // is 0, because they're generated at identification time, before pricing.
+  const listPrice = Number(formData.get("list_price") ?? 0) || null;
+  if (listPrice) {
+    await supabase
+      .from("listings")
+      .update({ price: listPrice })
+      .eq("item_id", id)
+      .eq("status", "draft");
+  }
 
   revalidatePath(`/items/${id}`);
   revalidatePath("/");
@@ -791,6 +818,16 @@ export async function setTargetAndPrice(
 
   const { error } = await supabase.from("items").update(patch).eq("id", itemId);
   if (error) return { ok: false, error: error.message };
+
+  // Taking an ask from the planner should reprice the drafts too — otherwise
+  // the board shows the new number and the marketplace form gets the old one.
+  if (patch.list_price) {
+    await supabase
+      .from("listings")
+      .update({ price: patch.list_price })
+      .eq("item_id", itemId)
+      .eq("status", "draft");
+  }
 
   revalidatePath(`/items/${itemId}`);
   revalidatePath("/");
