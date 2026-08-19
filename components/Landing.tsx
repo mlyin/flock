@@ -142,7 +142,7 @@ export default function Landing() {
           <SignInWithGoogle next="/" />
         </div>
         <p className="landing-fine">
-          <a href="/privacy">Privacy</a> · <a href="/install">Install the extension</a>
+          <a href="/pricing">Pricing</a> · <a href="/privacy">Privacy</a> · <a href="/install">Install the extension</a>
         </p>
       </section>
     </div>

@@ -3,16 +3,31 @@ import { supabaseServer } from "./supabase/server";
 /**
  * Plans, and the one limit that actually bites.
  *
- * The cap counts **listings that are live right now**, not garments ever added.
- * A free tier that stops at five items forever is a trial wearing the word
- * "free", and a seller works that out in a week. Five live at once is a real
- * tool for clearing your own wardrobe, and stops being enough exactly when
- * you're running stock — which is when paying for it is obviously worth it.
+ * The cap counts listings that are **live right now**, and counts a garment
+ * once however many marketplaces it's on. A jacket live on Depop, Vinted and
+ * Grailed is one against the cap, not three — charging three times for one
+ * garment would punish the exact behaviour the product exists to encourage.
  *
- * The tiers are the real sheep lifecycle: a lamb is under a year, a hogget one
- * to two, mutton older than that.
+ * It is not a cap on garments ever added. A free tier that stops at five items
+ * forever is a trial wearing the word "free", and a seller works that out in a
+ * week. Five concurrent is a real tool for clearing a wardrobe, and stops being
+ * enough exactly when you're running stock — which is the honest moment to ask
+ * for money.
+ *
+ * Tiers are the real sheep lifecycle: a lamb is under a year, a hogget one to
+ * two, mutton older than that.
  */
 export type PlanId = "lamb" | "hogget" | "mutton";
+
+/**
+ * `soon` marks a feature that is NOT built yet.
+ *
+ * It renders as "in build" on the page rather than being quietly listed with
+ * the rest. A pricing page is where overclaiming costs the most: someone pays
+ * for a bullet, finds it missing, and is right to be angry. Delete the flag
+ * when the feature lands, not before.
+ */
+export type Feature = { text: string; soon?: boolean };
 
 export type Plan = {
   id: PlanId;
@@ -21,7 +36,10 @@ export type Plan = {
   activeListings: number | null;
   monthly: number;
   headline: string;
-  features: string[];
+  forWhom: string;
+  cta: string;
+  fine: string;
+  features: Feature[];
 };
 
 export const PLANS: Plan[] = [
@@ -30,27 +48,35 @@ export const PLANS: Plan[] = [
     label: "Lamb",
     activeListings: 5,
     monthly: 0,
-    headline: "Clearing out your own wardrobe.",
+    headline: "For anyone with a closet to thin out.",
+    forWhom:
+      "For clearing a wardrobe a few pieces at a time, or trying Flock on one real garment. You can stay here forever. That's fine.",
+    cta: "Start on Lamb",
+    fine: "No card.",
     features: [
-      "5 listings live at once",
-      "Every channel — Depop, Vinted, Grailed, Mercari",
-      "Photo identification: brand, size, condition, colour",
-      "Fee-adjusted net on every channel before you list",
-      "One-click fill through the browser extension",
+      { text: "5 listings live at once, forever" },
+      { text: "Every marketplace — Depop, Vinted, Grailed, Mercari" },
+      { text: "Photograph the tag; Flock reads brand, size, condition" },
+      { text: "Flags what it can't read instead of guessing" },
+      { text: "Net payout per marketplace, before you post" },
     ],
   },
   {
     id: "hogget",
     label: "Hogget",
-    activeListings: 100,
+    activeListings: 400,
     monthly: 12,
-    headline: "Selling every week, and it adds up.",
+    headline: "For the rail that's always going.",
+    forWhom:
+      "For 50–400 pieces working at any time, sourcing most weekends. Steady side income rather than a clear-out.",
+    cta: "Go Hogget",
+    fine: "One sold jacket covers the month.",
     features: [
-      "100 listings live at once",
-      "Everything in Lamb",
-      "Shared inbox across channels",
-      "Offers, with your floor price held for you",
-      "Sold-through and profit by channel",
+      { text: "400 listings live at once" },
+      { text: "Everything in Lamb, nothing clipped" },
+      { text: "One inbox across every marketplace" },
+      { text: "Bulk relist and price drops", soon: true },
+      { text: "CSV export, any time", soon: true },
     ],
   },
   {
@@ -58,13 +84,17 @@ export const PLANS: Plan[] = [
     label: "Mutton",
     activeListings: null,
     monthly: 29,
-    headline: "This is the job, not the side of it.",
+    headline: "For when resale is the job, not the side of it.",
+    forWhom:
+      "For hundreds of pieces live, and books to square at the end of the month.",
+    cta: "Go Mutton",
+    fine: "Cancel in the app, two clicks.",
     features: [
-      "Unlimited live listings",
-      "Everything in Hogget",
-      "Bulk relist and price drops",
-      "Consignment tracking — The RealReal, ThredUp",
-      "First access to new channels",
+      { text: "No cap on listings live at once" },
+      { text: "Offers answered against your floor price" },
+      { text: "Consignment tracking — The RealReal, ThredUp", soon: true },
+      { text: "Profit and sell-through by marketplace" },
+      { text: "Email that reaches the person who builds Flock" },
     ],
   },
 ];
@@ -84,7 +114,7 @@ export type Standing = {
  * What this seller is on, and how much room is left.
  *
  * A beta seller is on the top tier regardless of what `plan` says — the flag is
- * kept separate so a future billing system can still tell someone who paid from
+ * separate so a future billing system can still tell someone who paid from
  * someone who was here first. Those need different handling at renewal, and
  * collapsing them into one column loses the difference permanently.
  */
@@ -104,15 +134,16 @@ export async function standing(): Promise<Standing | null> {
   const beta = Boolean(profile?.beta);
   const plan = beta ? planById("mutton") : planById(profile?.plan ?? "lamb");
 
-  // Live is the only status that occupies a slot. A draft costs nothing to
-  // hold, and an ended or sold listing has already released its place.
-  const { count } = await supabase
+  // One garment counts once, however many marketplaces it's live on — hence
+  // the distinct item_id rather than a row count. Drafts hold no slot, and a
+  // sold or ended listing has already given its place back.
+  const { data: live } = await supabase
     .from("listings")
-    .select("id", { count: "exact", head: true })
+    .select("item_id")
     .eq("user_id", user.id)
     .eq("status", "live");
 
-  const active = count ?? 0;
+  const active = new Set((live ?? []).map((l) => l.item_id)).size;
   const remaining = plan.activeListings === null ? null : Math.max(0, plan.activeListings - active);
 
   return { plan, beta, active, remaining, atCap: remaining !== null && remaining <= 0 };

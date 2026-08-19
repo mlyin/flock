@@ -2227,3 +2227,96 @@ body { font-size: 15px; line-height: 1.55; }
 @media (prefers-reduced-motion: reduce) {
   .donebar { animation: none; }
 }
+
+/* ==========================================================================
+   Pricing
+   ========================================================================== */
+
+.pricing { max-width: 1120px; margin: 0 auto; padding: 0 24px 90px; }
+.pricing-head { padding: 56px 0 8px; max-width: 62ch; }
+.pricing-head h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.02; letter-spacing: -.045em; font-weight: 800; margin: 0 0 16px; }
+
+/* ---- the flock crossing the page ----
+   Two lanes at different speeds so it reads as depth, not a marquee. The set
+   is duplicated and the run translates exactly -50%, which loops seamlessly
+   with no JS. Bob periods are deliberately not multiples of each other, so the
+   group drifts apart instead of marching — that irregularity is what makes it
+   a flock rather than a conveyor. */
+.flock-band { margin: 26px 0 34px; display: grid; gap: 2px; }
+.lane {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.run { display: flex; gap: 62px; width: 200%; }
+.lane-far { opacity: .3; }
+.lane-far .drifter img { width: 26px; height: 26px; }
+.drifter { display: block; flex: none; }
+.drifter img { display: block; }
+
+@keyframes flock-drift { to { transform: translate3d(-50%, 0, 0); } }
+@keyframes flock-bob { 50% { transform: translateY(-3px); } }
+
+/* Motion is the enhancement; the still frame is the default. */
+@media (prefers-reduced-motion: no-preference) {
+  .lane-far .run { animation: flock-drift 140s linear infinite; }
+  .lane-near .run { animation: flock-drift 86s linear infinite; }
+  .drifter { animation: flock-bob 2.9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .lane-near .drifter { animation-duration: 3.3s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run { transform: translate3d(-12%, 0, 0); }
+}
+
+/* ---- tiers ---- */
+.tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; }
+.tier {
+  position: relative;
+  background: var(--raised);
+  border: 1px solid var(--rule-2);
+  border-radius: 18px;
+  padding: 24px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+}
+.tier-pick { border-color: var(--brand); box-shadow: var(--shadow-md); }
+.tier-flag {
+  position: absolute;
+  top: -11px;
+  left: 22px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+.tier h2 { font-size: 20px; letter-spacing: -.02em; margin: 0 0 6px; }
+.tier-price { font-size: 38px; font-weight: 800; letter-spacing: -.045em; margin: 0; line-height: 1; }
+.tier-price span { font-size: 15px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
+.tier-cap { font-weight: 650; color: var(--brand); margin: 10px 0 2px; }
+.tier-headline { color: var(--ink-2); margin: 0 0 16px; }
+
+.tier-features { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 9px; }
+.tier-features li { display: flex; gap: 9px; align-items: baseline; font-size: 14px; line-height: 1.45; }
+.tier-features li > span:first-child { color: var(--brand); font-weight: 700; flex: none; }
+.tier-soon {
+  display: block;
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+
+.tier-forwhom { font-size: 13px; color: var(--ink-3); margin: auto 0 16px; line-height: 1.5; }
+.tier .button { width: 100%; justify-content: center; text-align: center; }
+.tier-fine { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; text-align: center; }
+
+.pricing-note { margin: 22px 0 0; font-size: 13px; color: var(--ink-3); }
+.pricing-body { margin: 26px 0 0; max-width: 70ch; color: var(--ink-2); line-height: 1.65; }
+
+.faq { margin-top: 52px; padding-top: 30px; border-top: 1px solid var(--rule-2); display: grid; gap: 22px; }
+.faq h2 { font-size: 24px; letter-spacing: -.03em; margin: 0; }
+.faq h3 { font-size: 16px; margin: 0 0 6px; }
+.faq p { margin: 0; color: var(--ink-2); line-height: 1.65; max-width: 72ch; }

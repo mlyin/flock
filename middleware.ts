@@ -47,6 +47,8 @@ export async function middleware(request: NextRequest) {
     // The extension install instructions are the link you send a friend who
     // doesn't have an account yet.
     request.nextUrl.pathname.startsWith("/install") ||
+    // Read before signing up, so it cannot require being signed in.
+    request.nextUrl.pathname.startsWith("/pricing") ||
     // The extension authenticates with a bearer token and carries no session
     // cookie. Redirecting it to /login hands it an HTML page where it expects
     // JSON; these routes verify the token themselves.

@@ -1,0 +1,11 @@
+-- Hogget goes 100 -> 400 live listings.
+--
+-- 100 sits right where a steady solo seller actually lives: 30 sales a month at
+-- a 5-15% sell-through means 200-500 pieces working at any time. A cap inside
+-- that band pushes people to the top tier on a number alone, which makes the
+-- middle tier a toll booth rather than a plan.
+--
+-- The Hogget-to-Mutton step should be bought for what it is — offers answered
+-- against a floor, profit by marketplace, consignment — not because a counter
+-- ran out.
+update plans set active_listings = 400 where id = 'hogget';
