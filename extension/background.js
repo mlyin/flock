@@ -376,7 +376,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         const url = SELL_PAGE[message.channel];
         if (!url) throw new Error(`No sell page known for ${message.channel}.`);
 
-        const tab = await chrome.tabs.create({ url, active: false });
+        // Foreground, deliberately. Mercari renders its sell form in a normal
+        // tab and serves a BACKGROUND one an empty document — bodyLength 0, no
+        // inputs, no buttons. That single flag is the whole reason Mercari has
+        // looked "broken for automation" since the first probe: fills worked
+        // because chrome.tabs.create defaults to active, and reads did not
+        // because this one asked for a background tab.
+        const tab = await chrome.tabs.create({ url, active: true });
         try {
           await whenLoaded(tab.id).catch(() => {});
           // No READY selector for a form nobody has seen yet; give the app a
