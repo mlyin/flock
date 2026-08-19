@@ -11,6 +11,56 @@ export type IdentifyOutcome =
   | { ok: false; error: string };
 
 /**
+ * Take ownership of the photos, and say how many were actually taken.
+ *
+ * The `is("item_id", null)` filter is the whole point. Two identify calls can
+ * both read the inbox, both see the same free photos, and both create an item —
+ * then whichever writes second would quietly steal the photos from the first,
+ * leaving a garment with none. That happened: CL-0003 was an Oakley tee with
+ * zero photos, created beside the item that took them.
+ *
+ * With the filter, the second writer claims nothing and its caller can clean up
+ * instead of leaving an empty garment in the inventory.
+ */
+async function claimPhotos(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  userId: string,
+  itemId: string,
+  photos: { id: string; storage_path: string }[]
+): Promise<number> {
+  let claimed = 0;
+
+  for (const [index, photo] of photos.entries()) {
+    const filename = photo.storage_path.split("/").pop()!;
+    const destination = `${userId}/${itemId}/${filename}`;
+
+    // Claim the ROW first. Moving the object before knowing the row is ours
+    // would relocate a file the other writer's item is pointing at.
+    const { data: taken } = await supabase
+      .from("photos")
+      .update({ item_id: itemId, role: index === 0 ? "hero" : "detail", sort_order: index })
+      .eq("id", photo.id)
+      .is("item_id", null)
+      .select("id")
+      .maybeSingle();
+
+    if (!taken) continue; // someone else got there first
+    claimed += 1;
+
+    // A failed move leaves the photo on its inbox key still pointing at real
+    // bytes, so only update the path when the move actually worked.
+    const { error: moveError } = await supabase.storage
+      .from(BUCKET)
+      .move(photo.storage_path, destination);
+
+    if (!moveError) {
+      await supabase.from("photos").update({ storage_path: destination }).eq("id", photo.id);
+    }
+  }
+
+  return claimed;
+}
+/**
  * Files photos against a new item and assigns the next per-seller SKU.
  *
  * Shared by both intake paths — identified by the model, or typed in by hand.
@@ -54,26 +104,14 @@ async function fileAsItem(
 
   if (itemError || !item) return { ok: false, error: itemError?.message ?? "Couldn't create the item." };
 
-  // Re-file the objects under the item. A failed move leaves the photo on its
-  // inbox key still pointing at real bytes, so the row is updated either way.
-  for (const [index, photo] of photos.entries()) {
-    const filename = photo.storage_path.split("/").pop()!;
-    const destination = `${user.id}/${item.id}/${filename}`;
-    const { error: moveError } = await supabase.storage
-      .from(BUCKET)
-      .move(photo.storage_path, destination);
-
-    await supabase
-      .from("photos")
-      .update({
-        item_id: item.id,
-        storage_path: moveError ? photo.storage_path : destination,
-        role: index === 0 ? "hero" : "detail",
-        sort_order: index,
-      })
-      .eq("id", photo.id);
+  const claimed = await claimPhotos(supabase, user.id, item.id, photos);
+  if (claimed === 0) {
+    // Another call took them between our read and our write. Don't leave a
+    // garment with no photos behind — it can't be listed anywhere and only
+    // gets deleted by hand later.
+    await supabase.from("items").delete().eq("id", item.id);
+    return { ok: false, error: "Those photos were just filed against another garment." };
   }
-
   return { ok: true, itemId: item.id, sku: item.sku };
 }
 
@@ -193,26 +231,11 @@ export async function identifyAndDraft(photoIds: string[]): Promise<IdentifyOutc
 
   if (itemError || !item) return { ok: false, error: itemError?.message ?? "Couldn't create the item." };
 
-  // Re-file the objects under the item. If a move fails the photo keeps its
-  // inbox key and still points at real bytes — the row is updated either way.
-  for (const [index, photo] of photos.entries()) {
-    const filename = photo.storage_path.split("/").pop()!;
-    const destination = `${user.id}/${item.id}/${filename}`;
-    const { error: moveError } = await supabase.storage
-      .from(BUCKET)
-      .move(photo.storage_path, destination);
-
-    await supabase
-      .from("photos")
-      .update({
-        item_id: item.id,
-        storage_path: moveError ? photo.storage_path : destination,
-        role: index === 0 ? "hero" : "detail",
-        sort_order: index,
-      })
-      .eq("id", photo.id);
+  const claimed = await claimPhotos(supabase, user.id, item.id, photos);
+  if (claimed === 0) {
+    await supabase.from("items").delete().eq("id", item.id);
+    return { ok: false, error: "Those photos were just filed against another garment." };
   }
-
   await supabase.from("inferences").insert({
     user_id: user.id,
     item_id: item.id,
