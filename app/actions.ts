@@ -239,11 +239,16 @@ export async function confirmItem(formData: FormData) {
   // is 0, because they're generated at identification time, before pricing.
   const listPrice = Number(formData.get("list_price") ?? 0) || null;
   if (listPrice) {
+    // Draft AND live. Filtering to draft meant a price drop on something
+    // already listed changed the number on Flock's dashboard and nothing on
+    // the marketplace form — and price drops on live stock are most of what a
+    // seller does after the first week. Sold and ended listings keep the price
+    // they actually went for; rewriting those would corrupt the books.
     await supabase
       .from("listings")
       .update({ price: listPrice })
       .eq("item_id", id)
-      .eq("status", "draft");
+      .in("status", ["draft", "live"]);
   }
 
   revalidatePath(`/items/${id}`);
@@ -826,7 +831,7 @@ export async function setTargetAndPrice(
       .from("listings")
       .update({ price: patch.list_price })
       .eq("item_id", itemId)
-      .eq("status", "draft");
+      .in("status", ["draft", "live"]);
   }
 
   revalidatePath(`/items/${itemId}`);
@@ -1067,4 +1072,83 @@ export async function resolveDelistTask(
   revalidatePath("/");
   revalidatePath(`/items/${task.item_id}`);
   return { ok: true };
+}
+
+/**
+ * Drop the price on many garments at once.
+ *
+ * Ageing stock is the normal case in resale, and until now acting on it meant
+ * opening forty item pages and typing forty numbers — so nobody did it, and
+ * the dashboard's "sitting over 30 days" count just grew. A percentage is the
+ * right unit because the seller is thinking "take ten percent off the old
+ * stuff", not "make this one $63".
+ *
+ * The floor is a hard stop, not a warning. A seller who wrote down the least
+ * they would accept has already made this decision once; a bulk action that
+ * quietly walks past it would be the app overruling them at scale.
+ */
+export async function bulkDropPrices(
+  itemIds: string[],
+  percent: number
+): Promise<
+  { ok: true; changed: number; floored: number; skipped: number } | { ok: false; error: string }
+> {
+  if (itemIds.length === 0) return { ok: false, error: "Nothing selected." };
+  if (!Number.isFinite(percent) || percent <= 0 || percent >= 90) {
+    return { ok: false, error: "Pick a drop between 1% and 89%." };
+  }
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: items } = await supabase
+    .from("items")
+    .select("id, list_price, floor_price, status")
+    .in("id", itemIds);
+
+  if (!items?.length) return { ok: false, error: "Those items are gone." };
+
+  let changed = 0;
+  let floored = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    // Nothing to drop from, or already gone.
+    if (item.list_price == null || item.status === "sold" || item.status === "donated") {
+      skipped += 1;
+      continue;
+    }
+
+    const current = Number(item.list_price);
+    const target = Math.round(current * (1 - percent / 100) * 100) / 100;
+    const floor = item.floor_price == null ? null : Number(item.floor_price);
+
+    let next = target;
+    if (floor !== null && target < floor) {
+      // Land on the floor rather than skipping: the seller wants a drop, and
+      // the floor is where they said the drop stops.
+      next = floor;
+      floored += 1;
+    }
+
+    if (next >= current) {
+      skipped += 1;
+      continue;
+    }
+
+    await supabase.from("items").update({ list_price: next }).eq("id", item.id);
+    await supabase
+      .from("listings")
+      .update({ price: next })
+      .eq("item_id", item.id)
+      .in("status", ["draft", "live"]);
+
+    changed += 1;
+  }
+
+  revalidatePath("/");
+  return { ok: true, changed, floored, skipped };
 }

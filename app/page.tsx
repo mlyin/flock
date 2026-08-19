@@ -9,6 +9,7 @@ import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
 import { bestProjection, getItems, openDelistTasks, shelfAge, signPhotos, summarize } from "@/lib/data";
 import DelistQueue from "@/components/DelistQueue";
+import BulkController from "@/components/BulkController";
 
 export const dynamic = "force-dynamic";
 
@@ -153,10 +154,12 @@ export default async function Inventory({
       </div>
 
       {/* Seven columns on a laptop, stacked cards on a phone. Same markup. */}
+      <BulkController>
       <div className="tablewrap">
         <table className="grid grid-lean">
           <thead>
             <tr>
+              <th style={{ width: 28 }} />
               <th style={{ width: 64 }} />
               <th>Item</th>
               <th>Channels</th>
@@ -178,6 +181,16 @@ export default async function Inventory({
 
               return (
                 <tr key={item.id}>
+                  {/* A plain server-rendered checkbox. BulkController reads
+                      these by delegation, so the table stays a server
+                      component and selection costs one client island. */}
+                  <td data-cell="pick">
+                    <input
+                      type="checkbox"
+                      data-bulk-id={item.id}
+                      aria-label={`Select ${item.sku} ${item.title}`}
+                    />
+                  </td>
                   <td data-cell="thumb">
                     {url ? (
                       <Link href={`/items/${item.id}`} className="rowthumb">
@@ -287,6 +300,7 @@ export default async function Inventory({
           <p>Clear a filter above to see the rest of the inventory.</p>
         </div>
       )}
+      </BulkController>
     </>
   );
 }

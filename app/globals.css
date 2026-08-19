@@ -2643,3 +2643,37 @@ body { font-size: 15px; line-height: 1.55; }
   font-variant-numeric: tabular-nums;
 }
 .soldbox-error { flex-basis: 100%; margin: 4px 0 0; font-size: 12px; color: var(--brick); }
+
+/* Bulk actions. Sticks to the bottom so it survives the table re-rendering
+   underneath it. */
+.bulkbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--sage);
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+.bulkbar-drop { display: flex; align-items: center; gap: 5px; font-size: 13px; }
+.bulkbar-drop input {
+  width: 5ch;
+  padding: 3px 5px;
+  font-variant-numeric: tabular-nums;
+}
+.bulkbar-note { font-size: 12px; color: var(--sage); }
+.bulkbar-fine { font-size: 11px; flex-basis: 100%; }
+
+/* Row selection. Deliberately quiet — it's an occasional action, not the
+   primary way to read the table. */
+td[data-cell="pick"] { width: 28px; padding-right: 0; }
+td[data-cell="pick"] input { cursor: pointer; accent-color: var(--sage); }
+@media (max-width: 720px) {
+  td[data-cell="pick"] { position: absolute; top: 10px; right: 10px; width: auto; }
+}
