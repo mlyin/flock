@@ -69,9 +69,19 @@ export default function Uploader({ userId }: { userId: string }) {
       <div className="uploader">
         <div>
           <strong>Add photos</strong>
+          {/* Was "two per garment works best", which was advice about what the
+              model needs rather than what a listing needs. Buyers scroll past a
+              two-photo listing, and the same shots go up on every channel — so
+              the guidance is the set a marketplace expects, and the model reads
+              whichever of them happen to be useful. */}
           <p>
-            Two per garment works best — the piece, and its brand or care tag. On a phone this
-            opens the camera.
+            As many as you like — front, back, the brand and size tag, and a close-up of any
+            flaw. More angles sell better on every channel.
+          </p>
+          <p className="muted">
+            Fill the frame with the tag when you shoot it. That&apos;s the photo the size and
+            brand are read from, and a legible one is the difference between a listing that
+            fills itself and one you finish by hand.
           </p>
         </div>
         <button

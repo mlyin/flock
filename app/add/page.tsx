@@ -55,8 +55,9 @@ export default async function InboxPage() {
         <div className="notice">
           <strong>Nothing waiting</strong>
           <p>
-            Upload a garment and its brand tag, then pick both and hit Identify. The model
-            reads them together and drafts the listing.
+            Photograph a garment from every angle you&apos;d want a buyer to see, plus its tag.
+            Select the shots that are the same piece, hit Identify, and they become one garment
+            with a listing drafted for each channel.
           </p>
         </div>
       ) : (
