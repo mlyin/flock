@@ -68,7 +68,23 @@ Do not move this automation server-side.
 reCAPTCHA v3, which scores behaviour. A person clicking List passes; a script clicking it
 is the pattern being scored. `fill-mercari.js` ignores `autoSubmit` by design.
 
-**Identity fields take an exact match or nothing.** Loose matching once put the brand
+**Identity fields take an exact match or nothing — and CATEGORY is one of them.**
+
+This has now gone wrong three times, each time in a field I had not yet thought of
+as an identity field:
+
+- `"alo"` prefix-matched **Aloye** and put a stranger's brand on a live listing.
+- `"Tops"` substring-matched **Crop Tops** on Grailed and filed a pullover under it.
+- `"Tops"` substring-matched **Crop tops** on Depop — which builds the listing
+  TITLE from the category, so a men's XL tee went public as "Oakley Men's
+  Navy and Black Crop-top".
+
+The rule, stated once: **if a buyer can see the field, match it exactly or leave
+it.** Never `includes()`, never `startsWith()`, and never "take the first option"
+as a fallback. Match from the garment's own words through a map of the
+marketplace's real option names, and report a miss. A blank field is a form the
+seller finishes; a wrong one is a public listing describing something they do not
+own. Loose matching once put the brand
 "Aloye" on a live Alo listing, because "alo" prefix-matches "aloye". A wrong brand is
 worse than a blank one. `combo(..., { exact: true })` exists for this.
 
