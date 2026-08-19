@@ -593,3 +593,93 @@ export async function deleteItem(itemId: string): Promise<{ ok: true } | { ok: f
   revalidatePath("/add");
   return { ok: true };
 }
+
+/**
+ * Start a Stripe Checkout session for a paid plan.
+ *
+ * `client_reference_id` and the subscription metadata both carry the Supabase
+ * user id, because Stripe has never heard of Supabase and that id is the only
+ * link back. Both, not one: the session carries it at checkout, the
+ * subscription carries it for every renewal and cancellation afterwards.
+ */
+export async function startCheckout(
+  plan: "hogget" | "mutton"
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const { stripe, stripeConfigured, PRICE } = await import("@/lib/stripe");
+
+  if (!stripeConfigured()) return { ok: false, error: "Billing isn't set up on this server yet." };
+
+  const price = PRICE[plan];
+  if (!price) return { ok: false, error: `No price configured for ${plan}.` };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("stripe_customer_id, beta")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // A beta seller already has the top tier permanently. Sending them to a
+  // checkout would take money for something they were given.
+  if (profile?.beta) return { ok: false, error: "You're on Mutton permanently — nothing to pay." };
+
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.sellonflock.com";
+
+  try {
+    const session = await stripe().checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price, quantity: 1 }],
+      client_reference_id: user.id,
+      customer: profile?.stripe_customer_id ?? undefined,
+      customer_email: profile?.stripe_customer_id ? undefined : (user.email ?? undefined),
+      subscription_data: { metadata: { user_id: user.id } },
+      success_url: `${origin}/settings?upgraded=1`,
+      cancel_url: `${origin}/pricing`,
+      allow_promotion_codes: true,
+    });
+
+    if (!session.url) return { ok: false, error: "Stripe didn't return a checkout link." };
+    return { ok: true, url: session.url };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Open Stripe's own billing portal — where cancelling actually happens. */
+export async function openBillingPortal(): Promise<
+  { ok: true; url: string } | { ok: false; error: string }
+> {
+  const { stripe, stripeConfigured } = await import("@/lib/stripe");
+  if (!stripeConfigured()) return { ok: false, error: "Billing isn't set up on this server yet." };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("stripe_customer_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.stripe_customer_id) return { ok: false, error: "No subscription to manage." };
+
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.sellonflock.com";
+
+  try {
+    const session = await stripe().billingPortal.sessions.create({
+      customer: profile.stripe_customer_id,
+      return_url: `${origin}/settings`,
+    });
+    return { ok: true, url: session.url };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}

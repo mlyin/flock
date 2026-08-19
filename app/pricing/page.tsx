@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PLANS } from "@/lib/plan";
 import { usd } from "@/lib/money";
 import TierSheep from "@/components/TierSheep";
+import UpgradeButton from "@/components/UpgradeButton";
 
 export const metadata: Metadata = {
   title: "Pricing — Flock",
@@ -83,9 +84,17 @@ export default function PricingPage() {
 
             <p className="tier-forwhom">{plan.forWhom}</p>
 
-            <Link href="/login" className={plan.id === "hogget" ? "button" : "button button-quiet"}>
-              {plan.cta}
-            </Link>
+            {plan.id === "lamb" ? (
+              <Link href="/login" className="button button-quiet">
+                {plan.cta}
+              </Link>
+            ) : (
+              <UpgradeButton
+                plan={plan.id}
+                label={plan.cta}
+                primary={plan.id === "hogget"}
+              />
+            )}
             <p className="tier-fine">{plan.fine}</p>
           </section>
         ))}
