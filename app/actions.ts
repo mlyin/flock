@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
+import { standing } from "@/lib/plan";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
   if (photoIds.length === 0) return { ok: false, error: "Select at least one photo." };
@@ -226,7 +227,38 @@ export async function createPairingCode(): Promise<
 }
 
 /** The seller posted it by hand on their phone; record that it's live. */
+/**
+ * Whether this seller has room for one more live listing.
+ *
+ * Checked at every path that flips a listing to live, not in the UI. The UI
+ * can be stale, and the extension records a publish through a bearer route
+ * that never renders a page at all — a cap enforced only where a button is
+ * drawn is a cap that the thing doing the work walks straight past.
+ *
+ * A listing that is ALREADY live doesn't need a slot; it has one. Without that
+ * check, re-recording a URL for a live listing would fail at the cap and look
+ * like the seller had lost a slot they never spent.
+ */
+async function roomForOneMore(listingId: string): Promise<string | null> {
+  const supabase = await supabaseServer();
+
+  const { data: current } = await supabase
+    .from("listings")
+    .select("status")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (current?.status === "live") return null;
+
+  const where = await standing();
+  if (!where || !where.atCap) return null;
+
+  return `You have ${where.active} listings live, which is the limit on ${where.plan.label}. End one, or move up a tier — nothing is deleted either way.`;
+}
 export async function markListed(listingId: string) {
+  const blocked = await roomForOneMore(listingId);
+  if (blocked) return { ok: false as const, error: blocked };
+
   const supabase = await supabaseServer();
 
   const { data: listing } = await supabase
@@ -242,6 +274,7 @@ export async function markListed(listingId: string) {
   }
 
   revalidatePath("/");
+  return { ok: true as const };
 }
 
 /** Photos in, blank draft out — no model call, no API key required. */
@@ -426,6 +459,9 @@ export async function markListedWithUrl(
   if (clean && !/^https?:\/\//i.test(clean)) {
     return { ok: false, error: "That doesn't look like a link — it should start with https://" };
   }
+
+  const blocked = await roomForOneMore(listingId);
+  if (blocked) return { ok: false, error: blocked };
 
   const supabase = await supabaseServer();
   const { data: listing, error } = await supabase

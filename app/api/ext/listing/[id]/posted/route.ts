@@ -38,7 +38,56 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
-  const { error } = await supabaseAdmin()
+  // The plan cap applies here too. This route has no session and renders no
+  // page, so it can't be governed by hiding a button — and it is the path the
+  // extension uses, which is the one that runs unattended. `standing()` reads
+  // the session, so the count is done directly against the admin client and
+  // scoped by hand, the same way every other bearer route has to.
+  const admin = supabaseAdmin();
+
+  const { data: already } = await admin
+    .from("listings")
+    .select("status")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // A listing that's already live holds its slot; re-recording a URL for it
+  // must not be refused as though the seller were spending a new one.
+  if (already && already.status !== "live") {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("plan, beta")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const { data: plan } = await admin
+      .from("plans")
+      .select("label, active_listings")
+      .eq("id", profile?.beta ? "mutton" : (profile?.plan ?? "lamb"))
+      .maybeSingle();
+
+    if (plan?.active_listings != null) {
+      const { count } = await admin
+        .from("listings")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("status", "live");
+
+      if ((count ?? 0) >= plan.active_listings) {
+        // 409, not 403: nothing is wrong with the request or the token — the
+        // account simply has no room, and the extension shows this text.
+        return json(
+          {
+            error: `That's live on the marketplace, but Flock can't track it: ${count} listings are already live, which is the limit on ${plan.label}. End one in Flock, or move up a tier.`,
+          },
+          409
+        );
+      }
+    }
+  }
+
+  const { error } = await admin
     .from("listings")
     .update({
       status: "live",
