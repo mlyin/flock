@@ -80,7 +80,9 @@ export const CHANNEL_ABBR: Record<Channel, string> = {
  * to click through a form that doesn't exist.
  */
 export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
-  ebay: "api",
+  // Was "api" — the developer account was rejected, and the sell form fills
+  // perfectly well from the seller's own browser in the meantime.
+  ebay: "extension",
   poshmark: "extension",
   depop: "extension",
   mercari: "extension",
@@ -116,7 +118,7 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
  *
  * Add a channel here the moment its filler lands, and not before.
  */
-export const FILLABLE: Channel[] = ["depop", "mercari", "vinted", "grailed", "therealreal"];
+export const FILLABLE: Channel[] = ["depop", "mercari", "vinted", "grailed", "therealreal", "ebay"];
 
 export const canFill = (channel: Channel) => FILLABLE.includes(channel);
 

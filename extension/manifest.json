@@ -28,7 +28,8 @@
     "https://stockx.com/*",
     "https://www.therealreal.com/*",
     "https://www.vestiairecollective.com/*",
-    "https://us.vestiairecollective.com/*"
+    "https://us.vestiairecollective.com/*",
+    "https://www.ebay.com/*"
   ],
   "action": {
     "default_title": "Flock",

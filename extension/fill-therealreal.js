@@ -149,10 +149,14 @@ function banner(filled, missing) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type !== "fill") return;
+  // "apply", not "fill" — background.js sends { type: "apply", payload }. This
+  // listened for the wrong name and read the wrong field, so it never answered
+  // at all and every run died on the 90-second deadline looking like a slow
+  // form rather than a filler that was never listening.
+  if (message.type !== "apply") return;
 
   (async () => {
-    const item = message.item ?? {};
+    const item = (message.payload && message.payload.item) ?? {};
     const filled = [];
     const missing = [];
 

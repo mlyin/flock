@@ -578,3 +578,75 @@ picked and pays for. Now `{ acceptFirst: false }`, and a miss is reported.
 Note "SUGGESTED" is Depop's recommendation for the chosen category — for shoes
 it recommends **Large**, which is the honest answer to "what does a shoebox fit
 into".
+
+## eBay — three prelist screens, then the form (read live, 19 Aug 2026)
+
+**IDs ARE USELESS HERE.** eBay's React ids look like
+`s0-1-1-24-10-@prelist-radix-body-2-20-@side-pane-1-@dialog-16-1-5-2-5-10-14-@input-textbox`
+— generated per render. Every selector below uses `name` or `aria-label`,
+which are stable. Never write an eBay selector against an id.
+
+### The flow
+
+```
+/sl/sell                    marketing page, NOT the form
+/sl/prelist/identify        1. category  2. find a match  3. condition
+/lstng?draftId=...&mode=AddItem   the actual listing form
+```
+
+**1. Category** — a dialog with `input[aria-label="Enter a category value"]`.
+Typing "Loafers" returns radio options whose labels are FULL PATHS:
+
+```
+Clothing, Shoes & Accessories > Women > Women's Shoes > Flats
+Clothing, Shoes & Accessories > Men > Men's Shoes > Dress Shoes
+Clothing, Shoes & Accessories > Men > Men's Shoes > Casual Shoes
+```
+
+Same trap as Depop: the department is in the path, and picking the first
+match files a men's shoe under Women's. Match the department segment.
+Selecting one puts `caty=53120` in the URL — eBay's category ids are stable
+and are a better join key than text if we ever build a map.
+
+**2. Find a match** — eBay's product library. Always take
+**"Continue without match"** for secondhand: a catalog match staples another
+product's specifications onto a used garment.
+
+**3. Select condition** — CATEGORY-DEPENDENT names. For Men's Dress Shoes:
+
+```
+New with box · New without box · New with defects
+Pre-owned - Excellent · Pre-owned - Good · Pre-owned - Fair
+```
+
+Note it is "New with box" for footwear, NOT "New with tags". Do not assume
+one condition vocabulary across categories.
+
+### The form at /lstng
+
+```
+input[name="title"]                          Item title  (also the READY probe)
+input[name="price"]                          Item price
+input[name="quantity"]                       Quantity
+input[name="bestOfferEnabled"]               Allow offers (checkbox)
+input[type="file"][multiple]                 Photos — HIDDEN (offsetParent null),
+                                             so do NOT filter file inputs on visibility
+iframe#se-rte-frame__summary                 Description — a rich text editor.
+                                             Write into the iframe's document body.
+```
+
+**Item specifics** are `input[name^="search-box-attributes"]`, and the suffix
+is the aspect name — inconsistently punctuated:
+
+```
+search-box-attributesBrand
+search-box-attributesColor
+search-box-attributesDepartment
+search-box-attributesStyle
+search-box-attributesUpperMaterial
+search-box-attributes.US Shoe Size      <- dot when the aspect name has spaces
+search-box-attributes.UK Shoe Size
+```
+
+So match on the normalised suffix, not the literal name. Which aspects exist
+depends on the category, exactly like Depop's attributes.

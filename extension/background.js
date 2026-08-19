@@ -18,6 +18,9 @@ const SELL_PAGE = {
   facebook: "https://www.facebook.com/marketplace/create/",
   // Not a listing form: the consignment packing list, reached via
   // Sell → Ship to Us → START. Landing here directly works when signed in.
+  // eBay's listing form is four screens in. This is screen one; fill-ebay.js
+  // drives the prelist and background.js waits for /lstng before filling.
+  ebay: "https://www.ebay.com/sl/prelist/identify",
   therealreal: "https://www.therealreal.com/sell-trr/packing-list",
   // Verified 19 Aug 2026. No filler yet — the form hasn't been read, and a
   // Fill button with nothing behind it is the mistake The RealReal taught us.
@@ -39,7 +42,15 @@ const READY = {
   vinted: "#title",
   grailed: 'input[name="title"]',
   therealreal: "#category-dropdown-input",
+  // The prelist's category dialog, not the listing form — see EBAY_FORM below.
+  ebay: 'input[aria-label="Enter a category value"]',
 };
+
+/**
+ * eBay alone needs two rounds: the prelist has to be driven before the form it
+ * produces exists. This is what to wait for between them.
+ */
+const EBAY_FORM = 'input[name="title"]';
 
 const FILLER = {
   depop: "fill-depop.js",
@@ -47,6 +58,7 @@ const FILLER = {
   vinted: "fill-vinted.js",
   grailed: "fill-grailed.js",
   therealreal: "fill-therealreal.js",
+  ebay: "fill-ebay.js",
 };
 
 const HOME = "https://www.sellonflock.com";
@@ -474,6 +486,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         // content script without closing the port. The deadline turns that
         // silence into an error the page can show. 90s covers the slowest real
         // fill (nine photos plus a cascade) with room to spare.
+        // eBay: drive the three prelist screens first, then wait for the form
+        // they produce. Every other channel's sell URL IS the form.
+        if (payload.channel === "ebay") {
+          const prelist = await chrome.tabs
+            .sendMessage(tab.id, { type: "fill", payload })
+            .catch(() => null);
+
+          const onForm = await waitForForm(tab.id, EBAY_FORM, 60000);
+          if (!onForm) {
+            const stuck = prelist?.notes?.length
+              ? ` Stopped at: ${prelist.notes.join("; ")}`
+              : "";
+            throw new Error(
+              `eBay didn't reach the listing form.${stuck} Finish the category and condition steps in the tab, then fill again.`
+            );
+          }
+
+          // Fresh page, so the content script has to be injected again.
+          await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [filler] });
+        }
+
         const result = await Promise.race([
           chrome.tabs.sendMessage(tab.id, {
             type: "apply",
