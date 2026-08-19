@@ -236,6 +236,22 @@ const PUBLISHED_URL = {
  * treat these as "published" too, and go find the URL rather than give up.
  */
 const PUBLISHED_VIA = {
+  depop: {
+    // Publishing lands on /products/create/success/?productId=NNN, which the
+    // listing pattern deliberately excludes since it also has to reject the
+    // create form. The page carries a "View listing" link, and its href is the
+    // real one — pointing at .../manage/, the seller's own view, so trim that
+    // to leave the public URL a buyer would open.
+    landing: new RegExp(String.raw`^https://(www\.)?depop\.com/products/create/success`, 'i'),
+    find: () => {
+      const link = [...document.querySelectorAll('a[href*="/products/"]')].find((a) => {
+        const href = a.getAttribute('href') || '';
+        return !/\/products\/(create|edit)/.test(href);
+      });
+      if (!link) return null;
+      return new URL(link.getAttribute('href'), location.origin).href.replace(/\/manage\/?$/, '/');
+    },
+  },
   vinted: {
     landing: /^https:\/\/(www\.)?vinted\.com\/member\/\d+/i,
     // Newest first on a profile, so the first item link is the one just made.

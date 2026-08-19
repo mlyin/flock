@@ -60,6 +60,42 @@ function setText(id, value) {
  * Falls back from exact match to prefix match to first option — Depop filters
  * as you type, so the first remaining option is usually the right one.
  */
+/**
+ * Garment word -> Depop's own category names, most specific first.
+ *
+ * Depop BUILDS THE LISTING TITLE from the category. Choose wrong and the
+ * listing is renamed: a men's XL tee went live as "Oakley Men's Navy and Black
+ * Crop-top" because the item's category was "Tops", Depop's list contains
+ * "Crop tops", and "Crop tops".includes("tops") matched.
+ *
+ * So category is matched from the garment's own words, exactly, and a miss
+ * leaves the field for the seller. An unset category is a form you finish by
+ * hand; a wrong one is a public listing describing something you don't own.
+ */
+const DEPOP_CATEGORY = {
+  tshirt: ["T-shirts"], "t-shirt": ["T-shirts"], tee: ["T-shirts"], tees: ["T-shirts"],
+  shirt: ["Shirts"], blouse: ["Blouses"], polo: ["Polo shirts"],
+  hoodie: ["Hoodies"], hoodies: ["Hoodies"],
+  sweatshirt: ["Sweatshirts"], crewneck: ["Sweatshirts"], pullover: ["Sweatshirts", "Jumpers"],
+  jumper: ["Jumpers"], sweater: ["Jumpers"], knit: ["Jumpers"], cardigan: ["Cardigans"],
+  tank: ["Tank tops"], vest: ["Tank tops"],
+  jacket: ["Jackets"], coat: ["Coats"], parka: ["Coats"], puffer: ["Jackets"],
+  jeans: ["Jeans"], trousers: ["Trousers"], pants: ["Trousers"], chinos: ["Trousers"],
+  shorts: ["Shorts"], skirt: ["Skirts"], dress: ["Dresses"],
+  sneakers: ["Trainers"], trainers: ["Trainers"], boots: ["Boots"], shoes: ["Shoes"],
+  hat: ["Hats"], cap: ["Hats"], bag: ["Bags"], belt: ["Belts"],
+};
+
+function depopCategoryCandidates(item, title) {
+  const words = `${title ?? ""} ${item.category ?? ""}`
+    .toLowerCase()
+    .split(/[^a-z0-9-]+/)
+    .filter(Boolean);
+
+  const out = [];
+  for (const w of words) for (const c of DEPOP_CATEGORY[w] ?? []) if (!out.includes(c)) out.push(c);
+  return out;
+}
 async function combo(id, wanted, { acceptFirst = true, exact = false } = {}) {
   const input = document.getElementById(id);
   if (!input || !wanted) return false;
@@ -329,9 +365,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     // Category has no value from us yet, so let Depop's own filtering decide
     // from the garment type rather than forcing a guess.
-    const categoryGuess = item.depop_category || item.category;
-    if (await combo(FIELD.category, categoryGuess)) filled.push("category");
-    else missing.push("category");
+    // Exact only, and no fallback to whatever happened to be first: Depop
+    // titles the listing after the category, so a loose match publishes a
+    // garment under the wrong name.
+    const categoryOptions = item.depop_category
+      ? [item.depop_category]
+      : depopCategoryCandidates(item, p.title);
+
+    let categorySet = null;
+    for (const candidate of categoryOptions) {
+      if (await combo(FIELD.category, candidate, { exact: true, acceptFirst: false })) {
+        categorySet = candidate;
+        break;
+      }
+    }
+
+    if (categorySet) filled.push(`category (${categorySet})`);
+    else missing.push("category — pick it yourself, Depop names the listing after it");
 
     // Size and quantity don't exist in the DOM until a category is chosen —
     // Depop renders a different size scale per category. This is why earlier

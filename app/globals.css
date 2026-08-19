@@ -2068,3 +2068,103 @@ body { font-size: 15px; line-height: 1.55; }
 .foldout > summary .muted { font-weight: 400; font-size: 13px; }
 .foldout > summary:hover { color: var(--brand); }
 .foldout > *:not(summary) { padding: 0 18px 18px; }
+
+/* ==========================================================================
+   Landing: louder hero, and a picture of the product
+   ========================================================================== */
+
+.landing { max-width: 1120px; }
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  align-items: center;
+  gap: 40px;
+  padding: 56px 0 24px;
+}
+.landing-hero h1 {
+  font-size: clamp(44px, 8vw, 78px);
+  line-height: .98;
+  letter-spacing: -.05em;
+  font-weight: 800;
+}
+/* The turn in the sentence is where the product is, so that's what's coloured. */
+.landing-accent { color: var(--brand); }
+.landing-lead { font-size: 19px; }
+
+.landing-hero-video {
+  width: 100%;
+  border-radius: 20px;
+  display: block;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.landing-showcase { padding: 40px 0 8px; }
+.landing-showcase h2 { font-size: 30px; letter-spacing: -.035em; font-weight: 700; margin: 0 0 10px; }
+
+/* ---- the mockup ---- */
+.preview { margin: 26px 0 0; }
+.preview-frame {
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--raised);
+  box-shadow: var(--shadow-lg, var(--shadow-md));
+}
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule-2);
+}
+.preview-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--rule); }
+.preview-url {
+  margin-left: 10px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.preview-body { padding: 18px; overflow-x: auto; }
+
+.preview-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.preview-tile { border: 1px solid var(--rule-2); border-radius: 12px; padding: 12px 14px; }
+.preview-tile span { display: block; font-size: 11.5px; color: var(--ink-3); margin-bottom: 5px; }
+.preview-tile strong { display: block; font-size: 23px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.preview-tile em { display: block; font-style: normal; font-size: 11.5px; color: var(--ink-3); margin-top: 3px; }
+.preview-pos { color: var(--sage); }
+
+.preview-table { width: 100%; min-width: 520px; border-collapse: collapse; }
+.preview-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  padding: 0 10px 8px 0;
+}
+.preview-table td { padding: 11px 10px 11px 0; border-top: 1px solid var(--rule-2); vertical-align: top; }
+.preview-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.preview-table strong { display: block; font-size: 14px; font-weight: 650; }
+.preview-table em { display: block; font-style: normal; font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+
+.preview-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.preview-chip {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: .04em;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--rule);
+  color: var(--ink-3);
+}
+.preview-chip-live { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+
+.preview figcaption { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+
+@media (max-width: 860px) {
+  .landing-hero { grid-template-columns: 1fr; gap: 26px; padding-top: 34px; }
+  .landing-hero-video { order: -1; }
+}

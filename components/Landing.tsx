@@ -1,4 +1,5 @@
 import SignInWithGoogle from "@/components/SignInWithGoogle";
+import DashboardPreview from "@/components/DashboardPreview";
 
 /**
  * What a stranger sees at sellonflock.com.
@@ -24,22 +25,45 @@ export default function Landing() {
       </header>
 
       <section className="landing-hero">
-        <h1>
-          List it once.
-          <br />
-          Sell it everywhere.
-        </h1>
-        <p className="landing-lead">
-          Photograph a garment and Flock writes the listing, works out what you&apos;d actually
-          clear after fees, and fills in the sell form on every marketplace you use — in your own
-          browser, on your own accounts.
-        </p>
-        <div className="landing-cta">
-          <SignInWithGoogle next="/" />
+        <div className="landing-hero-copy">
+          <h1>
+            List it once.
+            <br />
+            <span className="landing-accent">Sell it everywhere.</span>
+          </h1>
+          <p className="landing-lead">
+            Photograph a garment and Flock writes the listing, works out what you&apos;d
+            actually clear after fees, and fills in the sell form on every marketplace you
+            use — in your own browser, on your own accounts.
+          </p>
+          <div className="landing-cta">
+            <SignInWithGoogle next="/" />
+          </div>
+          <p className="landing-fine">Free while it&apos;s in early access.</p>
         </div>
-        <p className="landing-fine">Free while it&apos;s in early access.</p>
+
+        {/* muted + playsInline + autoPlay is the combination browsers actually
+            honour for inline motion; without all three it silently refuses.
+            aria-hidden because it says nothing the headline does not. */}
+        <video
+          className="landing-hero-video"
+          src="/brand/hero-1080.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden
+        />
       </section>
 
+      <section className="landing-showcase">
+        <h2>Everything, in one place</h2>
+        <p className="landing-lead landing-lead-sm">
+          Every garment, every channel it&apos;s on, and what each one would actually pay
+          you after its cut.
+        </p>
+        <DashboardPreview />
+      </section>
       <section className="landing-band">
         <div className="landing-steps">
           <article>
