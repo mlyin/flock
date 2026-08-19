@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, canFill, type Channel } from "@/lib/fees";
+import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, canFill, stockxSearchUrl, type Channel } from "@/lib/fees";
 import ChannelIcon from "./ChannelIcon";
 import { usd } from "@/lib/money";
 import { markListedWithUrl, saveListingUrl, unmarkListed } from "@/app/actions";
@@ -28,7 +28,16 @@ export type ChannelRow = {
  * form and stops, the seller publishes on the marketplace, and until now nothing
  * came back to say so.
  */
-export default function ChannelBoard({ item, rows }: { item: string; rows: ChannelRow[] }) {
+export default function ChannelBoard({
+  item,
+  rows,
+  catalog,
+}: {
+  item: string;
+  rows: ChannelRow[];
+  /** Just enough of the garment to look it up in StockX's catalog. */
+  catalog?: { style_code?: string | null; brand?: string | null; title?: string | null };
+}) {
   const [installed, setInstalled] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ channel: Channel; text: string; ok: boolean } | null>(null);
@@ -127,7 +136,30 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
                 <UrlBox listingId={row.listingId} mode="save" label="Add the link" />
               )}
 
-              {!live && drafted && (
+              {/* StockX is neither fillable nor manual — it's catalog-matched.
+                  There's nothing to fill because there's nothing to write: the
+                  listing is (product, size, ask), and the product has to be
+                  found in their catalog first. So the useful button is the
+                  search, and the seller confirms the match. A "Fill" here would
+                  be a button whose only outcome is an error, which is the
+                  mistake The RealReal already taught us. */}
+              {!live && channel === "stockx" && catalog && stockxSearchUrl(catalog) && (
+                <a
+                  className="button button-sm button-quiet"
+                  href={stockxSearchUrl(catalog)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={
+                    catalog.style_code
+                      ? `Search StockX for style code ${catalog.style_code}`
+                      : "No style code on this garment, so this searches the brand and title — expect a lot of results"
+                  }
+                >
+                  Find on StockX →
+                </a>
+              )}
+
+              {!live && drafted && channel !== "stockx" && (
                 <>
                   {/* A manual channel has no form to fill — The RealReal takes
                       the item in by hand and lists it itself. Offering "Fill"

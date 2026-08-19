@@ -201,6 +201,7 @@ export async function confirmItem(formData: FormData) {
       size: text("size"),
       color: text("color"),
       material: text("material"),
+      style_code: text("style_code"),
       condition: text("condition") ?? "good",
       cost_basis: Number(formData.get("cost_basis") ?? 0) || 0,
       list_price: Number(formData.get("list_price") ?? 0) || null,
@@ -794,4 +795,33 @@ export async function setTargetAndPrice(
   revalidatePath(`/items/${itemId}`);
   revalidatePath("/");
   return { ok: true };
+}
+
+/**
+ * Copy-edit the notes and flaws the seller typed, without adding to them.
+ *
+ * Takes the CURRENT textarea contents rather than reading the row, so it edits
+ * what's on screen — a seller who has just typed three lines and not saved
+ * would otherwise watch their words get replaced by yesterday's.
+ */
+export async function tidyItemNotes(
+  itemId: string,
+  notes: string,
+  flaws: string[]
+): Promise<{ ok: true; notes: string; flaws: string[] } | { ok: false; error: string }> {
+  try {
+    const { tidyNotes } = await import("@/lib/notes");
+    const supabase = await supabaseServer();
+
+    const { data: item } = await supabase
+      .from("items")
+      .select("title, brand, category, size")
+      .eq("id", itemId)
+      .single();
+
+    const { result } = await tidyNotes({ notes, flaws, ...(item ?? {}) });
+    return { ok: true, notes: result.notes, flaws: result.flaws };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }

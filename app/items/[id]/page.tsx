@@ -126,6 +126,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           </div>
           <ChannelBoard
             item={item.id}
+            catalog={{ style_code: item.style_code, brand: item.brand, title: item.title }}
             rows={CHANNELS.map((channel) => {
               const listing = item.listings.find((l) => l.channel === channel);
               return {
@@ -148,9 +149,12 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             <summary>
               <span>{unreviewed ? "Unreviewed draft — check this" : "Details"}</span>
               <span className="muted">
-                {unreviewed
-                  ? `Read from the photos by ${inference?.model ?? "the model"}`
-                  : [item.brand, item.size, item.color].filter(Boolean).join(" · ")}
+                {/* The model id used to sit here. It told the seller nothing
+                    they could act on — which model read the tag doesn't change
+                    whether the tag was read right — and "check this" in the
+                    heading already carries the only signal that matters. The
+                    garment's own facts are more use in the same space. */}
+                {[item.brand, item.size, item.color].filter(Boolean).join(" · ")}
               </span>
             </summary>
             <ReviewForm

@@ -22,6 +22,8 @@ export type Item = {
   color: string | null;
   swatch: string | null;
   material: string | null;
+  /** Manufacturer's style/model code from the inner tag. The catalog join key for StockX. */
+  style_code: string | null;
   condition: string;
   flaws: string[];
   cost_basis: number;

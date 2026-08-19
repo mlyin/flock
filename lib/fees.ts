@@ -270,7 +270,10 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
       "there is no listing to write. Fees are tiered by seller level and have changed repeatedly: modelled here " +
       "as the entry level, roughly 9% transaction + 3% payment processing. Sneakers-first; apparel coverage is " +
       "thinner, and an item not in the catalog cannot be sold at all. Verify against a real payout before " +
-      "trusting any net. A failed authentication also carries a penalty not modelled here.",
+      "trusting any net. A failed authentication also carries a penalty not modelled here. " +
+      "READ LIVE 19 Aug 2026: the ask flow is a URL, /sell/{slug}?defaultAsk=true, not a modal — but it " +
+      "REDIRECTS to /selling/onboarding until the seller account has a payment method and verified identity, " +
+      "so the ask form itself has never been read and no filler exists. See extension/SELECTORS.md.",
     rules: [
       { kind: "commission", label: "Transaction fee", type: "percent", rate: 0.09, basis: "item" },
       { kind: "payment", label: "Payment processing", type: "percent", rate: 0.03, basis: "item" },
@@ -505,4 +508,30 @@ export function askPlan(
       if (b.ask === null) return -1;
       return a.ask - b.ask;
     });
+}
+
+/**
+ * Where on StockX this garment might be, if it's there at all.
+ *
+ * StockX has no listing form — you place an Ask against a product already in
+ * their catalog, and the join key is the manufacturer's style code (verified
+ * 19 Aug 2026: product pages carry it as a `Style` trait and in the page title,
+ * e.g. `S57WR0139 P3827 H8396`, and search accepts it).
+ *
+ * This returns a SEARCH, never a product. Searching that style code returned
+ * eight results, the right one first and a near-duplicate sibling second — so
+ * "resolve the code and take the top hit" is the Aloye trap with the worst
+ * stakes on any channel: a wrong catalog match ships a real shoe to an
+ * authenticator against another product's listing. The seller picks.
+ */
+export function stockxSearchUrl(item: {
+  style_code?: string | null;
+  brand?: string | null;
+  title?: string | null;
+}): string | null {
+  // The style code is the only query that narrows meaningfully. Brand plus
+  // title returned a thousand results on a real garment, which is not a lead.
+  const query = item.style_code?.trim() || [item.brand, item.title].filter(Boolean).join(" ").trim();
+  if (!query) return null;
+  return `https://stockx.com/search?s=${encodeURIComponent(query)}`;
 }

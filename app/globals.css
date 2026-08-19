@@ -2561,3 +2561,23 @@ body { font-size: 15px; line-height: 1.55; }
 .chip .chan-icon,
 .boardrow-name .chan-icon,
 .draftcard-name .chan-icon { margin-right: 5px; }
+
+/* The tidy-up control sits under the notes it edits, quiet enough that it
+   doesn't compete with Confirm details. */
+.tidyrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -4px 0 18px;
+}
+.tidyrow .muted { font-size: 12px; }
+.button-quiet {
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-2);
+  font-size: 13px;
+  padding: 6px 12px;
+}
+.button-quiet:hover:not(:disabled) { border-color: var(--sage); color: var(--sage); }
+.button-quiet:disabled { opacity: .45; cursor: default; }

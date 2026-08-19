@@ -403,8 +403,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (item.color && (await combo(FIELD.colour, item.color))) filled.push("colour");
 
-    if (await combo(FIELD.packageSize, item.package_size)) filled.push("package size");
-    else missing.push("package size");
+    // acceptFirst is OFF here, unlike when this was written. Package size picks
+    // the SHIPPING option the buyer pays for, so it is buyer-visible and falls
+    // under the exact-match rule — "take the first option" was quietly setting
+    // a postage tier nobody chose whenever our label didn't match Depop's.
+    if (await combo(FIELD.packageSize, item.package_size, { acceptFirst: false }))
+      filled.push("package size");
+    else missing.push(`package size (no Depop match for "${item.package_size ?? "—"}")`);
 
     await wait(700);
     let blocked = validationErrors();

@@ -1,4 +1,5 @@
 import { confirmItem } from "@/app/actions";
+import TidyNotes from "./TidyNotes";
 import { CATEGORIES, CONDITIONS } from "@/lib/inference";
 import type { ItemFull } from "@/lib/data";
 
@@ -81,7 +82,18 @@ export default function ReviewForm({
         {/* Free text on purpose. The generated CL-0001 is only a placeholder
             for a garment with no code of its own — a real style code belongs
             here, and StockX and GOAT are keyed on exactly that. */}
-        <Field name="sku" label="SKU / style code" value={item.sku} />
+        <Field name="sku" label="SKU" value={item.sku} />
+        {/* Split from SKU, which is Flock's own label for the garment. This is
+            the manufacturer's — printed on the inner tag, and the only thing
+            that finds the item in StockX's catalog. Conflating them meant the
+            code read off the tag was stored but never shown, and the field a
+            seller could see held "CL-0003", which matches nothing anywhere. */}
+        <Field
+          name="style_code"
+          label="Style code (from the tag)"
+          value={item.style_code}
+          confidence={confidence.style_code}
+        />
         <Field name="color" label="Colour" value={item.color} confidence={confidence.color} />
         <Field name="material" label="Material" value={item.material} confidence={confidence.material} />
         <Field name="condition" label="Condition" confidence={confidence.condition}>
@@ -133,27 +145,34 @@ export default function ReviewForm({
         <Field name="package_size" label="Package size">
           {/* Depop and Mercari both refuse a listing without this, and it's a
               fact about the parcel that no photo reveals. Stored here so the
-              extension can fill it instead of stopping. */}
+              extension can fill it instead of stopping.
+
+              The weights are DEPOP'S OWN, read off the live sell form on
+              19 Aug 2026 — Medium "Under 1lb", Large "Under 2lb", Extra large
+              "Under 10lb". I first wrote plausible-looking brackets here from
+              nothing; they were invented, and this field is typed verbatim into
+              Depop's combobox, so invented numbers would have been advice to
+              pick the wrong postage tier.
+
+              A shoebox is LARGE. That isn't a judgement — with a shoes category
+              selected, Depop labels Large as its own SUGGESTED option and
+              offers only Medium, Large and Extra large. Extra small and Small
+              are not offered for shoes at all.
+
+              The stored VALUES are unchanged, so existing rows and the Depop
+              fill still match. */}
           <select id="package_size" name="package_size" defaultValue={item.package_size ?? ""}>
             <option value="">— pick one —</option>
-            <option value="Extra small">Extra small — jewellery, accessories</option>
+            <option value="Extra small">Extra small — jewellery, a belt</option>
             <option value="Small">Small — a t-shirt or two</option>
-            <option value="Medium">Medium — jeans, a jumper</option>
-            <option value="Large">Large — a coat, boots</option>
-            <option value="Extra large">Extra large — bulky outerwear</option>
+            <option value="Medium">Medium — under 1 lb: a jumper, jeans</option>
+            <option value="Large">Large — under 2 lb: a shoebox, a coat</option>
+            <option value="Extra large">Extra large — under 10 lb: boots, bulky outerwear</option>
           </select>
         </Field>
       </div>
 
-      <label className="field" htmlFor="flaws">
-        <span className="field-label">Flaws — one per line, as you&apos;d write them in a listing</span>
-        <textarea id="flaws" name="flaws" rows={3} defaultValue={flaws.join("\n")} />
-      </label>
-
-      <label className="field" htmlFor="notes">
-        <span className="field-label">Notes</span>
-        <textarea id="notes" name="notes" rows={2} defaultValue={item.notes ?? ""} />
-      </label>
+      <TidyNotes itemId={item.id} notes={item.notes ?? ""} flaws={flaws} />
 
       <div className="review-actions">
         <button type="submit" className="button">

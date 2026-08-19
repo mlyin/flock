@@ -486,3 +486,95 @@ arriving at a warehouse described as another designer's work.
 
 Reopening a combobox that already holds a value does not re-show the menu.
 Clear it (`setNativeValue(el, "")`), then type.
+
+## StockX — catalog match, not a listing form (read live, 19 Aug 2026)
+
+**There is no sell form to fill.** StockX is a catalog marketplace: you place an
+**Ask** against a product that already exists in their catalog, at a size. The
+entire listing is (catalog product, size, ask price). No title, no description,
+no photos.
+
+### The ask flow is a URL, not a modal
+
+From a product page, "Place Ask" and "Sell Now" are plain links:
+
+```
+/sell/{product-slug}?defaultAsk=true     Place Ask
+/sell/{product-slug}?action=sellNow      Sell Now (take the highest bid)
+```
+
+### BLOCKER: /sell/* redirects to onboarding until the account is complete
+
+Navigating to `/sell/maison-margiela-tabi-county-loafer-black?defaultAsk=true`
+landed on `/selling/onboarding` with the checklist at 60%: **Add a payment
+method — Not Started**, **Verify your identity — Not Started**.
+
+**So the ask form itself has NEVER been read.** Do not write selectors for it
+from memory or from a blog post — that is exactly the mistake that cost four
+cycles on Depop, Grailed and Mercari. Finish onboarding, reach the real form,
+read it, then write the filler.
+
+### Style code is the join key, and it is exposed
+
+The product page carries it as a trait and in `<title>`:
+
+```
+Style   S57WR0139 P3827 H8396
+<title>Maison Margiela Tabi County Loafer Black Men's - S57WR0139 P3827 H8396 - US</title>
+```
+
+Search accepts it: `/search?s=S57WR0139`.
+
+### Style code NARROWS but does not UNIQUELY identify — verified
+
+Searching the style code cut 1000 results to **8**, correct product first. But
+second was **"Maison Margiela Men Tabi County Loafer Black"** — a near-duplicate
+sibling entry. So "search the style code and take the first hit" is the Aloye
+trap wearing a serial number, and the stakes are the worst of any channel: the
+wrong pick ships a real shoe to an authenticator against another product's
+listing, which ends in a failed sale and a penalty fee.
+
+The only safe match is to open a candidate and compare its **Style trait**
+against ours character for character. Anything less is a shortlist for the
+seller to choose from, and should be presented as one.
+
+### Prices seen on this product, for scale
+Lowest Ask $850 · Last Sale $545 · Sell Now $513 — the spread between "what you
+can get now" and "what someone is asking" is 65%, which is why an ask price
+lifted from another channel would be badly wrong here.
+
+## Depop — package size is doubly gated (read live, 19 Aug 2026)
+
+`#shippingMethods-input` (label: "Package size", menu `#shippingMethods-menu`)
+returns **"No option"** until BOTH of these are set:
+
+1. a shipping address is chosen in `#select__address-input`
+   (toggle `#select__address-toggle-button`, menu `#select__address-menu`), and
+2. an item **category** is chosen in `#group-input`.
+
+With neither, the menu is empty and the fill reports package size as missing —
+which looked like a broken selector and is actually the form working as designed.
+
+### The real tiers, and they are CATEGORY-DEPENDENT
+
+With a shoes category selected, the menu offers exactly three, under two
+headings:
+
+```
+SUGGESTED
+  Large          Under 2lb
+CHANGE SIZE
+  Medium         Under 1lb
+  Extra large    Under 10lb
+```
+
+**"Extra small" and "Small" are not offered for shoes at all.** Flock stores all
+five, so two of its values can never match on this category — which is precisely
+why `combo(FIELD.packageSize, ...)` must not fall back to `options[0]`. Before
+19 Aug 2026 it did, and since the unmatched value filters the menu to Depop's
+own SUGGESTED row, a mismatch quietly selected a postage tier the seller never
+picked and pays for. Now `{ acceptFirst: false }`, and a miss is reported.
+
+Note "SUGGESTED" is Depop's recommendation for the chosen category — for shoes
+it recommends **Large**, which is the honest answer to "what does a shoebox fit
+into".
