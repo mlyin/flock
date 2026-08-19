@@ -6,7 +6,7 @@ import Link from "next/link";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, canFill, stockxSearchUrl, type Channel } from "@/lib/fees";
 import ChannelIcon from "./ChannelIcon";
 import { usd } from "@/lib/money";
-import { markListedWithUrl, saveListingUrl, unmarkListed } from "@/app/actions";
+import { markListedWithUrl, recordSale, saveListingUrl, unmarkListed } from "@/app/actions";
 
 export type ChannelRow = {
   channel: Channel;
@@ -132,6 +132,12 @@ export default function ChannelBoard({
                   View listing →
                 </a>
               )}
+
+              {/* Recording the sale here is what starts the takedown queue for
+                  every other channel. Putting it anywhere else would mean the
+                  seller marks it sold in one place and the double-sale risk
+                  begins somewhere they aren't looking. */}
+              {live && row?.listingId && <SoldBox listingId={row.listingId} channel={channel} />}
 
               {live && !row?.url && row?.listingId && (
                 <UrlBox listingId={row.listingId} mode="save" label="Add the link" />
@@ -300,5 +306,81 @@ function EndedButton({ listingId }: { listingId: string }) {
     >
       {pending ? "…" : "Ended"}
     </button>
+  );
+}
+
+/**
+ * "It sold" — the moment the delist queue exists.
+ *
+ * Asks for the price because the fee maths is worthless without it, and
+ * because "what did it actually go for" is a different number from the ask on
+ * every channel that allows offers.
+ */
+function SoldBox({ listingId, channel }: { listingId: string; channel: Channel }) {
+  const [open, setOpen] = useState(false);
+  const [price, setPrice] = useState("");
+  const [shipping, setShipping] = useState("");
+  const [note, setNote] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  if (!open) {
+    return (
+      <button type="button" className="button button-sm button-quiet" onClick={() => setOpen(true)}>
+        It sold
+      </button>
+    );
+  }
+
+  const save = () => {
+    setNote(null);
+    start(async () => {
+      const outcome = await recordSale(listingId, {
+        soldPrice: Number(price),
+        shippingCollected: Number(shipping) || 0,
+      });
+      if (!outcome.ok) {
+        setNote(outcome.error);
+        return;
+      }
+      setOpen(false);
+      setNote(null);
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="soldbox">
+      <label>
+        <span>Sold for</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          autoFocus
+          value={price}
+          placeholder="0.00"
+          onChange={(e) => setPrice(e.target.value)}
+        />
+      </label>
+      <label>
+        <span>Postage they paid</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={shipping}
+          placeholder="0.00"
+          onChange={(e) => setShipping(e.target.value)}
+        />
+      </label>
+      <button type="button" className="button button-sm" disabled={pending || !price} onClick={save}>
+        {pending ? "Saving…" : `Sold on ${CHANNEL_LABEL[channel]}`}
+      </button>
+      <button type="button" className="linkbtn" onClick={() => setOpen(false)}>
+        cancel
+      </button>
+      {note && <p className="soldbox-error">{note}</p>}
+    </div>
   );
 }

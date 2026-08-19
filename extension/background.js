@@ -200,7 +200,13 @@ async function syncDepopMessages(maxThreads = 20) {
         thread_id: thread.id,
         sender: thread.sender,
         body,
+        // The amount is what makes a message an offer. Without it every row
+        // arrived as kind='message' and the offer queue could never contain a
+        // single item, however many offers were sitting in the inbox.
+        offer_amount: detail?.offer_amount ?? null,
         listing_url: detail?.product_url ?? null,
+        product_url: detail?.product_url ?? null,
+        buyer_handle: thread.sender ?? null,
         raw: { when: thread.when, bubbles: detail?.bubbles ?? [] },
       });
     }

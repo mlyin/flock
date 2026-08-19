@@ -88,7 +88,13 @@ export function scoreOffer(row: MessageRow): ScoredOffer | null {
     floor,
     cost,
     profit: cost === null ? null : net - cost,
-    aboveFloor: floor === null ? null : amount >= floor,
+    // Compare like with like. This used to be `amount >= floor` — gross offer
+    // against a floor — while the very same card displayed the NET. A $60
+    // offer against a $60 floor "cleared it" while netting $57.57 on Depop
+    // and $48 on Poshmark. The floor is what the seller wants to RECEIVE, so
+    // it has to go through the same channel's fees before anything is
+    // compared to it.
+    aboveFloor: floor === null ? null : net >= projectedNet(row.channel, floor),
     status: (row.offer_status as OfferStatus) ?? "open",
     expiresAt,
     hoursLeft: expiresAt ? Math.round((expiresAt.getTime() - Date.now()) / 3_600_000) : null,

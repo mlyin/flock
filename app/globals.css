@@ -2621,3 +2621,25 @@ body { font-size: 15px; line-height: 1.55; }
   .delist-list li { flex-wrap: wrap; }
   .delist-actions { margin-left: 0; width: 100%; }
 }
+
+/* Recording a sale, inline on the channel row. */
+.soldbox {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.soldbox label { display: flex; flex-direction: column; gap: 3px; }
+.soldbox label span {
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.soldbox input {
+  width: 7ch;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.soldbox-error { flex-basis: 100%; margin: 4px 0 0; font-size: 12px; color: var(--brick); }

@@ -186,24 +186,28 @@ function OfferCard({ offer }: { offer: OfferView }) {
           )}
           {/* Deep link first: this is where the offer is actually accepted. */}
           {offer.offerUrl && (
+            /* Opening the tab is NOT accepting. This used to fire
+               act("accepted") on click, which wrote a binding sale into the
+               ledger for a seller who had done nothing but look — and then
+               removed the offer from the queue, since the queue only shows
+               open ones. Looking at an offer is how you decide to decline it. */
             <a
               className="button"
               href={offer.offerUrl}
               target="_blank"
               rel="noreferrer"
-              onClick={() => act("accepted")}
             >
               Open on {CHANNEL_LABEL[offer.channel as keyof typeof CHANNEL_LABEL]} →
             </a>
           )}
           <button className="button button-quiet" disabled={pending} onClick={() => act("accepted")}>
-            Accepted
+            I accepted it
           </button>
           <button className="button button-quiet" onClick={() => setCountering(true)}>
             Counter
           </button>
           <button className="button button-quiet" disabled={pending} onClick={() => act("declined")}>
-            Declined
+            I declined it
           </button>
         </div>
       )}

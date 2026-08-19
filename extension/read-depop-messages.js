@@ -106,7 +106,51 @@ function readThread() {
     .map((el) => el.textContent.trim())
     .filter(isMessageText);
 
-  return { product_url: productLink(), bubbles: [...new Set(bubbles)] };
+  return {
+    product_url: productLink(),
+    bubbles: [...new Set(bubbles)],
+    offer_amount: readOfferAmount(),
+  };
+}
+
+/**
+ * The offer amount, which isMessageText deliberately throws away.
+ *
+ * MONEY_ONLY exists to strip the product card's price out of the thread, and
+ * it is right to. But a Depop offer renders as exactly that shape — a bare
+ * money bubble beside "Make offer" — so the one number the whole offer queue
+ * depends on was being filtered out before anything saw it. The queue could
+ * therefore never contain a single row: every message arrived as kind
+ * 'message' because the amount that makes it an offer had already been binned.
+ *
+ * So look for it separately, and only where an offer would be: a money-only
+ * bubble that sits near offer chrome. A price on the product card is not an
+ * offer, which is why proximity matters rather than just "find a number".
+ */
+function readOfferAmount() {
+  const nodes = [...document.querySelectorAll("div, p, span")].filter(
+    (el) => el.children.length === 0 && el.offsetParent !== null
+  );
+
+  for (let i = 0; i < nodes.length; i++) {
+    const text = (nodes[i].textContent || "").trim();
+    if (!MONEY_ONLY.test(text)) continue;
+
+    // Is this money bubble in the company of offer language? Depop puts the
+    // amount next to "Make offer" / "Offer" / "declined" chrome in-thread;
+    // the product card puts it next to "Buy now" and the listing title.
+    const neighbourhood = [nodes[i - 2], nodes[i - 1], nodes[i + 1], nodes[i + 2]]
+      .filter(Boolean)
+      .map((el) => (el.textContent || "").trim().toLowerCase())
+      .join(" | ");
+
+    if (!/offer|counter|accepted|declined|expired/.test(neighbourhood)) continue;
+
+    const amount = Number(text.replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(amount) && amount > 0) return amount;
+  }
+
+  return null;
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

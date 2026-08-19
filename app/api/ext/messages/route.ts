@@ -14,7 +14,9 @@ type Scraped = {
   sender?: string;
   body?: string;
   kind?: string;
-  offer_amount?: number | string;
+  offer_amount?: number | string | null;
+  product_url?: string | null;
+  buyer_handle?: string | null;
   received_at?: string;
   listing_url?: string;
   raw?: unknown;
@@ -67,7 +69,12 @@ export async function POST(request: Request) {
 
   const rows = scraped.map((m) => {
     const match = m.listing_url ? byUrl.get(m.listing_url) : undefined;
-    const amount = m.offer_amount === undefined || m.offer_amount === "" ? null : Number(m.offer_amount);
+    // null has to be handled explicitly: Number(null) is 0, and a zero here
+    // would mark the row kind='offer' and put a phantom $0 offer in the queue
+    // for every ordinary message that carries no amount.
+    const raw = m.offer_amount;
+    const parsed = raw === undefined || raw === null || raw === "" ? null : Number(raw);
+    const amount = parsed !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 
     return {
       user_id: userId, // bearer callers have no session; scope explicitly
@@ -81,6 +88,11 @@ export async function POST(request: Request) {
       received_at: m.received_at ?? new Date().toISOString(),
       item_id: match?.item_id ?? null,
       listing_id: match?.id ?? null,
+      // Columns migration 0009 added and nothing ever wrote. product_url is
+      // the stable key for matching a thread to a garment later; buyer_handle
+      // is who you're talking to.
+      product_url: m.product_url ?? m.listing_url ?? null,
+      buyer_handle: m.buyer_handle ?? m.sender ?? null,
       raw: m.raw ?? null,
     };
   });
