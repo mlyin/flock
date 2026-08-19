@@ -123,32 +123,44 @@ transaction, tracked in `schema_migrations`. Additive only — write a new file,
 an applied one. Postgres won't let a new enum value be *used* in the transaction that
 creates it, so adding a channel is its own migration.
 
-## State as of 17 Aug 2026
+## State as of 19 Aug 2026
 
-Working end to end: Google sign-in, photo upload, identification, review, listing copy for
-five channels, one-click fill from the inventory row, and a published Depop listing.
+Working end to end: Google sign-in, photo upload, identification, review, listing copy
+for six channels, one-click fill from the inventory row, and a published Depop listing.
 
-- **The RealReal** — packing-list filler written 19 Aug 2026, **never run end to
-  end**. Consignment, so it fills a manifest (category, designer, item type),
-  not a listing. Corrects an earlier note in `lib/fees.ts` that claimed it had
-  no per-item form — it does, one screen further into the funnel than I looked.
-- **Depop** — fill works; a real listing went live through it
+- **Depop** — fill works; a real listing went live through it. Four bugs fixed 19 Aug
+  after a real Maison Margiela failed: an 8-photo cap (we sent 11 and it kept none),
+  `shoes -> "Shoes"` which is not a Depop category, three identical "Loafers" options
+  distinguished only by a `MEN > FOOTWEAR` path on an ancestor, and `nwt -> "Brand new
+  with tags"` against a menu that says "Brand new". EU shoe sizes now convert to
+  Depop's US-only scale.
+- **The RealReal** — packing-list filler written 19 Aug, **never run end to end**.
+  Consignment, so it fills a manifest (category, designer, item type), not a listing.
 - **Vinted, Grailed** — selectors verified against the live forms, **never run end to end**
-- **Mercari** — fill-only. Its sell form rendered on first visit and served an empty
-  document on every visit after; unproven whether that's mitigation or coincidence
-- **eBay** — copy generated, no API integration; developer account was pending approval
-- **Messages** — Depop reader written, **never run**. Nothing reads the other channels
+- **Mercari** — fill-only, by design (reCAPTCHA v3)
+- **StockX** — no filler and deliberately so: `/sell/{slug}` redirects to
+  `/selling/onboarding` until the account has a payment method and verified identity,
+  so the ask form has never been read. A style-code catalog search ships instead.
+- **Vestiaire Collective** — channel and verified fees added 19 Aug; no filler, form unread
+- **eBay** — copy generated, no API integration; developer account rejected
+- **Offers** — the queue could never contain an offer until 19 Aug: the extension never
+  sent an amount and the Depop reader's MONEY_ONLY filter binned the one bubble that
+  carried it. Fixed, but **never run against a real inbox**.
+- **Sales** — `recordSale` and the delist queue landed 19 Aug. Before that, `sales` and
+  `fees` were read everywhere and written nowhere.
 
 Known gaps, roughly in order of how much they'd hurt:
 
-- `channel_accounts` stores OAuth tokens in plaintext. **Encrypt before anyone but the
-  owner connects an account.**
-- Depop category matching picks the first plausible option, which put a women's Alo
-  pullover under Men's. Needs a real category map.
-- Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook. The
-  product link and thread ids are solid, the body text is not.
-- Nothing scrapes `external_listings` yet, so the "everything live everywhere" view has a
-  schema and an API but no collector.
+- `channel_accounts` stores OAuth tokens in plaintext, and has no code at all.
+  **Encrypt before anyone but the owner connects an account.**
+- **Live listings cannot be repriced** — both price-write paths filter to
+  `status = 'draft'`, so a price drop on something already live does nothing.
+- No bulk operations anywhere: no row selection in the inventory table, so a price
+  drop across 40 items is 40 visits.
+- Pricing is an admitted model guess with no sold comps.
+- `external_listings`, `channel_syncs` and `items.custody` all have schema and no
+  reader, no writer, or neither.
+- Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook.
 
 ## Where this is going
 

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
+import { FILLABLE } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,11 @@ export async function GET(request: Request) {
     .from("listings")
     .select("id, channel, title, price, status, items!inner (sku, brand, title)")
     .eq("user_id", userId) // no session here, so scope by hand
-    .in("channel", ["depop", "mercari", "vinted", "grailed"])
+    // FILLABLE, not a hardcoded list. This had drifted: The RealReal gained a
+    // filler and a Fill button in the app, but its drafts never reached the
+    // extension because this array was never updated — the button worked and
+    // the queue was empty, which is the worst kind of half-working.
+    .in("channel", FILLABLE)
     .eq("status", "draft")
     .order("id");
 

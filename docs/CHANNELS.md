@@ -162,3 +162,29 @@ share a model and TRR is already wired in.
 - **Etsy** — blocked: no shop exists on the account.
 - **Shopify** — real API, worth doing when there's a reason to.
 - **Whatnot** — live auction, so a different interaction model again.
+
+## Correction log
+
+**19 Aug 2026 — The RealReal has a per-item form.** This document and
+`lib/fees.ts` both said it had none and that its Sell flow was a lead capture.
+That was wrong, and wrong because the funnel was read one screen too early:
+Sell -> Ship to Us -> START lands on `/sell-trr/packing-list`, a real per-item
+form (Category, Designer, Item Type, Add Item, repeated per piece) that loads
+fine in an automated tab. It is still consignment — no price, no photos, no
+copy, because they write all of it — so what Flock fills is a manifest, not a
+listing. `extension/fill-therealreal.js` exists as of that date. The separate
+note about the seller *dashboard* refusing automated tabs still stands; that is
+a different page.
+
+**19 Aug 2026 — StockX's ask form has never been read.** `/sell/{slug}
+?defaultAsk=true` redirects to `/selling/onboarding` until the seller account
+has a payment method and a verified identity. No filler exists and none should
+be written from memory. What shipped is a style-code catalog search, which
+narrows but does not uniquely identify: a real style code cut 1000 results to 8
+with a near-duplicate sibling second.
+
+**19 Aug 2026 — Vestiaire Collective added.** Marketplace, not consignment: the
+seller sets the price. 12% of item price with a $10 floor and a $2,000 cap, plus
+3% (min $3) processing, both seller-paid. Buyer Protection and the $15
+authentication fee are BUYER-paid. The five-band 25/20/18/15/12 schedule that
+circulates on blogs is not Vestiaire's and their own page contradicts it.

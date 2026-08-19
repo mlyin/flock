@@ -1,10 +1,13 @@
 # Background removal — the options, priced honestly
 
-What ships today: `@imgly/background-removal` running **in the seller's
-browser**. $0 per image forever, photos never leave their machine, and the
-compute scales with users because each seller's laptop does its own work.
-Keep this as the default; everything below is for when it isn't enough
-(phones too weak, batch jobs, or server-side processing at fill time).
+**Superseded 19 Aug 2026.** This used to describe `@imgly/background-removal`
+running in the seller's browser as what ships. That dependency has been removed:
+the seller asked for the work to happen off their machine, so cleaning now POSTs
+to a rembg instance behind `BG_REMOVAL_URL` (`lib/studio-server.ts`) *after* the
+original has uploaded, and says plainly when no service is configured rather
+than falling back to the laptop. The rest of this document — the model licences,
+where to host it, the cost argument — is why that service is rembg with ISNet
+rather than anything else, and is still current.
 
 ## The models (all runnable yourself)
 

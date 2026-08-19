@@ -26,9 +26,12 @@ export default async function InboxPage() {
 
   return (
     <>
+      {/* Was "Inbox", which is the name of a DIFFERENT page — /inbox is buyer
+          messages. Two pages called the same thing in the same nav is a
+          navigation bug wearing a heading. */}
       <div className="sectionhead">
-        <h2>Inbox</h2>
-        <p>Photos waiting to become garments</p>
+        <h2>Photos waiting</h2>
+        <p>Shot but not yet identified. Pick the ones that are the same garment.</p>
       </div>
 
       <Uploader userId={user.id} />

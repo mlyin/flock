@@ -123,7 +123,10 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
             );
           }
 
-          if (state?.listingId && installed) {
+          // Only a DRAFT can be filled. A sold or ended listing still carries a
+          // listingId, so this offered a live "Fill" button for a garment that
+          // is gone — filling it would recreate the listing that just sold.
+          if (state?.listingId && state.status === "draft" && installed) {
             const isBusy = busy === state.listingId;
             return (
               <button

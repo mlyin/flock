@@ -25,10 +25,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     try {
       const parsed = new URL(body.url);
       const allowed = [
+        // Every channel a listing can come back from. This lagged the channel
+        // enum, so a real published URL from a newer marketplace was silently
+        // dropped and the listing stayed link-less.
         "depop.com", "www.depop.com",
         "mercari.com", "www.mercari.com",
         "vinted.com", "www.vinted.com",
         "grailed.com", "www.grailed.com",
+        "poshmark.com", "www.poshmark.com",
+        "ebay.com", "www.ebay.com",
+        "facebook.com", "www.facebook.com",
+        "stockx.com", "www.stockx.com",
+        "therealreal.com", "www.therealreal.com",
+        "vestiairecollective.com", "www.vestiairecollective.com",
+        "us.vestiairecollective.com",
         "ebay.com", "www.ebay.com",
         "poshmark.com", "www.poshmark.com",
       ];
