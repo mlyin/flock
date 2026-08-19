@@ -348,3 +348,39 @@ export async function fillReportsFor(itemId: string): Promise<FillReport[]> {
   }
   return [...newest.values()];
 }
+
+export type DelistTask = {
+  id: string;
+  channel: Channel;
+  sold_on: Channel;
+  created_at: string;
+  listing: { id: string; url: string | null; title: string | null } | null;
+  item: { id: string; sku: string; title: string } | null;
+};
+
+/**
+ * Listings that are still up for something already sold.
+ *
+ * Newest first: the sale that just happened is the one whose other listings a
+ * buyer is most likely to be looking at right now.
+ */
+export async function openDelistTasks(): Promise<DelistTask[]> {
+  const supabase = await supabaseServer();
+
+  const { data } = await supabase
+    .from("delist_tasks")
+    .select(
+      "id, channel, sold_on, created_at, listings (id, url, title), items (id, sku, title)"
+    )
+    .eq("state", "open")
+    .order("created_at", { ascending: false });
+
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((row) => ({
+    id: row.id as string,
+    channel: row.channel as Channel,
+    sold_on: row.sold_on as Channel,
+    created_at: row.created_at as string,
+    listing: (row.listings ?? null) as DelistTask["listing"],
+    item: (row.items ?? null) as DelistTask["item"],
+  }));
+}

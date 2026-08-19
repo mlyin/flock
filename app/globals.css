@@ -2591,3 +2591,33 @@ body { font-size: 15px; line-height: 1.55; }
 .advice-reply p { margin: 0 0 8px; font-size: 14px; }
 .advice-replyactions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .advice-replyactions .muted { font-size: 11px; }
+
+/* Still-live listings for something already sold. Loud on purpose: this is the
+   only thing on the dashboard that gets worse the longer it's ignored. */
+.delist {
+  border: 1px solid var(--brick);
+  background: var(--brick-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.delist-head strong { display: block; font-size: 15px; color: var(--brick); }
+.delist-head p { margin: 4px 0 12px; font-size: 13px; }
+.delist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.delist-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-radius: 7px;
+}
+.delist-what { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.delist-what strong { font-size: 13px; }
+.delist-what .muted { font-size: 11px; }
+.delist-what a.muted:hover { text-decoration: underline; }
+.delist-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .delist-list li { flex-wrap: wrap; }
+  .delist-actions { margin-left: 0; width: 100%; }
+}

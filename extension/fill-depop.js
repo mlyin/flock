@@ -29,6 +29,12 @@ const FIELD = {
   brand: "brand-input",
   condition: "condition-input",
   size: "variants-input",
+  // Category-dependent attribute fields. Depop grows these only AFTER a
+  // category is chosen, and different categories grow different ones —
+  // footwear gets Type/Occasion/Material, which nothing here knew about until
+  // a fill report listed them as still empty.
+  attrMaterial: "attributes.material-input",
+  attrType: "attributes.shoe-type-input",
   colour: "colour-input",
   packageSize: "shippingMethods-input",
 };
@@ -674,6 +680,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     else if (item.brand) missing.push(`brand (no exact match for "${item.brand}" — set it by hand)`);
 
     if (item.color && (await combo(FIELD.colour, item.color))) filled.push("colour");
+
+    // Optional attributes, best-effort. Exact match only: these are buyer-facing
+    // facets and a wrong one is a listing that describes the wrong thing. Silent
+    // when absent — most categories don't render them at all, so a miss here is
+    // not worth telling the seller about.
+    const material = item.material_primary || item.material;
+    if (material && document.getElementById(FIELD.attrMaterial)) {
+      if (await combo(FIELD.attrMaterial, material, { exact: true, acceptFirst: false })) {
+        filled.push(`material (${material})`);
+      }
+    }
 
     // acceptFirst is OFF here, unlike when this was written. Package size picks
     // the SHIPPING option the buyer pays for, so it is buyer-visible and falls

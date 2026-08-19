@@ -926,3 +926,145 @@ export async function considerOffer(offerId: string): Promise<
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+/**
+ * Record a sale, and queue every other listing for takedown.
+ *
+ * The second half is the point. A garment on five marketplaces is one physical
+ * object: the moment it sells on Depop, the Vinted and Grailed listings are
+ * promises the seller can no longer keep, and a second buyer paying for it
+ * costs them a cancellation, a defect, and a rating hit. Every competitor
+ * treats this as the headline feature and Flock had no answer at all.
+ *
+ * Flock does NOT take the listings down. Delisting is destructive and it
+ * happens inside the seller's own marketplace account — the same boundary that
+ * stops the extension submitting. What it does is know, immediately and per
+ * channel, exactly which listings are now untrue, and keep asking until each
+ * one is dealt with.
+ */
+export async function recordSale(
+  listingId: string,
+  input: { soldPrice: number; shippingCollected?: number; shippingCost?: number; soldAt?: string }
+): Promise<{ ok: true; toDelist: number } | { ok: false; error: string }> {
+  const { computeFees } = await import("@/lib/fees");
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: listing } = await supabase
+    .from("listings")
+    .select("id, item_id, channel")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (!listing) return { ok: false, error: "That listing is gone." };
+
+  const soldPrice = Number(input.soldPrice);
+  if (!Number.isFinite(soldPrice) || soldPrice <= 0) {
+    return { ok: false, error: "What did it actually sell for?" };
+  }
+
+  const shippingCollected = Number(input.shippingCollected ?? 0) || 0;
+  const soldAt = input.soldAt ?? new Date().toISOString();
+
+  const { data: sale, error: saleError } = await supabase
+    .from("sales")
+    .insert({
+      user_id: user.id,
+      listing_id: listing.id,
+      sold_price: soldPrice,
+      shipping_collected: shippingCollected,
+      shipping_cost: Number(input.shippingCost ?? 0) || 0,
+      sold_at: soldAt,
+    })
+    .select("id")
+    .single();
+
+  if (saleError) return { ok: false, error: saleError.message };
+
+  // Fees are computed from the table, not typed in — the whole point of
+  // lib/fees.ts is that nobody has to remember what Grailed charges.
+  const fees = computeFees(listing.channel, { soldPrice, shippingCollected });
+  if (fees.length > 0) {
+    await supabase.from("fees").insert(
+      fees.map((fee) => ({
+        user_id: user.id,
+        sale_id: sale.id,
+        kind: fee.kind,
+        label: fee.label,
+        amount: fee.amount,
+      }))
+    );
+  }
+
+  await supabase.from("listings").update({ status: "sold" }).eq("id", listing.id);
+  await supabase.from("items").update({ status: "sold" }).eq("id", listing.item_id);
+
+  // Everything else still live is now a listing for an item that is gone.
+  const { data: others } = await supabase
+    .from("listings")
+    .select("id, channel")
+    .eq("item_id", listing.item_id)
+    .eq("status", "live")
+    .neq("id", listing.id);
+
+  if (others && others.length > 0) {
+    await supabase.from("delist_tasks").upsert(
+      others.map((other) => ({
+        user_id: user.id,
+        item_id: listing.item_id,
+        listing_id: other.id,
+        channel: other.channel,
+        sold_on: listing.channel,
+        state: "open",
+      })),
+      { onConflict: "listing_id" }
+    );
+  }
+
+  revalidatePath(`/items/${listing.item_id}`);
+  revalidatePath("/");
+  return { ok: true, toDelist: others?.length ?? 0 };
+}
+
+/**
+ * Close one takedown task.
+ *
+ * "skipped" is a first-class outcome, not a failure. A seller with two
+ * identical pieces isn't making a mistake, and a queue that nags them forever
+ * is a queue they stop reading — which is how the one that mattered gets
+ * missed.
+ */
+export async function resolveDelistTask(
+  taskId: string,
+  state: "gone" | "skipped"
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await supabaseServer();
+
+  const { data: task } = await supabase
+    .from("delist_tasks")
+    .select("listing_id, item_id")
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (!task) return { ok: false, error: "That task is gone." };
+
+  const { error } = await supabase
+    .from("delist_tasks")
+    .update({ state, resolved_at: new Date().toISOString() })
+    .eq("id", taskId);
+
+  if (error) return { ok: false, error: error.message };
+
+  // A listing confirmed down is ended, not live. Skipped ones stay live
+  // because the seller said they meant it.
+  if (state === "gone") {
+    await supabase.from("listings").update({ status: "ended" }).eq("id", task.listing_id);
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/items/${task.item_id}`);
+  return { ok: true };
+}

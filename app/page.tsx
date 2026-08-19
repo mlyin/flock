@@ -7,7 +7,8 @@ import ChannelViewToggle from "@/components/ChannelViewToggle";
 import { CHANNEL_LABEL } from "@/lib/fees";
 import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
-import { bestProjection, getItems, shelfAge, signPhotos, summarize } from "@/lib/data";
+import { bestProjection, getItems, openDelistTasks, shelfAge, signPhotos, summarize } from "@/lib/data";
+import DelistQueue from "@/components/DelistQueue";
 
 export const dynamic = "force-dynamic";
 
@@ -69,8 +70,14 @@ export default async function Inventory({
     stale && { href: `/?status=listed`, n: stale, label: `sitting over ${AGING_DAYS} days`, tone: "warn" },
   ].filter(Boolean) as { href: string; n: number; label: string; tone: string }[];
 
+  // Above everything, including the heading. A listing still up for something
+  // that sold is the only thing on this page that gets worse while you read it.
+  const delist = await openDelistTasks();
+
   return (
     <>
+      <DelistQueue tasks={delist} />
+
       <div className="pagehead">
         <h1>Inventory</h1>
         <p>
