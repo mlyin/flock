@@ -56,9 +56,13 @@ export default async function FeesPage() {
                               ? `${(rule.rate * 100).toFixed(2)}%`
                               : rule.type === "flat"
                                 ? usd(rule.amount)
-                                : `${usd(rule.below.amount)} under ${usd(rule.threshold)}, else ${(
-                                    rule.atOrAbove.rate * 100
-                                  ).toFixed(0)}%`}
+                                : rule.type === "tiered"
+                                  ? `${usd(rule.below.amount)} under ${usd(rule.threshold)}, else ${(
+                                      rule.atOrAbove.rate * 100
+                                    ).toFixed(0)}%`
+                                  : rule.type === "tiered_percent"
+                                    ? `${(rule.below.rate * 100).toFixed(0)}%${rule.below.min ? ` (min ${usd(rule.below.min)})` : ""} under ${usd(rule.threshold)}, else ${(rule.atOrAbove.rate * 100).toFixed(0)}%`
+                                    : `${usd(rule.below.amount)} to ${usd(rule.threshold)}, else ${usd(rule.atOrAbove.amount)}`}
                           </span>
                         ))}
                       </div>

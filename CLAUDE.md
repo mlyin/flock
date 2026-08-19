@@ -49,9 +49,11 @@ net-proceeds maths.
 **Money is `numeric(10,2)`, never float.** PostgREST can return numerics as strings, so
 `lib/data.ts` coerces with `num()`.
 
-**Fee rules are data, not code** — `lib/fees.ts`. Every channel is still marked
-`verifiedOn: "unverified"`; the rates were written from memory of public fee pages. Every
-net figure in the app is only as honest as that table.
+**Fee rules are data, not code** — `lib/fees.ts`. Six channels were verified against
+official fee pages on 2026-08-19, with source URLs in each note. The headline
+correction: Depop removed its 10% US selling fee in July 2024, and Mercari charges
+sellers no payment processing — the old table showed Depop near-worst when it is
+near-best. Facebook and The RealReal remain unverified placeholders.
 
 **Three prices, and they mean different things.** `cost_basis` is what you paid,
 `list_price` what you're asking, `floor_price` what you'd actually take. The floor is what
@@ -132,7 +134,6 @@ Known gaps, roughly in order of how much they'd hurt:
 
 - `channel_accounts` stores OAuth tokens in plaintext. **Encrypt before anyone but the
   owner connects an account.**
-- Every fee rate is unverified, and the whole dashboard is built on them.
 - Depop category matching picks the first plausible option, which put a women's Alo
   pullover under Men's. Needs a real category map.
 - Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook. The

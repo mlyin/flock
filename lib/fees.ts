@@ -121,6 +121,24 @@ type Rule =
       threshold: number;
       below: { amount: number };
       atOrAbove: { rate: number; basis: Basis };
+    }
+  // Grailed's shape: a lower percentage under the threshold, with a floor.
+  | {
+      kind: FeeKind;
+      label: string;
+      type: "tiered_percent";
+      threshold: number;
+      below: { rate: number; basis: Basis; min?: number };
+      atOrAbove: { rate: number; basis: Basis };
+    }
+  // eBay's per-order fee: one flat under the threshold, another at or above.
+  | {
+      kind: FeeKind;
+      label: string;
+      type: "flat_tiered";
+      threshold: number;
+      below: { amount: number };
+      atOrAbove: { amount: number };
     };
 
 export type ChannelFees = {
@@ -129,18 +147,41 @@ export type ChannelFees = {
   rules: Rule[];
 };
 
+/**
+ * Verified against each marketplace's OWN fee pages on 2026-08-19. Source
+ * URLs are in each note, because a rate without a source decays back into
+ * folklore the first time someone edits it.
+ *
+ * The two headline corrections, because they change routing answers:
+ * Depop removed its 10% US selling fee in July 2024 — this table was showing
+ * Depop as one of the worst channels when it is close to the best. And
+ * Mercari charges sellers no payment processing at all; that fee was always
+ * buyer-paid.
+ */
 export const FEE_RULES: Record<Channel, ChannelFees> = {
   ebay: {
-    verifiedOn: "unverified",
-    note: "Category-dependent. Clothing sits near 13.25%; store subscriptions lower it.",
+    verifiedOn: "2026-08-19",
+    note:
+      "Clothing final value fee 13.6% of item + shipping + tax, up to $7,500 per item (2.35% beyond, not modelled). " +
+      "Per-order fee $0.30 up to $10, $0.40 above. First 250 listings/month free. Handbags 15%, jewellery 15% — category " +
+      "exceptions not modelled. Source: ebay.com/help/selling/fees-credits-invoices/selling-fees?id=4822",
     rules: [
-      { kind: "commission", label: "Final value fee", type: "percent", rate: 0.1325, basis: "item_plus_shipping" },
-      { kind: "payment", label: "Per-order fee", type: "flat", amount: 0.3 },
+      { kind: "commission", label: "Final value fee", type: "percent", rate: 0.136, basis: "item_plus_shipping" },
+      {
+        kind: "payment",
+        label: "Per-order fee",
+        type: "flat_tiered",
+        threshold: 10,
+        below: { amount: 0.3 },
+        atOrAbove: { amount: 0.4 },
+      },
     ],
   },
   poshmark: {
-    verifiedOn: "unverified",
-    note: "Flat fee under the threshold, straight percentage above it. No separate payment fee.",
+    verifiedOn: "2026-08-19",
+    note:
+      "Flat $2.95 under $15, straight 20% at $15 or more. No separate payment fee. (Texas sellers carry an extra " +
+      "state fee tax since Oct 2025 — not modelled.) Source: support.poshmark.com article 297755057",
     rules: [
       {
         kind: "commission",
@@ -153,35 +194,52 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
     ],
   },
   depop: {
-    verifiedOn: "unverified",
-    note: "Selling fee plus payment processing. Processing rate varies by payment provider and region.",
+    verifiedOn: "2026-08-19",
+    note:
+      "NO selling fee for US sellers — the 10% commission was removed July 2024 (it survives only outside UK/US/AUS). " +
+      "Sellers pay payment processing only: 3.3% + $0.45 on item + shipping (+ tax, not modelled). The up-to-5% " +
+      "marketplace fee is BUYER-paid. Optional 12% boosting fee applies only to boosted listings. " +
+      "Source: depop.com/help/seller-fees-and-charges",
     rules: [
-      { kind: "commission", label: "Depop fee", type: "percent", rate: 0.1, basis: "item_plus_shipping" },
       { kind: "payment", label: "Payment processing", type: "percent", rate: 0.033, basis: "item_plus_shipping" },
       { kind: "payment", label: "Processing flat", type: "flat", amount: 0.45 },
     ],
   },
   mercari: {
-    verifiedOn: "unverified",
-    note: "Selling fee plus processing. Mercari has restructured fees more than once — recheck.",
+    verifiedOn: "2026-08-19",
+    note:
+      "10% selling fee on item + buyer-paid shipping, for listings made or updated after 6 Jan 2025. Sellers pay NO " +
+      "payment processing — the old 2.9% + $0.50 was buyer-paid and has been eliminated. Instant Pay $3 and " +
+      "cancellation fees exist but are not per-sale. Source: mercari.com/us/help_center/article/169",
     rules: [
-      { kind: "commission", label: "Selling fee", type: "percent", rate: 0.1, basis: "item" },
-      { kind: "payment", label: "Payment processing", type: "percent", rate: 0.029, basis: "item_plus_shipping" },
-      { kind: "payment", label: "Processing flat", type: "flat", amount: 0.5 },
+      { kind: "commission", label: "Selling fee", type: "percent", rate: 0.1, basis: "item_plus_shipping" },
     ],
   },
   grailed: {
-    verifiedOn: "unverified",
-    note: "Commission plus payment processing. Grailed has changed its fee split more than once — recheck before trusting any net figure here.",
+    verifiedOn: "2026-08-19",
+    note:
+      "Commission is tiered since 20 May 2026: 6% (min $1.99) under $120, 9% at $120+. Basis includes buyer-paid " +
+      "shipping unless a Grailed Label is used. Processing modelled as US-domestic Stripe-onboarded: 3.49% + $0.49 " +
+      "(international 4.99%, non-onboarded +$0.50 — not modelled). Sources: support.grailed.com articles " +
+      "30282580172045 and 30299544492301",
     rules: [
-      { kind: "commission", label: "Grailed fee", type: "percent", rate: 0.09, basis: "item" },
+      {
+        kind: "commission",
+        label: "Grailed fee",
+        type: "tiered_percent",
+        threshold: 120,
+        below: { rate: 0.06, basis: "item_plus_shipping", min: 1.99 },
+        atOrAbove: { rate: 0.09, basis: "item_plus_shipping" },
+      },
       { kind: "payment", label: "Payment processing", type: "percent", rate: 0.0349, basis: "item_plus_shipping" },
       { kind: "payment", label: "Processing flat", type: "flat", amount: 0.49 },
     ],
   },
   vinted: {
-    verifiedOn: "unverified",
-    note: "No seller-side fee — the buyer pays the protection fee. This is why Vinted nets highest per sale.",
+    verifiedOn: "2026-08-19",
+    note:
+      "Confirmed: zero mandatory seller fees — the buyer pays the protection fee ($0.70 + 5% US). Bumps and " +
+      "spotlight are optional. This is why Vinted nets highest at low prices. Source: vinted.co.uk/help/373",
     rules: [],
   },
   facebook: {
@@ -235,6 +293,17 @@ export function computeFees(
               label: rule.label,
               amount: cents(basisAmount(rule.atOrAbove.basis) * rule.atOrAbove.rate),
             };
+      case "tiered_percent": {
+        const tier = sale.soldPrice < rule.threshold ? rule.below : rule.atOrAbove;
+        const raw = basisAmount(tier.basis) * tier.rate;
+        const min = "min" in tier && typeof tier.min === "number" ? tier.min : 0;
+        const floored = Math.max(raw, min);
+        return { kind: rule.kind, label: rule.label, amount: cents(floored) };
+      }
+      case "flat_tiered": {
+        const amount = basisAmount("item_plus_shipping") <= rule.threshold ? rule.below.amount : rule.atOrAbove.amount;
+        return { kind: rule.kind, label: rule.label, amount: cents(amount) };
+      }
     }
   });
 }
