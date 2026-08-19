@@ -8,10 +8,15 @@ import { supabaseBrowser } from "@/lib/supabase/client";
  *
  * The Apple button is gated on NEXT_PUBLIC_APPLE_SIGNIN rather than always
  * rendered, because enabling it takes work outside this repo: an Apple
- * Services ID, a .p8 key, a domain-association file, and the provider switched
- * on in Supabase. A button whose only possible outcome is "Unsupported provider"
+ * Services ID, a .p8 signing key, a generated client secret, and the provider
+ * switched on in Supabase. A button whose only possible outcome is "Unsupported provider"
  * is the same mistake as a Fill button for a marketplace with no filler — it
  * looks like a feature and behaves like a bug.
+ *
+ * See docs/AUTH-SETUP.md. Two Apple facts worth knowing from here: the client
+ * secret is a JWT that expires within six months with no warning from anyone,
+ * and the web flow never receives the user's name at all — so an Apple user
+ * shows as their email until something asks them for it.
  */
 export default function SignIn({ next }: { next: string }) {
   const [pending, setPending] = useState<"google" | "apple" | null>(null);
