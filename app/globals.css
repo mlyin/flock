@@ -2168,3 +2168,62 @@ body { font-size: 15px; line-height: 1.55; }
   .landing-hero { grid-template-columns: 1fr; gap: 26px; padding-top: 34px; }
   .landing-hero-video { order: -1; }
 }
+
+/* ==========================================================================
+   Reading, and finished
+
+   A button that says "Reading…" for thirty seconds looks like a page that
+   died. The sheep is already animated inside loader.svg — same mark as the
+   favicon — so the wait reads as work being done rather than nothing happening.
+   ========================================================================== */
+
+.reading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--brand-line);
+  border-radius: 14px;
+  background: var(--brand-soft);
+}
+.reading img { display: block; border-radius: 12px; flex: none; }
+.reading strong { display: block; font-size: 14.5px; }
+.reading .muted { font-size: 12.5px; }
+
+.donebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--brand-line);
+  border-radius: 14px;
+  background: var(--brand-soft);
+  /* Arrives rather than appears — the difference between noticing it and not. */
+  animation: donebar-in .34s cubic-bezier(.2, .7, .3, 1) both;
+}
+.donebar-tick {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+.donebar .button { margin-left: auto; }
+
+@keyframes donebar-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Motion is decoration here; the text says the same thing without it. */
+@media (prefers-reduced-motion: reduce) {
+  .donebar { animation: none; }
+}

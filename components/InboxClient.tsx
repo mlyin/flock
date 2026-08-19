@@ -51,6 +51,9 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   const suggestion = useMemo(() => suggestFirstGarment(photos), [photos]);
   const [selected, setSelected] = useState<string[]>(suggestion);
   const [result, setResult] = useState<IdentifyOutcome | null>(null);
+  // How many photos went in, so the finished message can say what it read
+  // rather than just that it finished.
+  const [reading, setReading] = useState(0);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -62,6 +65,7 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
   const run = (action: (ids: string[]) => Promise<IdentifyOutcome>) => {
     if (selected.length === 0) return;
     setResult(null);
+    setReading(selected.length);
     startTransition(async () => {
       const outcome = await action(selected);
       setResult(outcome);
@@ -126,10 +130,39 @@ export default function InboxClient({ photos }: { photos: InboxPhoto[] }) {
         </div>
       </div>
 
-      {result && (
-        <p className={result.ok ? "chipnote chipnote-ok" : "chipnote chipnote-bad"}>
-          {result.ok ? "Identified — it's in your inventory as a draft." : result.error}
-        </p>
+      {/* A button that reads "Reading…" for thirty seconds looks stuck. The
+          sheep is the same mark as the favicon, already animated in the file,
+          and it tells you the wait is the model working rather than the page
+          having died. */}
+      {pending && (
+        <div className="reading" role="status" aria-live="polite">
+          <img src="/brand/loader.svg" alt="" width={54} height={54} />
+          <div>
+            <strong>Reading {reading === 1 ? "the photo" : `${reading} photos`}…</strong>
+            <span className="muted">
+              Brand, size, colour, material and condition, off the tag. Usually a few seconds.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!pending && result && (
+        <div className={result.ok ? "donebar" : "chipnote chipnote-bad"} role="status" aria-live="polite">
+          {result.ok ? (
+            <>
+              <span className="donebar-tick" aria-hidden>✓</span>
+              <div>
+                <strong>{result.sku} added</strong>
+                <span className="muted"> — drafted for every channel.</span>
+              </div>
+              <a className="button button-sm" href={`/items/${result.itemId}`}>
+                Open it
+              </a>
+            </>
+          ) : (
+            result.error
+          )}
+        </div>
       )}
 
       <div className="shots shots-pick">
