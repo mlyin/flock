@@ -206,6 +206,7 @@ export async function identifyAndDraft(photoIds: string[]): Promise<IdentifyOutc
       category: x.category || "Other",
       size: x.size || null,
       sizes: x.sizes ?? {},
+      style_code: x.style_code || null,
       fit: x.fit || null,
       color: x.color || null,
       // Normalised alongside the descriptive one: the first is what a buyer

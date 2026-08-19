@@ -24,6 +24,7 @@ const CHANNELS = [
   { id: "depop", label: "Depop" },
   { id: "vinted", label: "Vinted" },
   { id: "grailed", label: "Grailed" },
+  { id: "stockx", label: "StockX" },
 ];
 
 export default function ProbeForm() {

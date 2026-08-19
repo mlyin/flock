@@ -14,7 +14,8 @@ export type Channel =
   | "vinted"
   | "grailed"
   | "therealreal"
-  | "facebook";
+  | "facebook"
+  | "stockx";
 
 export const CHANNELS: Channel[] = [
   "ebay",
@@ -24,6 +25,7 @@ export const CHANNELS: Channel[] = [
   "vinted",
   "grailed",
   "facebook",
+  "stockx",
   "therealreal",
 ];
 
@@ -35,6 +37,7 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   grailed: "Grailed",
   vinted: "Vinted",
   facebook: "Facebook Marketplace",
+  stockx: "StockX",
   therealreal: "The RealReal",
 };
 
@@ -47,6 +50,7 @@ export const CHANNEL_ABBR: Record<Channel, string> = {
   grailed: "GR",
   vinted: "VT",
   facebook: "FB",
+  stockx: "SX",
   therealreal: "TRR",
 };
 
@@ -73,6 +77,7 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
   grailed: "extension",
   vinted: "extension",
   facebook: "extension",
+  stockx: "extension",
   therealreal: "manual",
 };
 
@@ -250,6 +255,19 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
       "guess about how it sells, not a property of the channel. Modelled as shipped, the worse case.",
     rules: [
       { kind: "commission", label: "Selling fee (shipped orders)", type: "percent", rate: 0.05, basis: "item" },
+    ],
+  },
+  stockx: {
+    verifiedOn: "unverified",
+    note:
+      "CATALOG-MATCHED — you place an ask against a product already in StockX's catalog, keyed by style code; " +
+      "there is no listing to write. Fees are tiered by seller level and have changed repeatedly: modelled here " +
+      "as the entry level, roughly 9% transaction + 3% payment processing. Sneakers-first; apparel coverage is " +
+      "thinner, and an item not in the catalog cannot be sold at all. Verify against a real payout before " +
+      "trusting any net. A failed authentication also carries a penalty not modelled here.",
+    rules: [
+      { kind: "commission", label: "Transaction fee", type: "percent", rate: 0.09, basis: "item" },
+      { kind: "payment", label: "Payment processing", type: "percent", rate: 0.03, basis: "item" },
     ],
   },
   therealreal: {

@@ -66,6 +66,12 @@ export type Extraction = {
   brand: string;
   category: (typeof CATEGORIES)[number];
   size: string;
+  /**
+   * Manufacturer style/model code from the inner tag, ONLY if printed and
+   * legible. The catalog join key for StockX and GOAT — a wrong one ships
+   * the wrong product to an authenticator, so never inferred.
+   */
+  style_code: string;
   /** Every size system printed on the tag. Only what's legible — see the schema. */
   sizes: { intl?: string; us?: string; uk?: string; eu?: string; jp?: string; numeric?: string };
   fit: (typeof FITS)[number] | "";
@@ -122,7 +128,7 @@ const SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: [
-    "title", "brand", "category", "size", "sizes", "fit", "color", "color_primary", "swatch",
+    "title", "brand", "category", "size", "sizes", "fit", "style_code", "color", "color_primary", "swatch",
     "material", "material_primary", "department", "condition", "era", "flaws",
     "questions", "notes", "confidence",
   ],
@@ -141,6 +147,11 @@ const SCHEMA = {
     size: {
       type: "string",
       description: "As printed on the tag (S, 34x32, UK 8, 42). Empty string if no size tag is visible.",
+    },
+    style_code: {
+      type: "string",
+      description:
+        "The manufacturer's style, model or article code printed on the inner tag — e.g. FOA404323, CV1738-100, 4501-234. Empty string unless it is PRINTED AND LEGIBLE in a photo. Never construct or guess one: this code is used to match catalog marketplaces, and a wrong code ships the wrong product to an authenticator.",
     },
     sizes: {
       type: "object",

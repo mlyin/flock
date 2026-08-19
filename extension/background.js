@@ -16,6 +16,9 @@ const SELL_PAGE = {
   // Facebook refuses /marketplace/create/item directly and bounces to
   // /marketplace/; its own "Create new listing" link points at /create/.
   facebook: "https://www.facebook.com/marketplace/create/",
+  // StockX has no create form — selling starts from a catalog search. The
+  // filler's job there is search-and-select, not form-fill.
+  stockx: "https://stockx.com/sell",
 };
 
 /**

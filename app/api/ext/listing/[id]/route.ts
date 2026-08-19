@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     "sku, brand, category, size, color, material, condition, flaws, package_size, depop_category, department";
 
   // Columns added by 0012 and 0013.
-  const PENDING = "color_primary, material_primary, measurements, sizes, fit";
+  const PENDING = "color_primary, material_primary, measurements, sizes, fit, style_code";
 
   // Asking PostgREST for a column that doesn't exist yet makes it reject the
   // WHOLE select, which took the fill down with it: photos, brand, size and
