@@ -2548,3 +2548,18 @@ body { font-size: 15px; line-height: 1.55; }
 }
 .button-quiet:hover:not(:disabled) { border-color: var(--sage); color: var(--sage); }
 .button-quiet:disabled { opacity: .45; cursor: default; }
+
+/* What the marketplace forms said. Only rendered when something went wrong. */
+.reports { display: grid; gap: 12px; margin-bottom: 24px; }
+.report {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--brick);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.report-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.report-head .muted { font-size: 12px; margin-left: auto; }
+.report-errors { margin: 0 0 8px; padding-left: 18px; color: var(--brick); font-size: 13px; }
+.report-errors li { margin: 2px 0; }
+.report-missing { margin: 0 0 6px; font-size: 13px; }
+.report-empty { margin: 0; font-size: 12px; }

@@ -487,6 +487,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           await chrome.tabs.update(tab.id, { active: true });
         }
 
+        // Send the form's own account back to Flock. This is what ends the
+        // screenshot loop: the validation text that used to reach us only as a
+        // photograph of a red message now lands in the database next to the
+        // listing that produced it. Best-effort on purpose — a reporting
+        // failure must never turn a successful fill into an error.
+        try {
+          await api("/api/ext/fill-report", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              listingId,
+              filled: result?.filled ?? [],
+              missing: result?.missing ?? [],
+              blocked: result?.blocked ?? [],
+              controls: result?.report?.controls ?? [],
+              errors: result?.report?.errors ?? [],
+              url: result?.report?.url ?? null,
+            }),
+          });
+        } catch (reportError) {
+          console.warn("[flock] fill report not saved:", reportError.message);
+        }
 
         sendResponse({ ok: true, data: result });
         return;

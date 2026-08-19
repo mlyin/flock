@@ -312,3 +312,39 @@ export async function signPhotos(paths: string[]): Promise<Record<string, string
 }
 
 export { computeFees, projectedNet };
+
+export type FillReport = {
+  id: string;
+  channel: Channel;
+  created_at: string;
+  filled: string[];
+  missing: string[];
+  blocked: string[];
+  errors: string[];
+  controls: { id?: string; label?: string; value?: string; required?: boolean; error?: string }[];
+  url: string | null;
+};
+
+/**
+ * The most recent fill attempt per channel for one garment.
+ *
+ * Exists so a broken fill can be read rather than described. Before this, the
+ * validation text a marketplace showed reached anyone who could act on it only
+ * as a photograph of a red message.
+ */
+export async function fillReportsFor(itemId: string): Promise<FillReport[]> {
+  const supabase = await supabaseServer();
+
+  const { data } = await supabase
+    .from("fill_reports")
+    .select("id, channel, created_at, filled, missing, blocked, errors, controls, url, listing_id, listings!inner(item_id)")
+    .eq("listings.item_id", itemId)
+    .order("created_at", { ascending: false })
+    .limit(40);
+
+  const newest = new Map<Channel, FillReport>();
+  for (const row of (data ?? []) as unknown as FillReport[]) {
+    if (!newest.has(row.channel)) newest.set(row.channel, row);
+  }
+  return [...newest.values()];
+}

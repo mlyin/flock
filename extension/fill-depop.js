@@ -28,13 +28,22 @@ const FIELD = {
   category: "group-input",
   brand: "brand-input",
   condition: "condition-input",
+  size: "variants-input",
   colour: "colour-input",
   packageSize: "shippingMethods-input",
 };
 
-/** Depop's wording, not ours. Case matters — these are matched exactly first. */
+/**
+ * Depop's wording, not ours. Read off the live menu on 19 Aug 2026, which
+ * offers exactly five: Brand new | Like new | Used - Excellent | Used - Good |
+ * Used - Fair.
+ *
+ * `nwt` used to map to "Brand new with tags" — a label Depop does not have. So
+ * every new-with-tags item failed the exact match and the seller set condition
+ * by hand, which is exactly what happened on the Maison Margiela.
+ */
 const CONDITION = {
-  nwt: "Brand new with tags",
+  nwt: "Brand new",
   excellent: "Used - Excellent",
   good: "Used - Good",
   fair: "Used - Fair",
@@ -266,10 +275,63 @@ function findControl(patterns) {
   return null;
 }
 
-async function fillSize(size) {
+/**
+ * EU shoe sizes onto the US scale Depop actually offers.
+ *
+ * With a footwear category chosen, Depop's size list is "US 3" ... "US 16"
+ * plus "One size" and "Other". A garment recorded as size 42 — which is how
+ * the label on an Italian shoe reads — matches none of them, so the field
+ * stayed empty and the listing was blocked on "Please insert at least one
+ * size".
+ *
+ * These conversions are standard and APPROXIMATE: half a size of disagreement
+ * between brands is normal and Italian makers run their own. So the fill
+ * converts and then SAYS it converted, showing both numbers, because the
+ * seller is the one who knows whether their 42s fit like a 9.
+ */
+const EU_TO_US_SHOE = {
+  men: {
+    39: "6.5", 40: "7", 41: "8", 42: "8.5", 43: "9.5", 44: "10",
+    45: "11", 46: "12", 47: "13", 48: "14",
+  },
+  women: {
+    35: "5", 36: "5.5", 37: "6.5", 38: "7.5", 39: "8.5", 40: "9.5",
+    41: "10.5", 42: "11.5",
+  },
+};
+
+/** Set when a conversion was applied, so the banner can show its working. */
+let sizeNote = null;
+
+function usShoeSize(size, department) {
+  const raw = String(size == null ? "" : size).trim();
+  // Already a US size, or a letter size — leave it alone.
+  if (!/^[0-9]{2}$/.test(raw)) return null;
+  const eu = Number(raw);
+  if (eu < 34 || eu > 50) return null;
+
+  const dept = String(department == null ? "" : department).trim().toLowerCase();
+  const womens = dept.indexOf("wom") === 0;
+  const us = (womens ? EU_TO_US_SHOE.women : EU_TO_US_SHOE.men)[eu];
+  if (!us) return null;
+
+  sizeNote = "EU " + eu + " to US " + us + " (" + (womens ? "women's" : "men's") + ") — check it";
+  return "US " + us;
+}
+
+async function fillSize(size, opts) {
   if (!size) return false;
-  const el = findControl([/^size/, /size-input/, /\bsize\b/]);
+  const department = opts && opts.department;
+  const footwear = opts && opts.footwear;
+  const el = document.getElementById(FIELD.size) || findControl([/^size/, /size-input/, /\bsize\b/]);
   if (!el) return false;
+
+  // Only convert for shoes. "42" on a pair of trousers is a waist measurement,
+  // and turning that into "US 8.5" would be nonsense.
+  if (footwear) {
+    const converted = usShoeSize(size, department);
+    if (converted && (await combo(el.id, converted, { exact: true, acceptFirst: false }))) return true;
+  }
 
   if (el.tagName === "SELECT") {
     const want = String(size).trim().toLowerCase();
@@ -460,6 +522,77 @@ function banner(filled, missing, blocked) {
   document.getElementById("threader-close")?.addEventListener("click", () => el.remove());
 }
 
+
+/**
+ * What the form looks like now, in its own words.
+ *
+ * This is the end of the screenshot loop. Every fill bug so far — "Brand new
+ * with tags" against a menu that says "Brand new", eleven photos against an
+ * eight-photo cap, "42" against a US-only size scale — was found by a person
+ * photographing a red message and describing it. The page will say all of it
+ * if asked: the label of every control, whether it holds anything, and the
+ * validation text sitting next to it.
+ *
+ * Read-only. It changes nothing and submits nothing; it just looks.
+ */
+function formReport() {
+  const controls = [];
+  const errors = new Set();
+
+  const labelFor = (el) => {
+    const byFor = el.id && document.querySelector('label[for="' + el.id + '"]');
+    const text =
+      (byFor && byFor.textContent) ||
+      el.getAttribute("aria-label") ||
+      (el.closest("label") && el.closest("label").textContent) ||
+      el.placeholder ||
+      "";
+    return text.trim().split("\n")[0].slice(0, 60);
+  };
+
+  // Validation text is rendered as a sibling, not on the element, so find it by
+  // proximity rather than by a class name that will change next release.
+  const errorNear = (el) => {
+    let node = el;
+    for (let i = 0; i < 4 && node; i++) {
+      node = node.parentElement;
+      if (!node) break;
+      for (const child of node.children) {
+        if (child === el || child.contains(el)) continue;
+        const t = (child.textContent || "").trim();
+        if (!t || t.length > 120) continue;
+        if (/required|please|must|invalid|at least|maximum|cannot|too (long|short|many)/i.test(t)) {
+          return t;
+        }
+      }
+    }
+    return "";
+  };
+
+  for (const el of document.querySelectorAll("input, select, textarea")) {
+    if (el.type === "hidden" || el.offsetParent === null) continue;
+    const label = labelFor(el);
+    const error = errorNear(el);
+    if (error) errors.add(error);
+    controls.push({
+      id: el.id || undefined,
+      label: label || undefined,
+      kind: el.tagName === "SELECT" ? "select" : el.type || "text",
+      value: String(el.value || "").slice(0, 60),
+      required: el.required || el.getAttribute("aria-required") === "true" || undefined,
+      error: error || undefined,
+    });
+  }
+
+  // Page-level messages that aren't attached to any one control.
+  for (const el of document.querySelectorAll('[role="alert"], [aria-live]')) {
+    const t = (el.textContent || "").trim();
+    if (t && t.length < 200) errors.add(t);
+  }
+
+  return { controls, errors: [...errors], url: location.href };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
@@ -518,8 +651,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // runs landed in Incomplete: the fields were queried before they existed.
     await wait(1200);
 
-    if (await fillSize(item.size)) filled.push("size");
-    else missing.push("size");
+    // categorySet carries Depop's own path, e.g. "MEN > FOOTWEAR > Loafers".
+    const isFootwear = /FOOTWEAR/i.test(categorySet || "");
+    if (await fillSize(item.size, { department: item.department, footwear: isFootwear })) {
+      filled.push(sizeNote ? "size (" + sizeNote + ")" : "size");
+    } else {
+      missing.push(
+        isFootwear
+          ? 'size — "' + item.size + '" is not on Depop\'s US scale and no conversion matched'
+          : "size"
+      );
+    }
 
     if (await fillQuantity(1)) filled.push("quantity");
     else missing.push("quantity");
@@ -580,7 +722,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     banner(filled, missing, blocked);
-    sendResponse({ filled, missing, blocked });
+    // Ship the form's own account of itself alongside ours. Ours says what we
+    // meant to do; the report says what the page thinks is still wrong.
+    sendResponse({ filled, missing, blocked, report: formReport() });
   })().catch((error) => {
     // A filler that dies without responding leaves the page stuck on
     // "Filling…" forever — the seller can't tell a crash from a slow form.

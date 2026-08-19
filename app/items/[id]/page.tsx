@@ -6,10 +6,11 @@ import ListingDrafts from "@/components/ListingDrafts";
 import ItemMessages from "@/components/ItemMessages";
 import ChannelBoard from "@/components/ChannelBoard";
 import AskPlanner from "@/components/AskPlanner";
+import FillReports from "@/components/FillReports";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, computeFees, projectedNet } from "@/lib/fees";
 import { LISTABLE } from "@/lib/listing";
 import { usd, shortDate, daysSince } from "@/lib/money";
-import { daysListedFor, getItem, signPhotos } from "@/lib/data";
+import { daysListedFor, fillReportsFor, getItem, signPhotos } from "@/lib/data";
 import { latestInference } from "@/lib/intake";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -30,6 +31,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
 
   const unreviewed = item.review_state === "unreviewed";
   const inference = unreviewed ? await latestInference(item.id) : null;
+  const reports = await fillReportsFor(item.id);
   const fields = (inference?.fields ?? {}) as { questions?: string[] };
   const confidence = (inference?.confidence ?? {}) as Record<string, number>;
 
@@ -278,6 +280,8 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
               </div>
             </>
           )}
+
+          <FillReports reports={reports} />
 
           {!item.sale && (
             <AskPlanner
