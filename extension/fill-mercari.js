@@ -193,12 +193,30 @@ function mercariLeaves(item, title) {
   return out;
 }
 
-/** Every visible row in the picker that reads like a full category path. */
+/**
+ * Every visible row in the picker that reads like a full category path.
+ *
+ * NOT `children.length === 0`. Each row carries a chevron, so the element
+ * holding the path text always has a child — that test excluded every row in
+ * the list and the picker sat open with the right answer visible and
+ * unclickable.
+ *
+ * Instead: take the INNERMOST element whose text is the whole path. An outer
+ * container matches too, and clicking that can miss the row's own handler.
+ */
 function categoryRows() {
-  return [...document.querySelectorAll("a, button, li, div")]
-    .filter((el) => el.offsetParent !== null && el.children.length === 0)
-    .map((el) => ({ el, text: el.textContent.trim() }))
-    .filter((r) => /^(Women|Men|Kids)\s*>/.test(r.text));
+  const PATH = /^(Women|Men|Kids|Home|Handmade|Vintage & collectibles)\s*>/;
+
+  const all = [...document.querySelectorAll("a, button, li, div, span, p")]
+    .filter((el) => el.offsetParent !== null)
+    .map((el) => ({ el, text: (el.textContent ?? "").trim() }))
+    .filter((r) => PATH.test(r.text) && r.text.length < 90);
+
+  // Drop any element that merely contains a smaller element with the same
+  // text — that's a wrapper, and the row itself is the one that responds.
+  return all.filter(
+    (r) => !all.some((other) => other.el !== r.el && r.el.contains(other.el) && other.text === r.text)
+  );
 }
 
 async function setCategory(item, title) {
@@ -237,8 +255,11 @@ async function setCategory(item, title) {
     });
 
     if (match) {
-      match.el.click();
-      await wait(1200);
+      // The text node's own element may not be the handler; the row above it
+      // usually is.
+      const target = match.el.closest("a, button, li, [role=button]") ?? match.el;
+      target.click();
+      await wait(1400);
       return `${department} > ${leaf}`;
     }
   }
@@ -247,6 +268,60 @@ async function setCategory(item, title) {
   document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   await wait(300);
   return null;
+}
+
+/**
+ * Size, after the category.
+ *
+ * Mercari swaps the scale to match the category — letters for tops, waist
+ * inches for trousers — so this can only run once the category is correct,
+ * and it reads whatever scale is actually on screen rather than assuming one.
+ *
+ * Options read like "L (42-44)"; the leading token is the size. Matched
+ * exactly on that token, so "L" can never satisfy a request for "XL".
+ */
+async function setSize(size) {
+  if (!size) return false;
+
+  const want = String(size).trim().toLowerCase();
+  const field =
+    document.querySelector("#sellSize") ??
+    [...document.querySelectorAll("button, select, input")].find((el) => {
+      if (el.offsetParent === null) return false;
+      const label = (el.getAttribute("aria-label") ?? el.name ?? el.id ?? "").toLowerCase();
+      return /(^|\b)size/.test(label);
+    });
+
+  if (!field) return false;
+
+  if (field.tagName === "SELECT") {
+    const option = [...field.options].find(
+      (o) => o.textContent.trim().split(/[\s(]/)[0].toLowerCase() === want
+    );
+    if (!option) return false;
+    field.value = option.value;
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
+  field.click();
+  await wait(900);
+
+  const option = [...document.querySelectorAll("li, [role=option], button, div")]
+    .filter((el) => el.offsetParent !== null)
+    .find((el) => {
+      const text = (el.textContent ?? "").trim();
+      return text.length < 24 && text.split(/[\s(]/)[0].toLowerCase() === want;
+    });
+
+  if (!option) {
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    return false;
+  }
+
+  (option.closest("li, button, [role=option]") ?? option).click();
+  await wait(700);
+  return true;
 }
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
@@ -285,6 +360,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const category = await setCategory(item, p.title);
     if (category) filled.push(`category (${category})`);
     else missing.push("category — pick it yourself, it decides the size scale");
+
+    // Only meaningful once the category is set, since that's what decides
+    // which scale exists.
+    if (category && (await setSize(item.size))) filled.push("size");
+    else if (item.size) missing.push(`size ("${item.size}" not in this category's scale)`);
 
     missing.push("shipping");
 
