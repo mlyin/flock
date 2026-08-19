@@ -40,14 +40,18 @@ export async function registerPhoto(storagePath: string, bytes: number) {
     return { ok: false as const, error: "That path isn't yours." };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("photos")
-    .insert({ user_id: user.id, storage_path: storagePath, bytes });
+    .insert({ user_id: user.id, storage_path: storagePath, bytes })
+    .select("id")
+    .single();
 
   if (error) return { ok: false as const, error: error.message };
 
   revalidatePath("/add");
-  return { ok: true as const };
+  // The id goes back so the caller can name exactly these photos in a
+  // follow-up pass — background cleaning, for one — without re-querying.
+  return { ok: true as const, photoId: data.id as string };
 }
 
 export async function deleteInboxPhoto(photoId: string) {
@@ -201,6 +205,9 @@ export async function confirmItem(formData: FormData) {
       cost_basis: Number(formData.get("cost_basis") ?? 0) || 0,
       list_price: Number(formData.get("list_price") ?? 0) || null,
       floor_price: Number(formData.get("floor_price") ?? 0) || null,
+      // Profit over cost, not a price. Zero and blank both mean "no target" —
+      // a seller who genuinely wants to break even sets a price, not a goal.
+      target_profit: Number(formData.get("target_profit") ?? 0) || null,
       package_size: text("package_size"),
       source: text("source"),
       flaws,
@@ -693,4 +700,98 @@ export async function openBillingPortal(): Promise<
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
+}
+
+/**
+ * Replace inbox photos with white-background versions, processed off-device.
+ *
+ * Runs after upload rather than before it: the original is safely in storage
+ * first, so a failure in the service can never cost the seller a photo. Each
+ * photo that fails is simply left as it was, and the count of what actually
+ * changed comes back.
+ */
+export async function cleanPhotoBackgrounds(
+  photoIds: string[]
+): Promise<{ ok: true; cleaned: number; failed: number } | { ok: false; error: string }> {
+  const { studioBackgroundServer, studioConfigured } = await import("@/lib/studio-server");
+
+  if (!studioConfigured()) {
+    return {
+      ok: false,
+      error:
+        "No background service is configured on this server. Set BG_REMOVAL_URL to your rembg instance — see docs/BACKGROUND-REMOVAL.md.",
+    };
+  }
+  if (photoIds.length === 0) return { ok: true, cleaned: 0, failed: 0 };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: photos } = await supabase
+    .from("photos")
+    .select("id, storage_path")
+    .in("id", photoIds);
+
+  if (!photos?.length) return { ok: false, error: "Those photos are gone." };
+
+  let cleaned = 0;
+  let failed = 0;
+
+  for (const photo of photos) {
+    try {
+      const { data, error } = await supabase.storage.from(BUCKET).download(photo.storage_path);
+      if (error || !data) throw new Error(error?.message ?? "download failed");
+
+      const name = photo.storage_path.split("/").pop() ?? "photo.jpg";
+      const output = await studioBackgroundServer(Buffer.from(await data.arrayBuffer()), name);
+
+      // Overwrite in place. The signed URLs the app hands out are generated per
+      // request from the path, so nothing holds a stale link to the original.
+      const { error: writeError } = await supabase.storage
+        .from(BUCKET)
+        .upload(photo.storage_path, output, { contentType: "image/jpeg", upsert: true });
+
+      if (writeError) throw new Error(writeError.message);
+
+      await supabase.from("photos").update({ bytes: output.byteLength }).eq("id", photo.id);
+      cleaned += 1;
+    } catch {
+      // The original is untouched and still listable. One bad photo shouldn't
+      // stop the rest of the batch.
+      failed += 1;
+    }
+  }
+
+  revalidatePath("/add");
+  return { ok: true, cleaned, failed };
+}
+
+/**
+ * Set the profit target, and optionally take one of the asks it produced.
+ *
+ * Both in one action because they're one gesture: the seller types what they
+ * want to make, reads the row for the channel they favour, and takes that
+ * price. Two round trips would let the target save and the price fail.
+ */
+export async function setTargetAndPrice(
+  itemId: string,
+  targetProfit: number | null,
+  listPrice?: number
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await supabaseServer();
+
+  const patch: Record<string, number | null> = {
+    target_profit: targetProfit && targetProfit > 0 ? targetProfit : null,
+  };
+  if (typeof listPrice === "number" && listPrice > 0) patch.list_price = listPrice;
+
+  const { error } = await supabase.from("items").update(patch).eq("id", itemId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/items/${itemId}`);
+  revalidatePath("/");
+  return { ok: true };
 }

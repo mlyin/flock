@@ -2442,3 +2442,103 @@ body { font-size: 15px; line-height: 1.55; }
   color: var(--ink-3);
   margin-top: 2px;
 }
+
+/* Marketplace marks. Sized to the text they replaced so chip metrics don't move. */
+.chan-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: contain;
+  vertical-align: -3px;
+  /* Nine logos, nine brand colours, on a dark surface. Left raw they read as
+     confetti; a touch of desaturation lets state colour stay the loudest thing
+     in the grid, which is what the seller is actually scanning for. */
+  filter: saturate(0.85);
+}
+.mchip .chan-icon { vertical-align: middle; }
+.cell-sub .chan-icon,
+.num .chan-icon { margin-left: 4px; vertical-align: -2px; }
+
+/* ---- Ask planner: "I paid X, I want Y, what do I list at?" ---- */
+.planner {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.planner-inputs {
+  display: flex;
+  gap: 28px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule-2);
+}
+.planner-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.planner-inputs label > span {
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.planner-inputs strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.planner-money {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  padding: 2px 8px;
+}
+.planner-money:focus-within { border-color: var(--sage); }
+.planner-money em { font-style: normal; color: var(--ink-3); }
+.planner-money input {
+  border: 0;
+  background: none;
+  font-size: 20px;
+  width: 6ch;
+  padding: 2px 0;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+.planner-money input:focus { outline: none; }
+.planner-saved { font-size: 12px; color: var(--sage); margin: 0 0 2px; }
+.planner-empty { margin: 14px 0 0; }
+
+.planner-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.planner-table th {
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 8px 6px;
+}
+.planner-table td { padding: 7px 8px; border-top: 1px solid var(--rule-2); }
+.planner-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* The ask is the answer the seller came for — everything else is its working. */
+.planner-ask { font-size: 15px; font-weight: 600; }
+.planner-table tbody tr:first-child .planner-ask { color: var(--sage); }
+.planner-on { background: var(--sage-soft); }
+.linkbtn {
+  border: 0;
+  background: none;
+  color: var(--denim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.linkbtn:hover { text-decoration: underline; }
+.linkbtn:disabled { color: var(--ink-3); cursor: default; text-decoration: none; }
+
+@media (max-width: 640px) {
+  .planner-table th:nth-child(3),
+  .planner-table td:nth-child(3) { display: none; }
+}

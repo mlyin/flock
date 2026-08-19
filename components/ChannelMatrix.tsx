@@ -1,9 +1,10 @@
-import { CHANNELS, CHANNEL_ABBR, CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import { CHANNELS, CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import ChannelIcon from "./ChannelIcon";
 import type { Listing } from "@/lib/data";
 
 /**
  * Five slots, always in the same order, so a column of these reads as a grid.
- * Colour carries state (live / sold / ended); the two-letter code carries channel.
+ * Colour carries state (live / sold / ended); the marketplace's own mark carries channel.
  */
 export default function ChannelMatrix({ listings }: { listings: Listing[] }) {
   const byChannel = new Map<Channel, Listing>();
@@ -20,7 +21,7 @@ export default function ChannelMatrix({ listings }: { listings: Listing[] }) {
 
         return (
           <span key={channel} className={`mchip mchip-${state}`} title={title}>
-            {CHANNEL_ABBR[channel]}
+            <ChannelIcon channel={channel} />
           </span>
         );
       })}

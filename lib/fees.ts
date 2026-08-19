@@ -368,3 +368,135 @@ export function projectedNet(
   const total = fees.reduce((sum, f) => sum + f.amount, 0);
   return cents(price + shippingCollected - total - shippingCost);
 }
+
+/**
+ * The ask that clears a target net — `projectedNet` run backwards.
+ *
+ * "I paid $30 and want $40 out of it" is the question sellers actually have,
+ * and answering it by hand means guessing a price, computing the fees,
+ * discovering you're $3 short, and guessing again. Worse, the answer differs
+ * per channel by more than people expect: Vinted takes nothing, Poshmark takes
+ * a fifth, and the gap is the whole reason to cross-list.
+ *
+ * Not a bisection. Fee curves are piecewise linear but NOT monotonic — at
+ * Poshmark's $15 boundary the net drops from $12.04 to $12.00, so a target
+ * landing in that gap has a solution below the threshold and none just above
+ * it, and a bisection would walk straight past it. Instead: cut the domain at
+ * every breakpoint, invert the straight line inside each piece, and take the
+ * cheapest ask that works.
+ *
+ * Returns null when no ask clears the target (fees outrun the price) and for
+ * consignment channels, where the seller doesn't set the price at all.
+ */
+export function askForNet(
+  channel: Channel,
+  targetNet: number,
+  opts: { shippingCollected?: number; shippingCost?: number } = {}
+): number | null {
+  if (isConsignment(channel)) return null;
+  if (!Number.isFinite(targetNet)) return null;
+
+  const shippingCollected = opts.shippingCollected ?? 0;
+  const CEILING = 100_000;
+
+  // Every price at which the fee formula changes shape. A segment between two
+  // of these is a straight line, which is the only thing we can invert.
+  const breaks = new Set<number>([0]);
+  for (const rule of FEE_RULES[channel].rules) {
+    if (rule.type === "tiered" || rule.type === "tiered_percent") {
+      breaks.add(rule.threshold);
+    }
+    if (rule.type === "flat_tiered") {
+      // This threshold is measured on item + shipping, so it bites at a lower ask.
+      breaks.add(rule.threshold - shippingCollected);
+    }
+    if (rule.type === "tiered_percent" && typeof rule.below.min === "number") {
+      // Below this ask the minimum fee applies as a flat, not as a percentage.
+      const offset = rule.below.basis === "item_plus_shipping" ? shippingCollected : 0;
+      breaks.add(rule.below.min / rule.below.rate - offset);
+    }
+  }
+
+  const edges = [...breaks].filter((p) => p > 0 && p < CEILING).sort((a, b) => a - b);
+  const bounds = [0, ...edges, CEILING];
+
+  let best: number | null = null;
+
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const lo = bounds[i];
+    const hi = bounds[i + 1];
+    if (hi - lo < 0.02) continue;
+
+    // Two interior samples pin down the line without touching either edge,
+    // where the rule that applies is exactly what's in question.
+    const a = lo + (hi - lo) * 0.25;
+    const b = lo + (hi - lo) * 0.75;
+    const netA = projectedNet(channel, a, opts);
+    const netB = projectedNet(channel, b, opts);
+
+    const slope = (netB - netA) / (b - a);
+    if (slope <= 0) continue; // Raising the price doesn't raise the net: no answer here.
+
+    const solved = a + (targetNet - netA) / slope;
+    if (solved < lo || solved > hi) continue;
+
+    // Round the ask UP to the cent. Rounding down would show a price that
+    // lands a penny short of the number the seller just typed.
+    let ask = Math.ceil(solved * 100) / 100;
+    // The rounding can cross the segment edge into a worse fee tier; a few
+    // cents of correction is cheaper than special-casing it.
+    for (let guard = 0; guard < 5 && projectedNet(channel, ask, opts) < targetNet; guard++) {
+      ask = cents(ask + 0.01);
+    }
+    if (projectedNet(channel, ask, opts) < targetNet) continue;
+
+    if (best === null || ask < best) best = ask;
+  }
+
+  return best;
+}
+
+export type AskPlan = {
+  channel: Channel;
+  /** What to list it at. Null when no price clears the target, or on consignment. */
+  ask: number | null;
+  /** Total fees at that ask. */
+  fees: number;
+  /** What lands in your account. */
+  net: number;
+  /** Net minus what you paid. */
+  profit: number;
+};
+
+/**
+ * The same question answered for every channel at once, cheapest ask first.
+ *
+ * Cheapest ask is the useful order: the channel that needs the lowest price to
+ * hit your number is the one most likely to actually sell.
+ */
+export function askPlan(
+  channels: Channel[],
+  input: { costBasis: number; targetProfit: number; shippingCollected?: number; shippingCost?: number }
+): AskPlan[] {
+  const targetNet = input.costBasis + input.targetProfit;
+  const opts = { shippingCollected: input.shippingCollected, shippingCost: input.shippingCost };
+
+  return channels
+    .map((channel): AskPlan => {
+      const ask = askForNet(channel, targetNet, opts);
+      if (ask === null) return { channel, ask: null, fees: 0, net: 0, profit: 0 };
+
+      const fees = computeFees(channel, {
+        soldPrice: ask,
+        shippingCollected: input.shippingCollected ?? 0,
+      }).reduce((sum, f) => sum + f.amount, 0);
+      const net = projectedNet(channel, ask, opts);
+
+      return { channel, ask, fees: cents(fees), net, profit: cents(net - input.costBasis) };
+    })
+    .sort((a, b) => {
+      if (a.ask === null) return 1;
+      if (b.ask === null) return -1;
+      return a.ask - b.ask;
+    });
+}

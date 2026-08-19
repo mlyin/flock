@@ -27,6 +27,8 @@ export type Item = {
   cost_basis: number;
   floor_price: number | null;
   list_price: number | null;
+  /** Profit wanted over cost_basis. Null when the seller hasn't set one. */
+  target_profit: number | null;
   package_size: string | null;
   acquired_at: string | null;
   source: string | null;
@@ -96,6 +98,7 @@ function shapeItem(row: Record<string, unknown>): Item {
     cost_basis: num(row.cost_basis),
     floor_price: row.floor_price == null ? null : num(row.floor_price),
     list_price: row.list_price == null ? null : num(row.list_price),
+    target_profit: row.target_profit == null ? null : num(row.target_profit),
     flaws: Array.isArray(row.flaws) ? (row.flaws as string[]) : [],
   };
 }

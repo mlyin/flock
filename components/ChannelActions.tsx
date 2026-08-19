@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CHANNELS, CHANNEL_ABBR, CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import { CHANNELS, CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import ChannelIcon from "./ChannelIcon";
 
 export type ChannelState = {
   channel: Channel;
@@ -87,7 +88,7 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
   // full marketplace name either way.
   const label2 = (channel: Channel) => (
     <>
-      <span className="mchip-abbr" aria-hidden>{CHANNEL_ABBR[channel]}</span>
+      <span className="mchip-abbr"><ChannelIcon channel={channel} /></span>
       <span className="mchip-full">{CHANNEL_LABEL[channel]}</span>
     </>
   );
@@ -97,7 +98,6 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
       <div className="matrix">
         {CHANNELS.map((channel) => {
           const state = byChannel.get(channel);
-          const abbr = CHANNEL_ABBR[channel];
           const label = CHANNEL_LABEL[channel];
 
           if (state?.status === "live" && state.url) {

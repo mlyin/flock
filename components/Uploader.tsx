@@ -3,8 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { registerPhoto } from "@/app/actions";
-import { studioBackground } from "@/lib/studio";
+import { cleanPhotoBackgrounds, registerPhoto } from "@/app/actions";
 
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -28,6 +27,7 @@ export default function Uploader({ userId }: { userId: string }) {
   async function upload(files: FileList) {
     const supabase = supabaseBrowser();
     const problems: string[] = [];
+    const uploaded: string[] = [];
 
     setBusy(true);
     setErrors([]);
@@ -45,21 +45,9 @@ export default function Uploader({ userId }: { userId: string }) {
         continue;
       }
 
-      // Studio background runs BEFORE upload, in this browser, so everything
-      // downstream — identification, the marketplace fills — sees the cleaned
-      // photo. Free (a local model, ~50MB cached after first use), and the
-      // original never leaves the machine. A failure falls back to the
-      // original photo rather than losing the upload.
-      let outgoing = file;
-      if (studio) {
-        try {
-          setStage(`Cleaning background — ${file.name}`);
-          outgoing = await studioBackground(file);
-        } catch {
-          problems.push(`${file.name}: background removal failed — uploaded the original.`);
-        }
-        setStage(null);
-      }
+      // Upload the original first, always. Cleaning happens afterwards on the
+      // server, so a service that's down or slow can never cost a photo.
+      const outgoing = file;
 
       // The browser uploads straight to storage. The bucket policy checks that
       // the first path segment is the caller's own id, so this can't be aimed
@@ -76,9 +64,24 @@ export default function Uploader({ userId }: { userId: string }) {
       } else {
         const recorded = await registerPhoto(key, outgoing.size);
         if (!recorded.ok) problems.push(`${file.name}: ${recorded.error}`);
+        else if (recorded.photoId) uploaded.push(recorded.photoId);
       }
 
       setProgress((p) => ({ ...p, done: p.done + 1 }));
+    }
+
+    // One round trip for the whole batch, on the server, after everything is
+    // safely stored.
+    if (studio && uploaded.length > 0) {
+      setStage(`Removing backgrounds — ${uploaded.length} photo${uploaded.length === 1 ? "" : "s"}…`);
+      const outcome = await cleanPhotoBackgrounds(uploaded);
+      if (!outcome.ok) problems.push(outcome.error);
+      else if (outcome.failed > 0) {
+        problems.push(
+          `${outcome.failed} photo${outcome.failed === 1 ? "" : "s"} kept the original background — the service couldn't process ${outcome.failed === 1 ? "it" : "them"}.`
+        );
+      }
+      setStage(null);
     }
 
     setErrors(problems);
@@ -119,7 +122,7 @@ export default function Uploader({ userId }: { userId: string }) {
           />
           <span>
             White background
-            <em>Free, runs on your machine. First use downloads the model (~50MB).</em>
+            <em>Runs on Flock&apos;s server after upload. Originals are kept until it succeeds.</em>
           </span>
         </label>
         <button

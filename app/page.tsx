@@ -4,7 +4,8 @@ import { currentUser, supabaseConfigured } from "@/lib/supabase/server";
 import ChannelActions from "@/components/ChannelActions";
 import Filters from "@/components/Filters";
 import ChannelViewToggle from "@/components/ChannelViewToggle";
-import { CHANNEL_ABBR, CHANNEL_LABEL } from "@/lib/fees";
+import { CHANNEL_LABEL } from "@/lib/fees";
+import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
 import { bestProjection, getItems, shelfAge, signPhotos, summarize } from "@/lib/data";
 
@@ -227,7 +228,7 @@ export default async function Inventory({
                           {projection ? "~" : ""}
                           {usd(net)}
                           {projection && (
-                            <span className="muted"> {CHANNEL_ABBR[projection.channel]}</span>
+                            <ChannelIcon channel={projection.channel} size={13} />
                           )}
                         </span>
                         {profit !== null && (

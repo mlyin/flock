@@ -96,6 +96,17 @@ export default function ReviewForm({
         <Field name="cost_basis" label="What you paid">
           <input id="cost_basis" name="cost_basis" type="number" step="0.01" min="0" defaultValue={item.cost_basis} />
         </Field>
+        <Field name="target_profit" label="Want to make">
+          <input
+            id="target_profit"
+            name="target_profit"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="optional"
+            defaultValue={item.target_profit ?? ""}
+          />
+        </Field>
         <Field name="list_price" label="List it at">
           <input
             id="list_price"
