@@ -154,6 +154,100 @@ function banner(filled, missing, blocked) {
   document.getElementById("threader-close")?.addEventListener("click", () => el.remove());
 }
 
+/**
+ * Category, through Mercari's own picker.
+ *
+ * Read off the live modal: a search box placeholder "Search category", a
+ * "Suggested" list of full paths like "Men > Tops > T-shirts", and an "All
+ * Categories" drill-down. Every candidate is a full path, which is the useful
+ * part — the department is IN the string, so it can be checked rather than
+ * hoped for.
+ *
+ * Left unset, Mercari guesses from the photos and remembers the last draft. A
+ * navy t-shirt came out as "Men > Pants > Khakis, chinos", and size then
+ * offered waist inches, so XL had nowhere to go. A wrong category on Mercari
+ * doesn't just misfile the listing — it changes which size scale exists.
+ */
+const MERCARI_LEAF = {
+  tshirt: ["T-shirts"], "t-shirt": ["T-shirts"], tee: ["T-shirts"], tees: ["T-shirts"],
+  polo: ["Polos"], shirt: ["Button-front", "T-shirts"], blouse: ["Blouse"],
+  hoodie: ["Sweats & hoodies"], sweatshirt: ["Sweats & hoodies"], crewneck: ["Sweats & hoodies"],
+  pullover: ["Sweats & hoodies", "Sweaters"], sweater: ["Sweaters"], jumper: ["Sweaters"],
+  cardigan: ["Sweaters"], knit: ["Sweaters"],
+  tank: ["Tank tops"], jeans: ["Jeans"], trousers: ["Pants"], pants: ["Pants"],
+  chinos: ["Khakis, chinos"], shorts: ["Shorts"], skirt: ["Skirts"], dress: ["Dresses"],
+  jacket: ["Coats & jackets"], coat: ["Coats & jackets"], blazer: ["Blazers & sport coats"],
+  sneakers: ["Shoes"], boots: ["Shoes"], shoes: ["Shoes"],
+};
+
+const MERCARI_DEPARTMENT = { women: "Women", men: "Men", kids: "Kids" };
+
+function mercariLeaves(item, title) {
+  const words = `${title ?? ""} ${item.category ?? ""}`
+    .toLowerCase()
+    .split(/[^a-z0-9-]+/)
+    .filter(Boolean);
+
+  const out = [];
+  for (const w of words) for (const leaf of MERCARI_LEAF[w] ?? []) if (!out.includes(leaf)) out.push(leaf);
+  return out;
+}
+
+/** Every visible row in the picker that reads like a full category path. */
+function categoryRows() {
+  return [...document.querySelectorAll("a, button, li, div")]
+    .filter((el) => el.offsetParent !== null && el.children.length === 0)
+    .map((el) => ({ el, text: el.textContent.trim() }))
+    .filter((r) => /^(Women|Men|Kids)\s*>/.test(r.text));
+}
+
+async function setCategory(item, title) {
+  const opener = document.querySelector(FIELD.category);
+  if (!opener) return null;
+
+  const department = MERCARI_DEPARTMENT[item.department];
+  const leaves = mercariLeaves(item, title);
+
+  // No department, or nothing in the words that maps to a Mercari leaf: leave
+  // it. Guessing here picks the size scale too, so a wrong guess breaks two
+  // fields rather than one.
+  if (!department || leaves.length === 0) return null;
+
+  opener.click();
+  await wait(900);
+
+  // Type into the picker's own search first — it surfaces leaves that would
+  // otherwise need three levels of drill-down.
+  const search = [...document.querySelectorAll("input")].find(
+    (i) => i.offsetParent !== null && /search category/i.test(i.placeholder ?? "")
+  );
+
+  for (const leaf of leaves) {
+    if (search) {
+      setNativeValue(search, leaf);
+      await wait(1100);
+    }
+
+    // Exact leaf, correct department, or nothing. The path's last segment is
+    // the category itself; matching loosely is what put a pullover under
+    // "Crop tops" on two other marketplaces.
+    const match = categoryRows().find((r) => {
+      const parts = r.text.split(">").map((x) => x.trim());
+      return parts[0] === department && parts[parts.length - 1].toLowerCase() === leaf.toLowerCase();
+    });
+
+    if (match) {
+      match.el.click();
+      await wait(1200);
+      return `${department} > ${leaf}`;
+    }
+  }
+
+  // Nothing matched — shut the modal rather than leaving it over the form.
+  document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await wait(300);
+  return null;
+}
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "apply") return;
 
@@ -185,9 +279,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (item.brand && (await setBrand(item.brand))) filled.push("brand");
     else if (item.brand) missing.push(`brand (no exact match for "${item.brand}")`);
 
-    // Category is a button opening a modal picker, and shipping depends on it.
-    // Both are left to the seller — see the banner.
-    missing.push("category (picker)", "shipping");
+    // Category before anything that depends on it: Mercari swaps the SIZE
+    // scale to match, so setting size against the wrong category offers waist
+    // inches for a t-shirt.
+    const category = await setCategory(item, p.title);
+    if (category) filled.push(`category (${category})`);
+    else missing.push("category — pick it yourself, it decides the size scale");
+
+    missing.push("shipping");
 
     await wait(700);
     const blocked = unfilledControls();

@@ -317,7 +317,18 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
   const flaws = (Array.isArray(item.flaws) ? (item.flaws as string[]) : []).filter(
     (f) => f && !/^(none|n\/?a|no flaws?|none noted)\.?$/i.test(f.trim())
   );
-  const title = [item.brand, item.title].filter(Boolean).join(" ").slice(0, 80);
+  // The brand leads the title, unless it's already in there. Identification
+  // usually writes a title that starts with the brand ("Oakley Colorblock
+  // T-Shirt"), and prepending unconditionally published "Oakley Oakley
+  // Colorblock T-Shirt" — on every channel, from one line.
+  const alreadyNamed =
+    item.brand && item.title
+      ? item.title.toLowerCase().includes(item.brand.toLowerCase())
+      : false;
+
+  const title = (alreadyNamed ? item.title : [item.brand, item.title].filter(Boolean).join(" "))
+    .slice(0, 80)
+    .trim();
 
   const description = [
     item.title,
