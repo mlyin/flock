@@ -2034,3 +2034,37 @@ body { font-size: 15px; line-height: 1.55; }
 .linkish-danger { color: var(--brick); }
 .button-danger { background: var(--brick); border-color: var(--brick); color: #fff; }
 .deleteconfirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* A section that folds away when it isn't the job at hand. */
+.foldout {
+  border: 1px solid var(--rule-2);
+  border-radius: 14px;
+  background: var(--raised);
+  margin: 22px 0;
+  box-shadow: var(--shadow);
+}
+.foldout > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -.01em;
+  list-style: none;
+}
+.foldout > summary::-webkit-details-marker { display: none; }
+.foldout > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 12px;
+  transition: transform var(--dur, .16s);
+}
+.foldout[open] > summary::after { transform: rotate(180deg); }
+.foldout > summary .muted { font-weight: 400; font-size: 13px; }
+.foldout > summary:hover { color: var(--brand); }
+.foldout > *:not(summary) { padding: 0 18px 18px; }

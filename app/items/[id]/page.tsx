@@ -138,22 +138,27 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
             })}
           />
 
-          {/* Always editable. A confirmed item still needs correcting — a wrong
-              size or a missing package size shouldn't require starting over. */}
-          <div className="sectionhead">
-            <h2>{unreviewed ? "Unreviewed draft" : "Details"}</h2>
-            <p>
-              {unreviewed
-                ? `Read from the photos by ${inference?.model ?? "the model"}. Correct anything wrong.`
-                : "Change anything and save."}
-            </p>
-          </div>
-          <ReviewForm
-            item={item}
-            confidence={confidence}
-            questions={fields.questions ?? []}
-            reviewed={!unreviewed}
-          />
+          {/* Open while the read is unconfirmed, because that IS the job then.
+              Once confirmed it folds away: the questions you open this page with
+              are "where is it listed" and "what did it make", and a twelve-field
+              form sitting between the channels and the listing copy pushed both
+              off the screen. Still one page, still one click — but shut. */}
+          <details className="foldout" open={unreviewed}>
+            <summary>
+              <span>{unreviewed ? "Unreviewed draft — check this" : "Details"}</span>
+              <span className="muted">
+                {unreviewed
+                  ? `Read from the photos by ${inference?.model ?? "the model"}`
+                  : [item.brand, item.size, item.color].filter(Boolean).join(" · ")}
+              </span>
+            </summary>
+            <ReviewForm
+              item={item}
+              confidence={confidence}
+              questions={fields.questions ?? []}
+              reviewed={!unreviewed}
+            />
+          </details>
 
           {!unreviewed && (
             <ListingDrafts

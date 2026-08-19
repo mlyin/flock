@@ -12,6 +12,13 @@ export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome
 
   const outcome = await identifyAndDraft(photoIds);
   if (outcome.ok) {
+    // Draft every channel immediately. Waiting for a button meant a freshly
+    // identified garment landed on a page reading "no draft yet" eight times
+    // over, with nothing to press but one more button — when the answer was
+    // already sitting in the record we just wrote. This is the templated
+    // version, which is free and instant; Rewrite with AI is still there for
+    // copy worth paying for.
+    await createBasicListings(outcome.itemId);
     revalidatePath("/add");
     revalidatePath("/");
   }
@@ -244,6 +251,7 @@ export async function addItemByHand(photoIds: string[]): Promise<IdentifyOutcome
   const outcome = await createItemByHand(photoIds);
   if (!outcome.ok) return outcome;
 
+  await createBasicListings(outcome.itemId);
   revalidatePath("/add");
   revalidatePath("/");
   return { ok: true, itemId: outcome.itemId, sku: outcome.sku, questions: [] };
