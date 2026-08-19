@@ -862,3 +862,67 @@ export async function tidyItemNotes(
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+/**
+ * Work out what to do about an offer, and draft the reply.
+ *
+ * Returns a recommendation and words — it sends nothing and commits to
+ * nothing. Accepting creates a binding sale and a reply speaks to a real buyer
+ * as the seller, so both stay one deliberate tap away with the reasoning shown.
+ */
+export async function considerOffer(offerId: string): Promise<
+  | {
+      ok: true;
+      move: string;
+      counterAt: number | null;
+      because: string;
+      working: string[];
+      reply: string;
+    }
+  | { ok: false; error: string }
+> {
+  try {
+    const { scoreOffer } = await import("@/lib/offers");
+    const { judgeOffer } = await import("@/lib/negotiate");
+    const { draftReply } = await import("@/lib/negotiate-reply");
+
+    const supabase = await supabaseServer();
+    const { data: row } = await supabase
+      .from("messages")
+      .select("*, items (id, sku, title, brand, floor_price, list_price, cost_basis)")
+      .eq("id", offerId)
+      .maybeSingle();
+
+    if (!row) return { ok: false, error: "That offer is gone." };
+
+    const offer = scoreOffer(row as never);
+    if (!offer) return { ok: false, error: "That message has no offer amount on it." };
+
+    const verdict = judgeOffer(offer);
+
+    // No floor price means there's nothing to judge against — say so rather
+    // than having a model improvise a negotiating position.
+    if (verdict.move === "ask" && offer.floor === null) {
+      return {
+        ok: true,
+        move: verdict.move,
+        counterAt: null,
+        because: verdict.because,
+        working: verdict.working,
+        reply: "",
+      };
+    }
+
+    const { reply } = await draftReply(offer, verdict);
+    return {
+      ok: true,
+      move: verdict.move,
+      counterAt: verdict.counterAt,
+      because: verdict.because,
+      working: verdict.working,
+      reply,
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}

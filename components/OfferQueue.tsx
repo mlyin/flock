@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CHANNEL_LABEL } from "@/lib/fees";
 import { usd } from "@/lib/money";
 import { answerOffer } from "@/app/offer-actions";
+import { considerOffer } from "@/app/actions";
 
 /** Serialisable shape — ScoredOffer carries Dates, which can't cross the boundary. */
 export type OfferView = {
@@ -45,10 +46,42 @@ export default function OfferQueue({ offers }: { offers: OfferView[] }) {
   );
 }
 
+type Advice = {
+  move: string;
+  counterAt: number | null;
+  because: string;
+  working: string[];
+  reply: string;
+};
+
 function OfferCard({ offer }: { offer: OfferView }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [countering, setCountering] = useState(false);
+  const [advice, setAdvice] = useState<Advice | null>(null);
+  const [thinking, setThinking] = useState(false);
+  const [showWorking, setShowWorking] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Work out the move and draft the words. Sends nothing, commits to nothing —
+  // accepting is a binding sale and a reply speaks to a real buyer as the
+  // seller, so both stay a deliberate tap away with the reasoning on screen.
+  const think = () => {
+    setError(null);
+    setThinking(true);
+    start(async () => {
+      const outcome = await considerOffer(offer.id);
+      setThinking(false);
+      if (!outcome.ok) {
+        setError(outcome.error);
+        return;
+      }
+      setAdvice(outcome);
+      if (outcome.move === "counter" && outcome.counterAt) {
+        setCounter(outcome.counterAt.toFixed(2));
+      }
+    });
+  };
   const [counter, setCounter] = useState(
     offer.floor ? offer.floor.toFixed(2) : offer.amount.toFixed(2)
   );
@@ -146,6 +179,11 @@ function OfferCard({ offer }: { offer: OfferView }) {
         </div>
       ) : (
         <div className="offercard-actions">
+          {!advice && (
+            <button className="button button-quiet" disabled={pending} onClick={think}>
+              {thinking ? "Working it out…" : "What should I do?"}
+            </button>
+          )}
           {/* Deep link first: this is where the offer is actually accepted. */}
           {offer.offerUrl && (
             <a
@@ -167,6 +205,59 @@ function OfferCard({ offer }: { offer: OfferView }) {
           <button className="button button-quiet" disabled={pending} onClick={() => act("declined")}>
             Declined
           </button>
+        </div>
+      )}
+
+      {advice && (
+        <div className={`advice advice-${advice.move}`}>
+          <div className="advice-head">
+            <strong>
+              {advice.move === "counter" && advice.counterAt
+                ? `Counter at ${usd(advice.counterAt)}`
+                : advice.move === "accept"
+                  ? "Take it"
+                  : advice.move === "decline"
+                    ? "Let it go"
+                    : "Needs you"}
+            </strong>
+            <button type="button" className="linkbtn" onClick={() => setShowWorking((v) => !v)}>
+              {showWorking ? "hide the maths" : "show the maths"}
+            </button>
+          </div>
+          <p className="advice-because">{advice.because}</p>
+
+          {/* The arithmetic, on request. A price decision the seller can't
+              check is one they have to trust, and this is their money. */}
+          {showWorking && (
+            <ul className="advice-working">
+              {advice.working.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+
+          {advice.reply && (
+            <div className="advice-reply">
+              <p>{advice.reply}</p>
+              <div className="advice-replyactions">
+                <button
+                  type="button"
+                  className="button button-sm button-quiet"
+                  onClick={() => {
+                    navigator.clipboard.writeText(advice.reply);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  {copied ? "Copied" : "Copy reply"}
+                </button>
+                <span className="muted">
+                  Flock doesn&apos;t send this. Read it, change it if it isn&apos;t how you&apos;d
+                  put it, then send it yourself.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
