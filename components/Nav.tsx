@@ -15,7 +15,26 @@ const LINKS = [
   { href: "/settings", label: "Settings" },
 ];
 
-export default function Nav({ email, todo }: { email?: string | null; todo?: number }) {
+/**
+ * Where a "Pricing" link would go, the plan sits instead.
+ *
+ * A bare Pricing link is only useful once, and useless to everyone already
+ * paying. The chip answers the question a seller actually has — how much room
+ * is left — and doubles as the way to the page when the answer is "not much".
+ *
+ * A beta seller sees the badge and no upgrade path at all. They were given the
+ * top tier; nagging them toward a checkout they should never reach would be
+ * the one thing that makes the badge feel like a trial.
+ */
+export default function Nav({
+  email,
+  todo,
+  plan,
+}: {
+  email?: string | null;
+  todo?: number;
+  plan?: { label: string; beta: boolean; active: number; remaining: number | null } | null;
+}) {
   const pathname = usePathname();
 
   return (
@@ -47,6 +66,29 @@ export default function Nav({ email, todo }: { email?: string | null; todo?: num
       </nav>
 
       <div className="navright">
+        {plan &&
+          (plan.beta ? (
+            <span className="planchip planchip-beta" title="On Mutton permanently">
+              Founding flock
+            </span>
+          ) : (
+            <Link
+              href="/pricing"
+              className={`planchip ${plan.remaining === 0 ? "planchip-full" : ""}`}
+              title={
+                plan.remaining === null
+                  ? `${plan.label} — no cap`
+                  : `${plan.active} of ${plan.active + plan.remaining} listings live`
+              }
+            >
+              {plan.label}
+              {plan.remaining !== null && (
+                <b>
+                  {plan.active}/{plan.active + plan.remaining}
+                </b>
+              )}
+            </Link>
+          ))}
         <Link href="/add" className="button button-sm navcta">
           Add item
         </Link>
