@@ -284,13 +284,26 @@ async function setSize(size) {
   if (!size) return false;
 
   const want = String(size).trim().toLowerCase();
+
+  // Located by its visible label, not by a guessed id. #sellSize was a guess
+  // and it was wrong — the field stayed empty and reported nothing, which is
+  // exactly the failure mode guessing produces: silent.
+  //
+  // The label reads "Size" and the control sits after it, so walk from the
+  // label to the first control that follows it.
+  const label = [...document.querySelectorAll("label, div, span, p")]
+    .filter((el) => el.offsetParent !== null)
+    .find((el) => (el.textContent ?? "").trim() === "Size");
+
+  const scope = label?.parentElement?.parentElement ?? document;
   const field =
-    document.querySelector("#sellSize") ??
-    [...document.querySelectorAll("button, select, input")].find((el) => {
-      if (el.offsetParent === null) return false;
-      const label = (el.getAttribute("aria-label") ?? el.name ?? el.id ?? "").toLowerCase();
-      return /(^|\b)size/.test(label);
-    });
+    (label?.htmlFor && document.getElementById(label.htmlFor)) ||
+    [...scope.querySelectorAll("select, button, input, [role=combobox], [role=button]")].find(
+      (el) => el.offsetParent !== null && !/photo|price|brand|condition/i.test(el.id ?? "")
+    ) ||
+    [...document.querySelectorAll("select, [role=combobox]")].find(
+      (el) => el.offsetParent !== null && /size/i.test(el.getAttribute("aria-label") ?? el.id ?? "")
+    );
 
   if (!field) return false;
 
@@ -371,9 +384,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     await wait(700);
     const blocked = unfilledControls();
 
+    // Mercari now honours autoSubmit like every other channel, at the seller's
+    // explicit request. The reason it didn't is unchanged and worth keeping
+    // written down: this form carries invisible reCAPTCHA v3, which scores
+    // BEHAVIOUR rather than presenting a challenge. A person clicking List
+    // passes; a scripted click is the pattern being scored. If listings start
+    // getting held or the account gets friction, this is the first thing to
+    // turn off.
+    //
+    // Same gates as everywhere else: nothing required left empty, and photos
+    // attached — a rejected submission clears the form.
+    const hasPhotos = filled.some((x) => /photo/.test(x));
+    const submitting = Boolean(message.autoSubmit) && blocked.length === 0 && hasPhotos;
+    if (Boolean(message.autoSubmit) && !hasPhotos) missing.push("not submitted — no photos attached");
+    if (!message.autoSubmit) missing.push("auto-submit off — turn it on in Flock's settings");
+    if (submitting) filled.push("submitting — the tab will land on the listing");
+
     banner(filled, missing, blocked);
-    // autoSubmit is deliberately ignored here. See the header.
-    sendResponse({ filled, missing, blocked, autoSubmitBlocked: true });
+    sendResponse({ filled, missing, blocked });
+
+    if (submitting) {
+      const list = [...document.querySelectorAll("button")].find(
+        (b) => b.offsetParent !== null && !b.disabled && /^list$/i.test(b.textContent.trim())
+      );
+      if (list) {
+        await wait(400);
+        list.click();
+      }
+    }
   })().catch((error) => {
     // A filler that dies without responding leaves the page stuck on
     // "Filling…" forever — the seller can't tell a crash from a slow form.

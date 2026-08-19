@@ -387,3 +387,40 @@ panel rather than assuming.
 Condition values: `New with tags` · `New without tags` · `Very good` · `Good` ·
 `Satisfactory`. Flock's `excellent` maps to **Very good**, not "New without tags", which
 asserts the garment is unused.
+
+## Mercari category and size — verified live 19 Aug 2026
+
+**Category decides which SIZE SCALE exists.** With `Men > Pants > Khakis, chinos`
+selected the size list offers waist inches (23 in., 24 in., 25 in.); with
+`Men > Tops > T-shirts` it offers `XS (30-32)` … `5XL (62-64)`, `One Size`. So a
+wrong category silently breaks two fields, and size must be set **after** it.
+
+Left alone, Mercari guesses the category from the photos and remembers the last
+draft — a navy t-shirt came out as Khakis, chinos.
+
+**The picker** is a modal opened by `button[data-testid="SellCategoryFieldButton"]`:
+
+| Part | What's there |
+|---|---|
+| Search | `input` with placeholder `Search category` |
+| Suggested | full paths, e.g. `Men > Tops > T-shirts` |
+| All Categories | drill-down: Women / Men / Kids / Home / Vintage & collectibles / … |
+
+Every candidate is a **full path**, so the department is in the string and can be
+checked rather than assumed. Split on `>`, require the first segment to equal the
+item's department and the last to equal the mapped leaf exactly.
+
+⚠️ **Rows have a chevron, so they are not leaf elements.** Filtering on
+`children.length === 0` matched nothing at all — the picker sat open with the
+right row visible and unclickable. Take the innermost element whose text is the
+whole path, then click its nearest `a, button, li, [role=button]`.
+
+**Size options read `XL (46-48)`** — match the leading token only. A substring
+match would let `L` satisfy a request for `XL`, silently, on the field a buyer
+orders by. The control is found from its visible `Size` label rather than an id:
+`#sellSize` was a guess and was wrong.
+
+> ⚠️ **reCAPTCHA v3 is still on this form.** Auto-submit is honoured at the
+> seller's explicit request, but the risk is unchanged: v3 scores behaviour
+> rather than showing a challenge, and a scripted click on List is the pattern
+> being scored. If listings start getting held, turn this off first.
