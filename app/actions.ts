@@ -182,6 +182,7 @@ export async function confirmItem(formData: FormData) {
   const { error } = await supabase
     .from("items")
     .update({
+      sku: text("sku"),
       title: text("title") ?? "Untitled",
       brand: text("brand"),
       category: text("category") ?? "Other",

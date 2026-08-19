@@ -78,6 +78,10 @@ export default function ReviewForm({
           </select>
         </Field>
         <Field name="size" label="Size" value={item.size} confidence={confidence.size} />
+        {/* Free text on purpose. The generated CL-0001 is only a placeholder
+            for a garment with no code of its own — a real style code belongs
+            here, and StockX and GOAT are keyed on exactly that. */}
+        <Field name="sku" label="SKU / style code" value={item.sku} />
         <Field name="color" label="Colour" value={item.color} confidence={confidence.color} />
         <Field name="material" label="Material" value={item.material} confidence={confidence.material} />
         <Field name="condition" label="Condition" confidence={confidence.condition}>
