@@ -1,4 +1,4 @@
-import SignInWithGoogle from "@/components/SignInWithGoogle";
+import SignIn from "@/components/SignIn";
 import DashboardPreview from "@/components/DashboardPreview";
 
 /**
@@ -37,7 +37,7 @@ export default function Landing() {
             use — in your own browser, on your own accounts.
           </p>
           <div className="landing-cta">
-            <SignInWithGoogle next="/" />
+            <SignIn next="/" />
           </div>
           <p className="landing-fine">Free while it&apos;s in early access.</p>
         </div>
@@ -139,7 +139,7 @@ export default function Landing() {
           It takes a couple of minutes to see whether it&apos;s worth your time.
         </p>
         <div className="landing-cta">
-          <SignInWithGoogle next="/" />
+          <SignIn next="/" />
         </div>
         <p className="landing-fine">
           <a href="/pricing">Pricing</a> · <a href="/privacy">Privacy</a> · <a href="/install">Install the extension</a>

@@ -31,6 +31,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="shell">
             <Nav
               email={user?.email ?? null}
+              // Google sends full_name/name and picture/avatar_url; Apple
+              // sends a name only on first authorisation. Read both spellings
+              // rather than assuming one provider's.
+              name={
+                (user?.user_metadata?.full_name as string | undefined) ??
+                (user?.user_metadata?.name as string | undefined) ??
+                null
+              }
+              avatar={
+                (user?.user_metadata?.avatar_url as string | undefined) ??
+                (user?.user_metadata?.picture as string | undefined) ??
+                null
+              }
               plan={
                 where
                   ? {

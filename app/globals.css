@@ -2677,3 +2677,27 @@ td[data-cell="pick"] input { cursor: pointer; accent-color: var(--sage); }
 @media (max-width: 720px) {
   td[data-cell="pick"] { position: absolute; top: 10px; right: 10px; width: auto; }
 }
+
+/* Sign in with Apple. Apple's guidelines want the button visually equal to the
+   other providers, not a smaller afterthought — same metrics as .google. */
+.applebtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 16px;
+  margin-top: 10px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.applebtn:hover:not(:disabled) { border-color: var(--ink-3); }
+.applebtn:disabled { opacity: .6; cursor: default; }
+
+/* The provider's avatar, beside the name it came with. */
+.navavatar { border-radius: 50%; object-fit: cover; flex: 0 0 auto; }

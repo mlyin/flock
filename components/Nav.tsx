@@ -29,10 +29,16 @@ const LINKS = [
  */
 export default function Nav({
   email,
+  name,
+  avatar,
   todo,
   plan,
 }: {
   email?: string | null;
+  /** From the OAuth profile. Google and Apple both send a name; Apple only on
+      the FIRST authorisation, which is why it is stored rather than re-read. */
+  name?: string | null;
+  avatar?: string | null;
   todo?: number;
   plan?: { label: string; beta: boolean; active: number; remaining: number | null } | null;
 }) {
@@ -98,7 +104,16 @@ export default function Nav({
         </Link>
         {email && (
           <form action="/auth/signout" method="post" className="navuser">
-            <span title={email}>{email}</span>
+            {/* The provider already sends a name and a picture; showing a raw
+                email address instead was throwing away the friendlier half of
+                what sign-in returns. Email stays as the tooltip, because it is
+                the thing you check when you need to know WHICH account. */}
+            {avatar && (
+              /* eslint-disable-next-line @next/next/no-img-element -- a 32px
+                 avatar from the provider's CDN; next/image would proxy it. */
+              <img className="navavatar" src={avatar} alt="" width={22} height={22} />
+            )}
+            <span title={email}>{name || email}</span>
             <button type="submit" className="navlink">Sign out</button>
           </form>
         )}

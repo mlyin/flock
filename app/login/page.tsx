@@ -1,4 +1,4 @@
-import SignInWithGoogle from "@/components/SignInWithGoogle";
+import SignIn from "@/components/SignIn";
 import { supabaseConfigured } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export default async function LoginPage({
         )}
 
         {supabaseConfigured() ? (
-          <SignInWithGoogle next={next} />
+          <SignIn next={next} />
         ) : (
           <div className="notice notice-warn">
             <strong>Not configured yet</strong>
