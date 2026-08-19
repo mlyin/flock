@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/", label: "Inventory" },
   { href: "/add", label: "Add" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/settings", label: "Settings" },
 ];
 
