@@ -83,9 +83,12 @@ export default function Nav({
               }
             >
               {plan.label}
+              {/* "2/5" alone read as a mystery score. Say the unit: these are
+                  garments live right now against the plan's cap — a garment on
+                  three marketplaces still counts once. */}
               {plan.remaining !== null && (
                 <b>
-                  {plan.active}/{plan.active + plan.remaining}
+                  {plan.active}/{plan.active + plan.remaining} live
                 </b>
               )}
             </Link>
