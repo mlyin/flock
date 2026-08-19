@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PLANS } from "@/lib/plan";
 import { usd } from "@/lib/money";
+import TierSheep from "@/components/TierSheep";
 
 export const metadata: Metadata = {
   title: "Pricing — Flock",
@@ -56,6 +57,7 @@ export default function PricingPage() {
           <section key={plan.id} className={`tier ${plan.id === "hogget" ? "tier-pick" : ""}`}>
             {plan.id === "hogget" && <span className="tier-flag">Most sellers</span>}
 
+            <TierSheep tier={plan.id} />
             <h2>{plan.label}</h2>
             <p className="tier-price">
               {plan.monthly === 0 ? "Free" : <>{usd(plan.monthly)}<span>/mo</span></>}

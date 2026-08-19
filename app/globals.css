@@ -2320,3 +2320,73 @@ body { font-size: 15px; line-height: 1.55; }
 .faq h2 { font-size: 24px; letter-spacing: -.03em; margin: 0; }
 .faq h3 { font-size: 16px; margin: 0 0 6px; }
 .faq p { margin: 0; color: var(--ink-2); line-height: 1.65; max-width: 72ch; }
+
+/* ==========================================================================
+   A sheep per tier, aged like the tier is named
+
+   Lamb springs, hogget walks with purpose, mutton stands still and lets the
+   flock gather. The motion is the argument the copy makes — which is why it
+   isn't one loop scaled three times.
+   ========================================================================== */
+
+.tiersheep {
+  position: relative;
+  height: 52px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.tiersheep img { display: block; }
+.tiersheep-ground {
+  position: absolute;
+  left: 2px;
+  bottom: 0;
+  width: 34px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--brand);
+  opacity: .22;
+}
+.tiersheep-back { opacity: .3; align-self: flex-end; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Lamb: quick, springy, slightly too pleased with itself. */
+  .tiersheep-lamb .tiersheep-main { animation: sheep-spring 1.5s cubic-bezier(.3, .8, .4, 1) infinite; }
+  .tiersheep-lamb .tiersheep-ground { animation: sheep-squash 1.5s cubic-bezier(.3, .8, .4, 1) infinite; }
+
+  /* Hogget: a working animal. Covers ground, doesn't waste effort. */
+  .tiersheep-hogget .tiersheep-main { animation: sheep-walk 3.4s ease-in-out infinite; }
+
+  /* Mutton: barely moves. The flock behind it drifts in on its own time, on
+     periods that don't divide into each other, so they never sync up. */
+  .tiersheep-mutton .tiersheep-main { animation: sheep-breathe 4.6s ease-in-out infinite; }
+  .tiersheep-mutton .tiersheep-back:nth-of-type(1) { animation: sheep-graze 5.3s ease-in-out infinite; }
+  .tiersheep-mutton .tiersheep-back:nth-of-type(2) { animation: sheep-graze 6.7s ease-in-out infinite .8s; }
+}
+
+@keyframes sheep-spring {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  18%      { transform: translateY(0) scaleY(.86); }
+  45%      { transform: translateY(-15px) scaleY(1.06); }
+  72%      { transform: translateY(0) scaleY(.94); }
+}
+@keyframes sheep-squash {
+  0%, 100% { transform: scaleX(1);   opacity: .22; }
+  45%      { transform: scaleX(.62); opacity: .1; }
+}
+@keyframes sheep-walk {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25%      { transform: translateX(14px) translateY(-3px); }
+  50%      { transform: translateX(26px) translateY(0); }
+  75%      { transform: translateX(12px) translateY(-3px); }
+}
+@keyframes sheep-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-2px) scale(1.02); }
+}
+@keyframes sheep-graze {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  40%      { transform: translateY(2px) rotate(-7deg); }
+  60%      { transform: translateY(2px) rotate(-7deg); }
+}
