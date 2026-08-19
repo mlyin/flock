@@ -77,6 +77,10 @@ window.addEventListener("message", (event) => {
           listingId: data.listingId,
           ok: Boolean(result?.ok),
           error: result?.error ?? null,
+          // What landed, not only what didn't. Without this a fill that
+          // reported nothing missing was indistinguishable from one that
+          // silently did half the job.
+          filled: result?.data?.filled ?? [],
           missing: result?.data?.missing ?? [],
           blocked: result?.data?.blocked ?? [],
         },
