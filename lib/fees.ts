@@ -34,7 +34,7 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   mercari: "Mercari",
   grailed: "Grailed",
   vinted: "Vinted",
-  facebook: "Facebook",
+  facebook: "Facebook Marketplace",
   therealreal: "The RealReal",
 };
 
@@ -89,6 +89,21 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
  *    my ask". Here the consignor prices it, so the honest projection is a
  *    payout band against an *estimated* sale price, not a number.
  */
+/**
+ * Channels a filler actually exists for, today.
+ *
+ * Separate from CHANNEL_ACCESS on purpose. Access says how a channel COULD
+ * be written to; this says what is built. Facebook Marketplace is an
+ * extension channel with no fill-facebook.js behind it, so offering a Fill
+ * button there is a button whose only possible outcome is an error — the
+ * same mistake The RealReal already taught us.
+ *
+ * Add a channel here the moment its filler lands, and not before.
+ */
+export const FILLABLE: Channel[] = ["depop", "mercari", "vinted", "grailed"];
+
+export const canFill = (channel: Channel) => FILLABLE.includes(channel);
+
 export const CONSIGNMENT: Channel[] = ["therealreal"];
 
 export const isConsignment = (channel: Channel) => CONSIGNMENT.includes(channel);

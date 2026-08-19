@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, canFill, type Channel } from "@/lib/fees";
 import { usd } from "@/lib/money";
 import { markListedWithUrl, saveListingUrl, unmarkListed } from "@/app/actions";
 
@@ -132,7 +132,7 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
                     <Link href={`/post/${row!.listingId}`} className="button button-sm button-quiet">
                       Intake copy
                     </Link>
-                  ) : installed ? (
+                  ) : installed && canFill(channel) ? (
                     <button
                       type="button"
                       className="button button-sm"

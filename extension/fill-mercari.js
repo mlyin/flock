@@ -374,10 +374,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (category) filled.push(`category (${category})`);
     else missing.push("category — pick it yourself, it decides the size scale");
 
-    // Only meaningful once the category is set, since that's what decides
-    // which scale exists.
-    if (category && (await setSize(item.size))) filled.push("size");
-    else if (item.size) missing.push(`size ("${item.size}" not in this category's scale)`);
+    // Gated on a category being PRESENT, not on us having set it.
+    //
+    // Size does not exist in the DOM until a category is chosen — a fresh sell
+    // page has no size field at all (verified by probe: sellName,
+    // sellDescription, sellBrandId, Price, and nothing else). But the previous
+    // version required OUR setCategory to have returned a path, so whenever the
+    // category was already right — Mercari remembers the last draft — it
+    // returned null, size was skipped, and the form sat there reading "Size can
+    // not be empty" with the field present and untouched.
+    const categoryChosen =
+      Boolean(category) ||
+      /s>s/.test(document.querySelector(FIELD.category)?.textContent ?? "");
+
+    if (categoryChosen) {
+      // It renders after the category is committed; give it a moment to mount.
+      await wait(1200);
+      if (await setSize(item.size)) filled.push("size");
+      else if (item.size) missing.push(`size ("${item.size}" not in this category's scale)`);
+    } else if (item.size) {
+      missing.push("size — needs a category first, that's what creates the field");
+    }
 
     missing.push("shipping");
 
