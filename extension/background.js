@@ -410,27 +410,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           "autoSubmit",
         ]);
 
-        // A minimised window keeps the page out of your way while it fills.
-        // An extension can't drive a truly headless page — the marketplace is a
-        // React app and needs a real renderer to mount its form at all.
+        // A tab, never a window.
         //
-        // If the sell page is already open in some tab, reuse it: retrying a
-        // fill shouldn't pile up tabs, and a tab you opened to watch the fill
-        // happen stays the one being filled. Reloading it first resets any
-        // half-filled form to a known-clean state.
+        // Filling used to open a minimised WINDOW when the background option
+        // was on, which is jarring — a new window appearing off-screen reads
+        // as the app misbehaving rather than working. A background tab does
+        // the same job inside the window you're already in.
+        //
+        // Mercari is the exception and must be FOREGROUND. It serves a
+        // background tab an empty document — no inputs, no buttons — which is
+        // the entire reason it looked unfillable for so long. Anything that
+        // needs to actually render gets an active tab regardless of the
+        // preference.
+        const NEEDS_FOREGROUND = new Set(["mercari"]);
+        const quiet = background === true && !NEEDS_FOREGROUND.has(payload.channel);
+
         // Always a fresh tab. Reusing whichever tab happened to be on the sell
         // page picks an arbitrary one across every window — including a listing
         // the seller was part-way through writing, which it would then
         // overwrite. It also raced its own reload and filled a document that
-        // was already being replaced. A new tab costs nothing and can't destroy
-        // anyone's work.
-        let tab;
-        if (background === true) {
-          const win = await chrome.windows.create({ url, state: "minimized", focused: false });
-          tab = win.tabs[0];
-        } else {
-          tab = await chrome.tabs.create({ url });
-        }
+        // was already being replaced.
+        const tab = await chrome.tabs.create({ url, active: !quiet });
         // Not fatal if it times out. Some sell pages keep a socket open and
         // never report "complete" at all.
         // waitForForm below polls for the actual form, which is the readiness
@@ -473,7 +473,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         // window forward rather than leaving a half-filled form minimised
         // where you'd never notice it.
         if (result?.missing?.length || result?.blocked?.length) {
-          await chrome.windows.update(tab.windowId, { state: "normal", focused: true });
+          await chrome.tabs.update(tab.id, { active: true });
         }
 
 

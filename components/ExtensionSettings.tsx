@@ -92,11 +92,11 @@ export default function ExtensionSettings() {
             onChange={(e) => update({ background: e.target.checked })}
           />
           <span>
-            <strong>Fill in a hidden window</strong>
+            <strong>Fill in a background tab</strong>
             <br />
             <span className="muted">
-              Keeps the marketplace out of your way. It still comes to the front if something
-              needs you.
+              Opens in this window without stealing focus. It comes to the front if something
+              needs you, and Mercari is always shown — it serves a background tab a blank page.
             </span>
           </span>
         </label>
