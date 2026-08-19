@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CHANNELS, CHANNEL_LABEL } from "@/lib/fees";
+import ChannelIcon from "./ChannelIcon";
 
 type Params = { status: string; channel: string; sort: string };
 
@@ -54,6 +55,7 @@ export default function Filters({ params }: { params: Params }) {
             href={href(params, { channel: c })}
             className={params.channel === c ? "pill pill-on" : "pill"}
           >
+            <ChannelIcon channel={c} size={14} />
             {CHANNEL_LABEL[c]}
           </Link>
         ))}

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Flock — cross-list your resale inventory",
+  "name": "Flock \u2014 cross-list your resale inventory",
   "version": "0.2.0",
   "description": "Fills marketplace sell forms from your Flock inventory. You review every listing before it goes live.",
   "icons": {
@@ -25,7 +25,8 @@
     "https://www.grailed.com/*",
     "https://poshmark.com/*",
     "https://www.facebook.com/*",
-    "https://stockx.com/*"
+    "https://stockx.com/*",
+    "https://www.therealreal.com/*"
   ],
   "action": {
     "default_title": "Flock",

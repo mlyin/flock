@@ -16,6 +16,9 @@ const SELL_PAGE = {
   // Facebook refuses /marketplace/create/item directly and bounces to
   // /marketplace/; its own "Create new listing" link points at /create/.
   facebook: "https://www.facebook.com/marketplace/create/",
+  // Not a listing form: the consignment packing list, reached via
+  // Sell → Ship to Us → START. Landing here directly works when signed in.
+  therealreal: "https://www.therealreal.com/sell-trr/packing-list",
   // StockX has no create form — selling starts from a catalog search. The
   // filler's job there is search-and-select, not form-fill.
   stockx: "https://stockx.com/sell",
@@ -32,6 +35,7 @@ const READY = {
   mercari: "#sellName",
   vinted: "#title",
   grailed: 'input[name="title"]',
+  therealreal: "#category-dropdown-input",
 };
 
 const FILLER = {
@@ -39,6 +43,7 @@ const FILLER = {
   mercari: "fill-mercari.js",
   vinted: "fill-vinted.js",
   grailed: "fill-grailed.js",
+  therealreal: "fill-therealreal.js",
 };
 
 const HOME = "https://www.sellonflock.com";

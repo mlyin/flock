@@ -424,3 +424,65 @@ orders by. The control is found from its visible `Size` label rather than an id:
 > seller's explicit request, but the risk is unchanged: v3 scores behaviour
 > rather than showing a challenge, and a scripted click on List is the pattern
 > being scored. If listings start getting held, turn this off first.
+
+## The RealReal — consignment packing list (read live, 19 Aug 2026)
+
+**Not a listing form.** Reached at `/sell-trr/packing-list` via Sell → Ship to
+Us → **START**. You declare what's going in the box; they photograph, price,
+describe and list it. So there is no title, description, price or photo field —
+only the three facts that decide whether they accept the item.
+
+This **corrects an earlier note** claiming The RealReal had no per-item form and
+blocked automated tabs. The packing list is a real form and it loads fine in an
+automated tab. The page that refuses automation is the seller *dashboard* —
+different page, and that note still holds.
+
+Chakra UI. Each control is `input[role="combobox"]` paired with a `ul` menu of
+`li[role="option"]`:
+
+```
+#category-dropdown-input   →  #category-dropdown-menu   (li#category-dropdown-item-N)
+#designer-dropdown-input   →  #designer-dropdown-menu
+#taxon-dropdown-input      →  #taxon-dropdown-menu      ("Item Type")
+button[type="submit"]      →  "Add Item"
+```
+
+Category options, read off the live menu: **Women, Men, Fine Jewelry, Watches,
+Home, Kids.** That's a department, not a garment type.
+
+### The cascade is strict
+
+`#taxon-dropdown-input` is **`disabled`** until a designer has been genuinely
+*selected* — typing the name and leaving it there is not enough, and the field
+stays inert. Order: category → designer → item type.
+
+### Item Type is scoped to the DESIGNER, not the category
+
+Maison Margiela under Men offers: Grooming Products, Jeans, Accessories,
+Suiting Accessories, Ties, Sweaters, Sweatshirts & Hoodies, Outerwear. A
+different designer offers a different set. **A static category map is therefore
+impossible** — type the garment's own category and take an exact match or
+report the miss.
+
+### The designer field is the Aloye trap, wearing a badge
+
+Typing `Maison Margiela` offers four *different brands*:
+
+```
+MM6 Maison Margiela · Maison Margiela · Maison Margiela Fine · Maison Margiela x Reebok
+```
+
+`startsWith` lands on **MM6**. "First option" lands on **MM6**. And the correct
+row renders as:
+
+```
+Maison Margiela\n\nMOST OBSESSED
+```
+
+so matching the whole `textContent` **misses the right answer and falls through
+to a sibling brand**. Match `innerText.split("\n")[0]`, exactly, or select
+nothing. Getting this wrong doesn't produce a bad listing — it produces a box
+arriving at a warehouse described as another designer's work.
+
+Reopening a combobox that already holds a value does not re-show the menu.
+Clear it (`setNativeValue(el, "")`), then type.

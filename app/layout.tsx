@@ -20,7 +20,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const showShell = !supabaseConfigured() || Boolean(user);
 
   return (
-    <html lang="en">
+    /* suppressHydrationWarning is for our OWN extension: bridge.js stamps
+       data-threader-extension on <html> before React hydrates, so the server
+       markup and the client tree differ by one attribute and React logs a
+       hydration mismatch on every page load. Suppression applies to this
+       element only — a real mismatch anywhere inside still reports. */
+    <html lang="en" suppressHydrationWarning>
       <body>
         {showShell ? (
           <div className="shell">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBasicListings, prepareListings } from "@/app/actions";
 import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
+import ChannelIcon from "./ChannelIcon";
 import { usd } from "@/lib/money";
 import FillButton from "./FillButton";
 
@@ -132,7 +133,10 @@ export default function ListingDrafts({
         return (
           <div key={listing.id} className="draftcard">
             <div className="draftcard-head">
-              <span className="draftcard-name">{CHANNEL_LABEL[listing.channel]}</span>
+              <span className="draftcard-name">
+                <ChannelIcon channel={listing.channel} />{" "}
+                {CHANNEL_LABEL[listing.channel]}
+              </span>
               <span className="draftcard-net">
                 {usd(net)} net <span className="muted">at {usd(listing.price)}</span>
               </span>

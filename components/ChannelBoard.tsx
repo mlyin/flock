@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, canFill, type Channel } from "@/lib/fees";
+import ChannelIcon from "./ChannelIcon";
 import { usd } from "@/lib/money";
 import { markListedWithUrl, saveListingUrl, unmarkListed } from "@/app/actions";
 
@@ -90,7 +91,10 @@ export default function ChannelBoard({ item, rows }: { item: string; rows: Chann
             <div className="boardrow-id">
               <span className={`chanmark chanmark-${channel}`} aria-hidden />
               <div>
-                <span className="boardrow-name">{CHANNEL_LABEL[channel]}</span>
+                <span className="boardrow-name">
+                  <ChannelIcon channel={channel} />{" "}
+                  {CHANNEL_LABEL[channel]}
+                </span>
                 <span className="boardrow-sub">
                   {live
                     ? "live"

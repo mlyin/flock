@@ -281,7 +281,10 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
               costBasis={item.cost_basis}
               targetProfit={item.target_profit}
               listPrice={item.list_price}
-              listedOn={item.listings.map((l) => l.channel)}
+              // Live only. Every channel gets a draft the moment an item is
+              // identified, so passing all listings marked every row "listed"
+              // on a page whose own form says nothing is listed anywhere yet.
+              listedOn={item.listings.filter((l) => l.status === "live").map((l) => l.channel)}
             />
           )}
 

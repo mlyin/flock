@@ -58,12 +58,18 @@ export const CHANNEL_ABBR: Record<Channel, string> = {
  * How each channel can be written to.
  *
  * `manual` is not "we haven't got to it yet" — it means automation is the wrong
- * tool. The RealReal has no per-item listing form to fill: its Sell flow is a
- * lead capture (name, email, phone, postcode) that starts a consignment
- * conversation, after which you ship the item and *they* photograph, price and
- * list it. Its dashboard also returns "Access to this page has been denied" to
- * an automated tab, so it actively blocks this kind of driving. Read live,
- * 18 Aug 2026.
+ * tool for that channel.
+ *
+ * CORRECTION, 19 Aug 2026: The RealReal was listed here as `manual` on the
+ * grounds that it "has no per-item listing form". That was wrong, and it was
+ * wrong because I stopped reading the funnel one screen early. Sell → Ship to
+ * Us → START lands on /sell-trr/packing-list, which is a real per-item form:
+ * Category, Designer, Item Type, Add Item, repeated for every piece in the box.
+ * It loads fine in an automated tab. (The separate note about the seller
+ * DASHBOARD refusing automated tabs still stands — different page.)
+ *
+ * It's still consignment, so it still isn't a listing: no price, no photos, no
+ * copy, because they do all of that. What Flock fills is the manifest.
  *
  * Flock still earns its keep on a manual channel: it tracks custody, projects
  * the payout, and writes the intake condition report. It just doesn't pretend
@@ -78,7 +84,7 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
   vinted: "extension",
   facebook: "extension",
   stockx: "extension",
-  therealreal: "manual",
+  therealreal: "extension",
 };
 
 /**
@@ -105,7 +111,7 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
  *
  * Add a channel here the moment its filler lands, and not before.
  */
-export const FILLABLE: Channel[] = ["depop", "mercari", "vinted", "grailed"];
+export const FILLABLE: Channel[] = ["depop", "mercari", "vinted", "grailed", "therealreal"];
 
 export const canFill = (channel: Channel) => FILLABLE.includes(channel);
 

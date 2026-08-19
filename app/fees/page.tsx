@@ -1,4 +1,5 @@
 import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, FEE_RULES, computeFees, projectedNet } from "@/lib/fees";
+import ChannelIcon from "@/components/ChannelIcon";
 import { usd } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,9 @@ export default async function FeesPage() {
               const config = FEE_RULES[channel];
               return (
                 <tr key={channel}>
-                  <td style={{ fontWeight: 650 }}>{CHANNEL_LABEL[channel]}</td>
+                  <td style={{ fontWeight: 650 }}>
+                  <ChannelIcon channel={channel} /> {CHANNEL_LABEL[channel]}
+                </td>
                   <td>
                     <span className={`badge badge-${CHANNEL_ACCESS[channel] === "api" ? "listed" : "draft"}`}>
                       {CHANNEL_ACCESS[channel]}
@@ -97,7 +100,9 @@ export default async function FeesPage() {
           <tbody>
             {CHANNELS.map((channel) => (
               <tr key={channel}>
-                <td style={{ fontWeight: 650 }}>{CHANNEL_LABEL[channel]}</td>
+                <td style={{ fontWeight: 650 }}>
+                  <ChannelIcon channel={channel} /> {CHANNEL_LABEL[channel]}
+                </td>
                 {PRICE_POINTS.map((price) => {
                   const fees = computeFees(channel, { soldPrice: price, shippingCollected: 0 });
                   const feeTotal = fees.reduce((s, f) => s + f.amount, 0);

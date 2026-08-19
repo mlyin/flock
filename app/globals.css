@@ -2456,6 +2456,19 @@ body { font-size: 15px; line-height: 1.55; }
   filter: saturate(0.85);
 }
 .mchip .chan-icon { vertical-align: middle; }
+/* Letter fallback for the two wordmarks that don't survive 16px. Shaped like
+   the images it sits beside so a row of chips still scans as one row. */
+.chan-icon-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  opacity: .75;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1;
+  filter: none;
+}
 .cell-sub .chan-icon,
 .num .chan-icon { margin-left: 4px; vertical-align: -2px; }
 
@@ -2542,3 +2555,9 @@ body { font-size: 15px; line-height: 1.55; }
   .planner-table th:nth-child(3),
   .planner-table td:nth-child(3) { display: none; }
 }
+
+/* Channel names carry their mark wherever they appear — filter pills, draft
+   cards, the fee table — so the same thing is recognised the same way. */
+.chip .chan-icon,
+.boardrow-name .chan-icon,
+.draftcard-name .chan-icon { margin-right: 5px; }

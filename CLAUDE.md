@@ -72,11 +72,16 @@ is the pattern being scored. `fill-mercari.js` ignores `autoSubmit` by design.
 
 **Identity fields take an exact match or nothing — and CATEGORY is one of them.**
 
-This has now gone wrong three times, each time in a field I had not yet thought of
+This has now gone wrong four times, each time in a field I had not yet thought of
 as an identity field:
 
 - `"alo"` prefix-matched **Aloye** and put a stranger's brand on a live listing.
 - `"Tops"` substring-matched **Crop Tops** on Grailed and filed a pullover under it.
+- `"Maison Margiela"` sits among **MM6 Maison Margiela**, **Maison Margiela
+  Fine** and **Maison Margiela x Reebok** on The RealReal — three different
+  brands at three different prices — and the right row renders with a
+  `MOST OBSESSED` badge on a second line, so matching the whole `textContent`
+  misses it and falls through to a sibling. Match the first line only.
 - `"Tops"` substring-matched **Crop tops** on Depop — which builds the listing
   TITLE from the category, so a men's XL tee went public as "Oakley Men's
   Navy and Black Crop-top".
@@ -123,6 +128,10 @@ creates it, so adding a channel is its own migration.
 Working end to end: Google sign-in, photo upload, identification, review, listing copy for
 five channels, one-click fill from the inventory row, and a published Depop listing.
 
+- **The RealReal** — packing-list filler written 19 Aug 2026, **never run end to
+  end**. Consignment, so it fills a manifest (category, designer, item type),
+  not a listing. Corrects an earlier note in `lib/fees.ts` that claimed it had
+  no per-item form — it does, one screen further into the funnel than I looked.
 - **Depop** — fill works; a real listing went live through it
 - **Vinted, Grailed** — selectors verified against the live forms, **never run end to end**
 - **Mercari** — fill-only. Its sell form rendered on first visit and served an empty
