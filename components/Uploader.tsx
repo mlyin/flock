@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { registerPhoto } from "@/app/actions";
+import { studioBackground } from "@/lib/studio";
 
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -17,6 +18,11 @@ export default function Uploader({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [errors, setErrors] = useState<string[]>([]);
+  // Persisted: a seller who wants studio backgrounds wants them every session.
+  const [studio, setStudio] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("flock:studio") === "on"
+  );
+  const [stage, setStage] = useState<string | null>(null);
   const router = useRouter();
 
   async function upload(files: FileList) {
@@ -39,19 +45,36 @@ export default function Uploader({ userId }: { userId: string }) {
         continue;
       }
 
+      // Studio background runs BEFORE upload, in this browser, so everything
+      // downstream — identification, the marketplace fills — sees the cleaned
+      // photo. Free (a local model, ~50MB cached after first use), and the
+      // original never leaves the machine. A failure falls back to the
+      // original photo rather than losing the upload.
+      let outgoing = file;
+      if (studio) {
+        try {
+          setStage(`Cleaning background — ${file.name}`);
+          outgoing = await studioBackground(file);
+        } catch {
+          problems.push(`${file.name}: background removal failed — uploaded the original.`);
+        }
+        setStage(null);
+      }
+
       // The browser uploads straight to storage. The bucket policy checks that
       // the first path segment is the caller's own id, so this can't be aimed
       // at anyone else's prefix.
-      const key = `${userId}/inbox/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("photos").upload(key, file, {
-        contentType: file.type,
+      const outExt = EXT[outgoing.type] ?? ext;
+      const key = `${userId}/inbox/${crypto.randomUUID()}.${outExt}`;
+      const { error } = await supabase.storage.from("photos").upload(key, outgoing, {
+        contentType: outgoing.type,
         upsert: false,
       });
 
       if (error) {
         problems.push(`${file.name}: ${error.message}`);
       } else {
-        const recorded = await registerPhoto(key, file.size);
+        const recorded = await registerPhoto(key, outgoing.size);
         if (!recorded.ok) problems.push(`${file.name}: ${recorded.error}`);
       }
 
@@ -84,13 +107,28 @@ export default function Uploader({ userId }: { userId: string }) {
             fills itself and one you finish by hand.
           </p>
         </div>
+        <label className="studio-toggle">
+          <input
+            type="checkbox"
+            checked={studio}
+            onChange={(e) => {
+              setStudio(e.target.checked);
+              localStorage.setItem("flock:studio", e.target.checked ? "on" : "off");
+            }}
+            disabled={busy}
+          />
+          <span>
+            White background
+            <em>Free, runs on your machine. First use downloads the model (~50MB).</em>
+          </span>
+        </label>
         <button
           type="button"
           className="button"
           onClick={() => input.current?.click()}
           disabled={busy}
         >
-          {busy ? `Uploading ${progress.done}/${progress.total}…` : "Choose photos"}
+          {busy ? (stage ?? `Uploading ${progress.done}/${progress.total}…`) : "Choose photos"}
         </button>
         <input
           ref={input}
