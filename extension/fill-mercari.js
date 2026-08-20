@@ -385,6 +385,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // not be empty" with the field present and untouched.
     const categoryChosen =
       Boolean(category) ||
+      // s>s, not s>s. The literal letter s around the chevron can never
+      // match "Men > Tops > T-shirts", so the remembered-category path this
+      // whole block exists to handle always evaluated false — the exact
+      // failure the comment above describes, still live underneath the fix
+      // for it.
       /s>s/.test(document.querySelector(FIELD.category)?.textContent ?? "");
 
     if (categoryChosen) {

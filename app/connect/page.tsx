@@ -1,8 +1,8 @@
 import PairExtension from "@/components/PairExtension";
+import PairedDevices from "@/components/PairedDevices";
 import ExtensionSettings from "@/components/ExtensionSettings";
 import ProbeForm from "@/components/ProbeForm";
 import { supabaseServer } from "@/lib/supabase/server";
-import { shortDate } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -50,17 +50,7 @@ export default async function ConnectPage() {
           <div className="sectionhead">
             <h2>Paired devices</h2>
           </div>
-          <div className="inboxlist">
-            {tokens!.map((token) => (
-              <div key={token.id} className="inboxrow">
-                <span className="inboxrow-name">{token.label ?? "Extension"}</span>
-                <span className="inboxrow-meta">
-                  paired {shortDate(token.created_at)}
-                  {token.last_used_at ? ` · last used ${shortDate(token.last_used_at)}` : " · never used"}
-                </span>
-              </div>
-            ))}
-          </div>
+          <PairedDevices tokens={tokens!} />
         </>
       )}
     </>

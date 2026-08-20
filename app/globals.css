@@ -2731,3 +2731,19 @@ td[data-cell="pick"] input { cursor: pointer; accent-color: var(--sage); }
 .pushbar strong { display: block; font-size: 14.5px; margin-bottom: 2px; }
 .pushbar p { margin: 0; font-size: 12.5px; color: var(--ink-2); max-width: 52ch; }
 .pushbar-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Revoke sits in a row that already has a name and a timestamp, so the
+   confirm pair replaces the button in place rather than opening a dialog. */
+.rowactions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.pill-danger { border-color: var(--brick); color: var(--brick); }
+.pill-danger:hover { background: var(--brick); color: var(--ground); }
+
+.billingcard {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 16px 18px; margin: 18px 0;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 5px;
+}
+.billingcard strong { display: block; font-size: 15px; margin-bottom: 2px; }
+.billingcard p { margin: 0; font-size: 12.5px; color: var(--ink-2); max-width: 56ch; }
+.billingcard-error { color: var(--brick); margin-top: 6px; }

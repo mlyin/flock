@@ -1152,3 +1152,32 @@ export async function bulkDropPrices(
   revalidatePath("/");
   return { ok: true, changed, floored, skipped };
 }
+
+/**
+ * Revoke one paired browser.
+ *
+ * revokeToken has existed since pairing shipped with nothing calling it, which
+ * meant a leaked extension bearer token stayed valid until someone edited the
+ * database by hand. A credential you cannot revoke from the product is not
+ * really revocable.
+ */
+export async function revokePairing(tokenId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  // RLS already scopes this to the caller; the explicit user_id is belt and
+  // braces on a security-relevant write.
+  const { error } = await supabase
+    .from("extension_tokens")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", tokenId)
+    .eq("user_id", user.id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/connect");
+  return { ok: true };
+}

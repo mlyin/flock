@@ -536,7 +536,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
-              listingId,
+              // message.listingId, not listingId — the only binding of that
+              // bare name is watchForPublish's parameter, which is not in
+              // scope here. It threw a ReferenceError into the best-effort
+              // catch below, so the feature meant to END the screenshot loop
+              // silently never delivered one report.
+              listingId: message.listingId,
               filled: result?.filled ?? [],
               missing: result?.missing ?? [],
               blocked: result?.blocked ?? [],

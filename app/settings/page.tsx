@@ -1,5 +1,7 @@
 import Link from "next/link";
 import AddressBook from "@/components/AddressBook";
+import BillingCard from "@/components/BillingCard";
+import { standing } from "@/lib/plan";
 import type { AddressRow } from "@/app/actions";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -13,12 +15,16 @@ export default async function SettingsPage() {
     .order("is_default", { ascending: false })
     .order("created_at");
 
+  const where = await standing();
+
   return (
     <>
       <div className="pagehead">
         <h1>Settings</h1>
         <p>Addresses, the browser extension, and the fee table every net figure rests on.</p>
       </div>
+
+      {where && <BillingCard planLabel={where.plan.label} paid={where.plan.monthly > 0} />}
 
       {/* Fees and the extension used to be top-level nav items. They're
           reference and one-time setup, so they live here now. */}

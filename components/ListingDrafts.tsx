@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBasicListings, prepareListings } from "@/app/actions";
-import { CHANNEL_LABEL, projectedNet, type Channel } from "@/lib/fees";
+import { CHANNEL_LABEL, canFill, projectedNet, type Channel } from "@/lib/fees";
 import ChannelIcon from "./ChannelIcon";
 import { usd } from "@/lib/money";
 import FillButton from "./FillButton";
@@ -146,7 +146,13 @@ export default function ListingDrafts({
               <a className="copy" href={`/post/${listing.id}`}>
                 Post step by step
               </a>
-              {listing.channel !== "ebay" && (
+              {/* canFill, not a hand-maintained exclusion. FILLABLE is the one
+                  place that knows which channels have a filler behind them;
+                  "everything except eBay" also offered Fill on Poshmark,
+                  Facebook and Vestiaire, where background.js can only throw
+                  "No filler yet". ChannelBoard on this same page already
+                  guards correctly — this is the copy that drifted. */}
+              {canFill(listing.channel) && (
                 <FillButton listingId={listing.id} channel={listing.channel} />
               )}
             </div>

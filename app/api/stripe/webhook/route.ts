@@ -58,7 +58,31 @@ export async function POST(request: Request) {
     // only ever stops the NEXT one going up.
     const paying = subscription.status === "active" || subscription.status === "trialing";
     const priceId = subscription.items.data[0]?.price?.id;
-    const plan = paying ? planForPrice(priceId) ?? "lamb" : "lamb";
+    const known = planForPrice(priceId);
+
+    // A PAYING subscription on a price we do not recognise must never be
+    // silently downgraded to the free tier. That is the worst shape a billing
+    // bug can take: the customer is charged, Stripe reports active, and the
+    // app quietly removes the cap they paid for. It happens the day a price
+    // id is rotated in the Stripe dashboard and not in PRICE.
+    //
+    // So keep the plan they already have, still record the customer id, and
+    // leave a loud row in the logs. Downgrades happen only when Stripe itself
+    // says they stopped paying.
+    if (paying && !known) {
+      console.error(
+        "[stripe] unrecognised price " + priceId + " on active subscription " +
+          subscriptionId + " for user " + userId +
+          " — plan left unchanged. Add it to PRICE in lib/stripe.ts."
+      );
+      await admin
+        .from("profiles")
+        .update({ stripe_customer_id: String(subscription.customer) })
+        .eq("id", userId);
+      return;
+    }
+
+    const plan = paying ? known : "lamb";
 
     await admin
       .from("profiles")
