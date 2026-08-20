@@ -1,6 +1,8 @@
 import Link from "next/link";
 import AddressBook from "@/components/AddressBook";
 import BillingCard from "@/components/BillingCard";
+import ListingDefaultsForm from "@/components/ListingDefaultsForm";
+import { getListingDefaults } from "@/app/actions";
 import { standing } from "@/lib/plan";
 import type { AddressRow } from "@/app/actions";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -16,6 +18,7 @@ export default async function SettingsPage() {
     .order("created_at");
 
   const where = await standing();
+  const listingDefaults = await getListingDefaults();
 
   return (
     <>
@@ -42,6 +45,12 @@ export default async function SettingsPage() {
           <span>What each channel takes. Every rate is still unverified</span>
         </Link>
       </div>
+      <div className="sectionhead">
+        <h2>Standing listing text</h2>
+        <p>Written once, added to every listing you draft</p>
+      </div>
+      <ListingDefaultsForm defaults={listingDefaults} />
+
 
       <div className="sectionhead">
         <h2>Ship-from addresses</h2>

@@ -7,6 +7,7 @@ import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 import { standing } from "@/lib/plan";
+import { applyDefaults, parseDefaults } from "@/lib/defaults";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
   if (photoIds.length === 0) return { ok: false, error: "Select at least one photo." };
@@ -352,6 +353,15 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
 
   if (error || !item) return { ok: false, error: error?.message ?? "Item not found." };
 
+  // Standing listing text, written once in Settings. Absent for most
+  // sellers, in which case parseDefaults hands back a no-op.
+  const { data: defaultsRow } = await supabase
+    .from("listing_defaults")
+    .select("footer, preamble, per_channel")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const defaults = parseDefaults(defaultsRow);
+
   // Existing rows may already hold a literal "none" from before intake filtered
   // it, so strip it here too rather than only fixing it going forward.
   const flaws = (Array.isArray(item.flaws) ? (item.flaws as string[]) : []).filter(
@@ -395,7 +405,10 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
     item_id: itemId,
     channel,
     title,
-    description,
+    // Built per channel now, because a seller's standing terms can differ
+    // per marketplace — Depop wants two lowercase lines, eBay tolerates a
+    // policy paragraph.
+    description: applyDefaults(description, defaults, channel),
     price: Number(item.list_price ?? 0),
     status: "draft" as const,
     draft: null,
@@ -1180,4 +1193,51 @@ export async function revokePairing(tokenId: string): Promise<{ ok: boolean; err
 
   revalidatePath("/connect");
   return { ok: true };
+}
+
+/* ------------------------------------------------------------------ listing defaults */
+
+export type ListingDefaultsRow = {
+  footer: string | null;
+  preamble: string | null;
+};
+
+export async function getListingDefaults(): Promise<ListingDefaultsRow> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("listing_defaults")
+    .select("footer, preamble")
+    .maybeSingle();
+  return { footer: data?.footer ?? null, preamble: data?.preamble ?? null };
+}
+
+/**
+ * Save the standing text. Applies to listings drafted from here on — existing
+ * drafts keep the description they were written with, because silently
+ * rewriting live listing copy is not something a Save button should do.
+ */
+export async function saveListingDefaults(formData: FormData) {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const text = (key: string) => {
+    const raw = formData.get(key);
+    const value = typeof raw === "string" ? raw.trim() : "";
+    return value === "" ? null : value;
+  };
+
+  await supabase.from("listing_defaults").upsert(
+    {
+      user_id: user.id,
+      footer: text("footer"),
+      preamble: text("preamble"),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+
+  revalidatePath("/settings");
 }
