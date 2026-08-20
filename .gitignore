@@ -23,3 +23,9 @@ store-screenshot-*.png
 .pkg/
 .vercel
 .env*
+
+# Expo
+mobile/node_modules/
+mobile/.expo/
+mobile/ios/
+mobile/android/
