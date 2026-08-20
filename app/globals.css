@@ -2701,3 +2701,23 @@ td[data-cell="pick"] input { cursor: pointer; accent-color: var(--sage); }
 
 /* The provider's avatar, beside the name it came with. */
 .navavatar { border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+
+/* ---------- installed to the home screen ---------- */
+
+/* viewportFit:"cover" lets the page reach under the notch and the home
+   indicator. Without paying that back here, the nav sits under the status bar
+   and the sticky post-flow buttons sit under the home bar — the two places a
+   phone user taps most. Only applies when actually installed, so the browser
+   layout is untouched. */
+@media (display-mode: standalone) {
+  .shell {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  .postactions {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+}

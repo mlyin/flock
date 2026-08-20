@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Nav from "@/components/Nav";
 import { currentUser, supabaseConfigured } from "@/lib/supabase/server";
 import { standing } from "@/lib/plan";
@@ -7,6 +7,34 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Flock",
   description: "Inventory, listings, and what you actually netted.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/brand/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+  // Added to the home screen on iOS, Flock runs without Safari chrome. iOS
+  // ignores the manifest for this and reads these tags instead, so both have
+  // to be present or it opens in a browser tab like any bookmark.
+  appleWebApp: {
+    capable: true,
+    title: "Flock",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Let the page reach under the notch and home indicator; globals.css pays
+  // that back with safe-area padding so nothing lands under the hardware.
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F7F8F1" },
+    { media: "(prefers-color-scheme: dark)", color: "#12140D" },
+  ],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
