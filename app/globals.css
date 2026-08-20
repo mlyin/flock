@@ -2721,3 +2721,13 @@ td[data-cell="pick"] input { cursor: pointer; accent-color: var(--sage); }
     bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
+
+.pushbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+  padding: 14px 18px; margin: 18px 0;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 5px;
+}
+.pushbar strong { display: block; font-size: 14.5px; margin-bottom: 2px; }
+.pushbar p { margin: 0; font-size: 12.5px; color: var(--ink-2); max-width: 52ch; }
+.pushbar-actions { display: flex; gap: 8px; align-items: center; }

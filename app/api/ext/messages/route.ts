@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { notify } from "@/lib/push";
 import { CHANNELS, type Channel } from "@/lib/fees";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
 
@@ -103,9 +104,67 @@ export async function POST(request: Request) {
 
   if (error) return json({ error: error.message }, 500);
 
+  // Notify once per conversation, not once per message. A thread that syncs
+  // five new lines should buzz the phone once; re-syncing the same thread
+  // tomorrow should not buzz it at all, which is what notified_at guards.
+  const notified = await notifyNewMessages(userId);
+
   return json({
     ok: true,
     imported: rows.length,
     matched: rows.filter((r) => r.item_id).length,
+    notified,
   });
+}
+
+
+/**
+ * Sends one push per thread with unnotified incoming messages, then marks them.
+ *
+ * Deliberately after the upsert has already succeeded and outside its error
+ * path: a buyer message must be recorded whether or not the phone can be
+ * reached. notify() swallows its own failures for the same reason.
+ */
+async function notifyNewMessages(userId: string): Promise<number> {
+  const admin = supabaseAdmin();
+
+  const { data: fresh } = await admin
+    .from("messages")
+    .select("id, thread_id, sender, buyer_handle, body, offer_amount, item_id, channel")
+    .eq("user_id", userId)
+    .eq("direction", "incoming")
+    .is("notified_at", null)
+    .order("received_at", { ascending: false })
+    .limit(50);
+
+  if (!fresh?.length) return 0;
+
+  // Newest first, so the first row seen for a thread is the one worth showing.
+  const byThread = new Map<string, (typeof fresh)[number]>();
+  for (const message of fresh) {
+    const key = message.thread_id ?? message.id;
+    if (!byThread.has(key)) byThread.set(key, message);
+  }
+
+  let sent = 0;
+  for (const [key, message] of byThread) {
+    const who = message.buyer_handle ?? message.sender ?? "A buyer";
+    const title = message.offer_amount
+      ? `${who} offered $${message.offer_amount}`
+      : `${who} messaged you`;
+
+    sent += await notify(userId, {
+      title,
+      body: (message.body ?? "").slice(0, 140) || "Open Flock to reply.",
+      url: message.item_id ? `/items/${message.item_id}` : "/messages",
+      tag: `thread-${key}`,
+    });
+  }
+
+  await admin
+    .from("messages")
+    .update({ notified_at: new Date().toISOString() })
+    .in("id", fresh.map((m) => m.id));
+
+  return byThread.size;
 }

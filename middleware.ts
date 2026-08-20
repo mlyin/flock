@@ -44,6 +44,10 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/auth") ||
     request.nextUrl.pathname.startsWith("/privacy") ||
+    // Shown by the service worker when a navigation fails. Someone with no
+    // connection cannot be authenticated either, so gating it would replace
+    // the offline page with a redirect that also cannot load.
+    request.nextUrl.pathname.startsWith("/offline") ||
     // The extension install instructions are the link you send a friend who
     // doesn't have an account yet.
     request.nextUrl.pathname.startsWith("/install") ||

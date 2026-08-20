@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Nav from "@/components/Nav";
+import PushSetup from "@/components/PushSetup";
 import { currentUser, supabaseConfigured } from "@/lib/supabase/server";
 import { standing } from "@/lib/plan";
 import "./globals.css";
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         {showShell ? (
           <div className="shell">
+            <PushSetup vapidKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
             <Nav
               email={user?.email ?? null}
               // Google sends full_name/name and picture/avatar_url; Apple
