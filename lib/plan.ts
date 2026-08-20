@@ -76,7 +76,7 @@ export const PLANS: Plan[] = [
       { text: "Everything in Lamb, nothing clipped" },
       { text: "One inbox across every marketplace" },
       { text: "Bulk relist and price drops", soon: true },
-      { text: "CSV export, any time", soon: true },
+      { text: "CSV export, any time" },
     ],
   },
   {

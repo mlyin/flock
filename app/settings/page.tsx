@@ -27,6 +27,10 @@ export default async function SettingsPage() {
           <strong>Browser extension</strong>
           <span>Pair Chrome so Flock can fill marketplace forms for you</span>
         </Link>
+        <a href="/api/export" className="settingslink">
+          <strong>Export everything (CSV)</strong>
+          <span>Every garment, listing and sale — fee-adjusted, for bookkeeping</span>
+        </a>
         <Link href="/fees" className="settingslink">
           <strong>Fee table</strong>
           <span>What each channel takes. Every rate is still unverified</span>
