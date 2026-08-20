@@ -30,7 +30,7 @@ Rules for whoever (or whatever) works this:
       *Category table stakes — 7 of 7 competitors have it, and SellRaze's misfires
       badly enough to be their loudest complaint.*
 
-- [ ] **Import an existing closet.** `read-depop-listings.js` exists with no UI.
+- [x] **Import an existing closet.** *(20 Aug — /import reads the shop over the bridge and adopts listings as unreviewed garments.)* `read-depop-listings.js` exists with no UI.
       Add a screen: run the reader, land rows in `external_listings`, then a
       separate confirmable matching step using `lib/reconcile.ts` (already
       tested). Without this, first-run asks a seller with 200 live listings to

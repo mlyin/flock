@@ -1360,3 +1360,131 @@ export async function resolveSaleCandidate(
   revalidatePath("/");
   return { ok: true, toDelist: result.toDelist };
 }
+
+/* ------------------------------------------------------------------ closet import */
+
+export type ExternalListingRow = {
+  id: string;
+  channel: Channel;
+  external_id: string;
+  url: string | null;
+  title: string | null;
+  price: number | null;
+  photo_url: string | null;
+  status: string;
+  item_id: string | null;
+  last_seen_at: string | null;
+};
+
+export async function getExternalListings(): Promise<ExternalListingRow[]> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("external_listings")
+    .select("id, channel, external_id, url, title, price, photo_url, status, item_id, last_seen_at")
+    .order("status")
+    .order("title");
+
+  return (data ?? []).map((r) => ({
+    ...(r as unknown as ExternalListingRow),
+    price: r.price === null ? null : Number(r.price),
+  }));
+}
+
+/**
+ * Turn a listing that already exists on a marketplace into a Flock garment.
+ *
+ * This is the onboarding unlock. A seller arriving with 200 live Depop listings
+ * will not re-photograph their closet, and without this Flock's first run asks
+ * them to.
+ *
+ * What it deliberately does NOT do: invent facts. The marketplace gives a title,
+ * a price and a photo URL — not brand, size, condition or cost basis. Those stay
+ * empty and the garment lands `unreviewed`, so the seller fills them in knowing
+ * they were never known rather than trusting a guess.
+ */
+export async function adoptExternalListing(
+  externalId: string
+): Promise<{ ok: boolean; error?: string; itemId?: string }> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: ext } = await supabase
+    .from("external_listings")
+    .select("id, channel, external_id, url, title, price, photo_url, status, item_id")
+    .eq("id", externalId)
+    .maybeSingle();
+
+  if (!ext) return { ok: false, error: "That listing is gone." };
+  if (ext.item_id) return { ok: false, error: "Already linked to a garment." };
+
+  const { data: skuRow } = await supabase.rpc("next_sku", { p_user: user.id });
+
+  const { data: item, error: itemError } = await supabase
+    .from("items")
+    .insert({
+      user_id: user.id,
+      sku: (skuRow as string | null) ?? "CL-0001",
+      title: ext.title?.trim() || "Untitled",
+      // status follows the marketplace: a sold import is history, not stock.
+      status: ext.status === "sold" ? "sold" : "listed",
+      // Unreviewed on purpose — brand, size and condition are genuinely unknown
+      // here, and an import that looked complete would hide that.
+      review_state: "unreviewed",
+      list_price: ext.price ?? null,
+      source: `imported from ${ext.channel}`,
+    })
+    .select("id")
+    .single();
+
+  if (itemError || !item) return { ok: false, error: itemError?.message ?? "Couldn't create it." };
+
+  // The listing already exists out there, so it goes in live with its real URL
+  // rather than as a draft to be filled.
+  await supabase.from("listings").upsert(
+    {
+      user_id: user.id,
+      item_id: item.id,
+      channel: ext.channel,
+      external_id: ext.external_id,
+      url: ext.url,
+      title: ext.title,
+      price: ext.price ?? 0,
+      status: ext.status === "sold" ? "sold" : "live",
+      posted_at: new Date().toISOString(),
+      posted_via: "imported",
+    },
+    { onConflict: "item_id,channel" }
+  );
+
+  await supabase
+    .from("external_listings")
+    .update({ item_id: item.id, matched_at: new Date().toISOString() })
+    .eq("id", ext.id);
+
+  revalidatePath("/import");
+  revalidatePath("/");
+  return { ok: true, itemId: item.id };
+}
+
+/** Adopt every unmatched listing at once — the whole point of arriving with a closet. */
+export async function adoptAllUnmatched(): Promise<{ ok: boolean; adopted: number; error?: string }> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("external_listings")
+    .select("id")
+    .is("item_id", null)
+    .neq("status", "ended");
+
+  let adopted = 0;
+  for (const row of data ?? []) {
+    const result = await adoptExternalListing(row.id as string);
+    if (result.ok) adopted++;
+  }
+
+  revalidatePath("/import");
+  revalidatePath("/");
+  return { ok: true, adopted };
+}

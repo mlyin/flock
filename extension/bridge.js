@@ -68,6 +68,28 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  if (data.type === "sync-shop" && typeof data.channel === "string") {
+    chrome.runtime.sendMessage(
+      { type: "sync-shop", channel: data.channel, username: data.username },
+      (result) => {
+        window.postMessage(
+          {
+            source: "threader-extension",
+            type: "shop-synced",
+            channel: data.channel,
+            ok: Boolean(result?.ok),
+            error: result?.error ?? null,
+            found: result?.data?.found ?? 0,
+            matched: result?.data?.matched ?? 0,
+            ambiguous: result?.data?.ambiguous ?? 0,
+          },
+          window.location.origin
+        );
+      }
+    );
+    return;
+  }
+
   if (data.type === "fill" && typeof data.listingId === "string") {
     chrome.runtime.sendMessage({ type: "fill", listingId: data.listingId }, (result) => {
       window.postMessage(

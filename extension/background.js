@@ -566,6 +566,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
+      // The shop read the 30-minute alarm already does, on demand. Import
+      // needs it now rather than in half an hour, and the same read is what
+      // sale detection diffs against.
+      if (message.type === "sync-shop") {
+        if (message.channel !== "depop") {
+          throw new Error(`No shop reader for ${message.channel} yet.`);
+        }
+        const { depopUsername } = await chrome.storage.local.get(["depopUsername"]);
+        const username = message.username || depopUsername;
+        if (!username) throw new Error("Set your Depop username in Settings first.");
+        if (message.username && message.username !== depopUsername) {
+          await chrome.storage.local.set({ depopUsername: message.username });
+        }
+        sendResponse({ ok: true, data: await syncDepopListings(username) });
+        return;
+      }
+
       if (message.type === "posted") {
         sendResponse({
           ok: true,

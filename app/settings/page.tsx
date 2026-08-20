@@ -36,6 +36,10 @@ export default async function SettingsPage() {
           <strong>Browser extension</strong>
           <span>Pair Chrome so Flock can fill marketplace forms for you</span>
         </Link>
+        <Link href="/import" className="settingslink">
+          <strong>Bring your closet in</strong>
+          <span>Read what you already have live on Depop and adopt it</span>
+        </Link>
         <a href="/api/export" className="settingslink">
           <strong>Export everything (CSV)</strong>
           <span>Every garment, listing and sale — fee-adjusted, for bookkeeping</span>
