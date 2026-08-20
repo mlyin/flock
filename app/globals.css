@@ -2759,3 +2759,17 @@ td[data-cell="pick"] input { cursor: pointer; accent-color: var(--sage); }
   padding: 10px 12px; width: 100%; resize: vertical;
 }
 .defaultsform textarea:focus { border-color: var(--lime); outline: none; }
+
+/* ---------- sale questions ---------- */
+
+.salequestions { margin: 8px 0 26px; }
+.qlist { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.qrow {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 14px 18px; background: var(--surface);
+}
+.qrow-what strong { display: block; font-size: 15px; }
+.qrow-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.qrow-actions, .qrow-price { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.qrow-price .field { width: 130px; }

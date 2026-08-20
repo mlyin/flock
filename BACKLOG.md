@@ -22,7 +22,7 @@ Rules for whoever (or whatever) works this:
 
 ## Now
 
-- [ ] **Sale detection → auto-delist queue.** The extension already captures
+- [x] **Sale detection → auto-delist queue.** *(20 Aug — rides on the shop read; absence raises a question, never a verdict.)* The extension already captures
       listing URLs. Poll them on a `chrome.alarms` cadence, detect sold state on
       Depop and Vinted's public pages, POST to a new `/api/ext/sale-detected`,
       fill the `delist_tasks` queue that already exists, and show a red "still

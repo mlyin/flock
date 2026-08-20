@@ -9,6 +9,8 @@ import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
 import { bestProjection, getItems, openDelistTasks, shelfAge, signPhotos, summarize } from "@/lib/data";
 import DelistQueue from "@/components/DelistQueue";
+import SaleQuestions from "@/components/SaleQuestions";
+import { getSaleCandidates } from "@/app/actions";
 import BulkController from "@/components/BulkController";
 
 export const dynamic = "force-dynamic";
@@ -74,9 +76,11 @@ export default async function Inventory({
   // Above everything, including the heading. A listing still up for something
   // that sold is the only thing on this page that gets worse while you read it.
   const delist = await openDelistTasks();
+  const saleQuestions = await getSaleCandidates();
 
   return (
     <>
+      <SaleQuestions candidates={saleQuestions} />
       <DelistQueue tasks={delist} />
 
       <div className="pagehead">

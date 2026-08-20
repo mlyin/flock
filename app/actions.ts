@@ -7,6 +7,7 @@ import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 import { standing } from "@/lib/plan";
+import type { Channel } from "@/lib/fees";
 import { applyDefaults, parseDefaults } from "@/lib/defaults";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
@@ -1240,4 +1241,122 @@ export async function saveListingDefaults(formData: FormData) {
   );
 
   revalidatePath("/settings");
+}
+
+/* ------------------------------------------------------------------ sale detection */
+
+export type SaleCandidate = {
+  id: string;
+  listing_id: string;
+  item_id: string;
+  channel: Channel;
+  misses: number;
+  detected_at: string;
+  sku: string;
+  title: string;
+  brand: string | null;
+  listPrice: number;
+  url: string | null;
+};
+
+/**
+ * Listings that stopped appearing in the seller's shop and haven't been
+ * explained yet. Nothing here is a sale until they say so.
+ */
+export async function getSaleCandidates(): Promise<SaleCandidate[]> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("sale_candidates")
+    .select(
+      "id, listing_id, item_id, channel, misses, detected_at, items (sku, title, brand), listings (price, url)"
+    )
+    .eq("state", "open")
+    .order("detected_at", { ascending: false });
+
+  return (data ?? []).map((row) => {
+    // PostgREST returns an embedded row as an object, but as an array when it
+    // can't prove the relationship is to-one. Handle both rather than crash.
+    const item = (Array.isArray(row.items) ? row.items[0] : row.items) as
+      | { sku: string; title: string; brand: string | null }
+      | undefined;
+    const listing = (Array.isArray(row.listings) ? row.listings[0] : row.listings) as
+      | { price: number | string; url: string | null }
+      | undefined;
+
+    return {
+      id: row.id as string,
+      listing_id: row.listing_id as string,
+      item_id: row.item_id as string,
+      channel: row.channel as Channel,
+      misses: row.misses as number,
+      detected_at: row.detected_at as string,
+      sku: item?.sku ?? "—",
+      title: item?.title ?? "Untitled",
+      brand: item?.brand ?? null,
+      listPrice: Number(listing?.price ?? 0),
+      url: listing?.url ?? null,
+    };
+  });
+}
+
+export type CandidateAnswer = "sold" | "removed" | "still_up";
+
+/**
+ * The seller answers the question.
+ *
+ * Only this path can turn a disappearance into a sale — detection never does it
+ * alone, because a listing vanishes for several reasons and only one of them is
+ * money changing hands.
+ */
+export async function resolveSaleCandidate(
+  candidateId: string,
+  answer: CandidateAnswer,
+  soldPrice?: number
+): Promise<{ ok: boolean; error?: string; toDelist?: number }> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You're signed out." };
+
+  const { data: candidate } = await supabase
+    .from("sale_candidates")
+    .select("id, listing_id, item_id")
+    .eq("id", candidateId)
+    .maybeSingle();
+
+  if (!candidate) return { ok: false, error: "That question has already been answered." };
+
+  const finish = async (state: CandidateAnswer) => {
+    await supabase
+      .from("sale_candidates")
+      .update({ state, resolved_at: new Date().toISOString() })
+      .eq("id", candidate.id);
+  };
+
+  if (answer === "still_up") {
+    // We were wrong. Clear the streak too, or the very next miss re-asks.
+    await supabase.from("listings").update({ absent_streak: 0 }).eq("id", candidate.listing_id);
+    await finish("still_up");
+    revalidatePath("/");
+    return { ok: true };
+  }
+
+  if (answer === "removed") {
+    await supabase.from("listings").update({ status: "ended" }).eq("id", candidate.listing_id);
+    await finish("removed");
+    revalidatePath("/");
+    revalidatePath(`/items/${candidate.item_id}`);
+    return { ok: true };
+  }
+
+  // Sold. recordSale owns the money: it writes the sale, computes fees from
+  // the table, marks the item, and queues every other live channel to come
+  // down. Reusing it means detection can never invent a different ledger.
+  const result = await recordSale(candidate.listing_id, { soldPrice: Number(soldPrice) || 0 });
+  if (!result.ok) return { ok: false, error: result.error };
+
+  await finish("sold");
+  revalidatePath("/");
+  return { ok: true, toDelist: result.toDelist };
 }

@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { CHANNELS, type Channel } from "@/lib/fees";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
 import { matchListingToItem } from "@/lib/reconcile";
+import { detectVanished, type LiveListing } from "@/lib/vanished";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,12 @@ export async function POST(request: Request) {
   // seller's own shop, close that gap — but only where the match is certain.
   const reconciled = await reconcile(admin, userId, channel, rows, now);
 
+  // Sale detection rides along on the read we already did. Anything Flock
+  // believes is live on this channel, but which the seller's own shop no
+  // longer shows, is a QUESTION for them — never a state change. See
+  // lib/vanished.ts for why absence is such weak evidence on its own.
+  const vanished = await checkVanished(admin, userId, channel, rows, now);
+
   await admin.from("channel_syncs").upsert({
     user_id: userId,
     channel,
@@ -101,7 +108,7 @@ export async function POST(request: Request) {
     error: null,
   });
 
-  return json({ ok: true, imported: rows.length, ...reconciled });
+  return json({ ok: true, imported: rows.length, ...reconciled, ...vanished });
 }
 
 type AdminClient = ReturnType<typeof supabaseAdmin>;
@@ -179,4 +186,66 @@ async function reconcile(
   }
 
   return { matched, ambiguous };
+}
+
+/**
+ * Ask about listings that stopped appearing in the seller's shop.
+ *
+ * Writes no sale and ends no listing. It raises a candidate the seller answers,
+ * because only they know whether a missing listing sold, was deleted, or was
+ * never really missing at all.
+ */
+async function checkVanished(
+  admin: AdminClient,
+  userId: string,
+  channel: Channel,
+  rows: Array<{ external_id: string }>,
+  now: string
+) {
+  const { data: liveRows } = await admin
+    .from("listings")
+    .select("id, item_id, external_id, url, absent_streak")
+    .eq("user_id", userId)
+    .eq("channel", channel)
+    .eq("status", "live");
+
+  if (!liveRows?.length) return { vanished: 0 };
+
+  const result = detectVanished(
+    liveRows as LiveListing[],
+    rows.map((r) => r.external_id)
+  );
+
+  if (result.skipped) return { vanished: 0, vanishSkipped: result.skipped };
+
+  // Seen again — clear the streak. A listing that reappears was never gone,
+  // and leaving a stale streak behind would flag it on the next single miss.
+  const seenIds = result.seen.filter((l) => l.absent_streak > 0).map((l) => l.id);
+  if (seenIds.length) {
+    await admin.from("listings").update({ absent_streak: 0 }).in("id", seenIds);
+  }
+
+  // Missing, but not yet often enough to bother anyone about.
+  for (const { listing, misses } of result.pending) {
+    await admin.from("listings").update({ absent_streak: misses }).eq("id", listing.id);
+  }
+
+  for (const { listing, misses } of result.flag) {
+    await admin.from("listings").update({ absent_streak: misses }).eq("id", listing.id);
+    // One candidate per listing. Re-asking a question the seller already
+    // answered is how a useful prompt becomes an ignored one.
+    await admin.from("sale_candidates").upsert(
+      {
+        user_id: userId,
+        item_id: listing.item_id,
+        listing_id: listing.id,
+        channel,
+        misses,
+        detected_at: now,
+      },
+      { onConflict: "listing_id", ignoreDuplicates: true }
+    );
+  }
+
+  return { vanished: result.flag.length };
 }
