@@ -36,7 +36,7 @@ Rules for whoever (or whatever) works this:
       tested). Without this, first-run asks a seller with 200 live listings to
       re-photograph their closet.
 
-- [ ] **Bulk create.** Multi-select on the drafts that already exist, then draft
+- [x] **Bulk create.** *(20 Aug — select on the inventory table, draft every channel at once.)* Multi-select on the drafts that already exist, then draft
       or fill them as a batch. Flock already has bulk price drops; this is the
       missing half.
 

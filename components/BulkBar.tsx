@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { bulkDropPrices } from "@/app/actions";
+import { bulkDraftListings, bulkDropPrices } from "@/app/actions";
 
 /**
  * Act on many garments at once.
@@ -28,6 +28,25 @@ export default function BulkBar({
   const router = useRouter();
 
   if (selected.length === 0) return null;
+
+  const draft = () => {
+    setNote(null);
+    start(async () => {
+      const outcome = await bulkDraftListings(selected);
+      if (!outcome.ok) {
+        setNote(outcome.error ?? "That did not work.");
+        return;
+      }
+      // Report the failures too. A silent "drafted 34" when 6 were skipped
+      // is how a seller finds out weeks later that six garments never had copy.
+      setNote(
+        outcome.failed > 0
+          ? `${outcome.drafted} drafted · ${outcome.failed} could not be`
+          : `${outcome.drafted} drafted on every channel`
+      );
+      router.refresh();
+    });
+  };
 
   const drop = () => {
     setNote(null);
@@ -67,6 +86,10 @@ export default function BulkBar({
 
       <button type="button" className="button button-sm" disabled={pending} onClick={drop}>
         {pending ? "Dropping…" : "Drop the price"}
+      </button>
+
+      <button type="button" className="pill" disabled={pending} onClick={draft}>
+        {pending ? "Drafting…" : "Draft listing copy"}
       </button>
 
       <button type="button" className="linkbtn" onClick={onClear}>

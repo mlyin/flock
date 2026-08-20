@@ -1488,3 +1488,49 @@ export async function adoptAllUnmatched(): Promise<{ ok: boolean; adopted: numbe
   revalidatePath("/");
   return { ok: true, adopted };
 }
+
+/**
+ * Draft listing copy for many garments at once.
+ *
+ * Bulk price drops already existed; this is the other half. A seller who has
+ * just adopted forty imported listings has forty garments with no channel copy,
+ * and doing them one page at a time is the reason "bulk" is table stakes across
+ * every competitor.
+ *
+ * Uses the templated generator, not the AI one: it is free, instant, and works
+ * without an API key. Rewriting any single garment with AI afterwards is still
+ * one button on its own page.
+ */
+export async function bulkDraftListings(
+  itemIds: string[]
+): Promise<{ ok: boolean; drafted: number; failed: number; error?: string }> {
+  if (itemIds.length === 0) return { ok: false, drafted: 0, failed: 0, error: "Nothing selected." };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, drafted: 0, failed: 0, error: "You're signed out." };
+
+  // Only touch garments that are actually the caller's. RLS would stop a write
+  // to someone else's row anyway, but failing loudly here beats reporting a
+  // count that quietly excluded them.
+  const { data: mine } = await supabase.from("items").select("id").in("id", itemIds);
+  const allowed = new Set((mine ?? []).map((r) => r.id as string));
+
+  let drafted = 0;
+  let failed = 0;
+
+  for (const itemId of itemIds) {
+    if (!allowed.has(itemId)) {
+      failed++;
+      continue;
+    }
+    const result = await createBasicListings(itemId);
+    if (result.ok) drafted++;
+    else failed++;
+  }
+
+  revalidatePath("/");
+  return { ok: true, drafted, failed };
+}
