@@ -1,0 +1,39 @@
+name: Claude PR review
+
+# Every PR gets a review pass before a human looks: correctness first, with
+# special attention to the two places a quiet bug costs real money — fee math
+# and anything touching another user's rows (RLS scoping, bearer routes).
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this PR's diff for Flock. Priorities, in order:
+            1. Money math — anything in lib/fees.ts or touching net/ask/fee
+               numbers. A wrong number prices a real garment.
+            2. Tenant isolation — queries through supabaseAdmin() must scope by
+               user_id explicitly; bearer-token routes (app/api/ext/*) have no
+               session for RLS to use.
+            3. The extension's fills-never-submits boundary — nothing may
+               auto-submit a marketplace form.
+            4. Honest labels — no feature described as working that isn't;
+               'soon' flags stay until the feature lands.
+            Report findings as inline comments. If the diff is clean, say so
+            in one sentence and stop.
+          claude_args: --allowedTools "Bash(npm test:*),Bash(npm run typecheck),Bash(npm run simulate)"

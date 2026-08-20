@@ -167,3 +167,34 @@ Known gaps, roughly in order of how much they'd hurt:
 - Sold-comps pricing, so the price band stops being judgement.
 - eBay via its real API once approved; Etsy and Shopify also have real APIs.
 - Poshmark, and readers for the other channels' messages.
+
+## Agents, tests, CI — how work gets done here
+
+**Tests** (`npm test`): property sweeps for money math (lib/fees.test.ts — dense
+grids across tier boundaries, because hand-picked examples never land on the
+edges), real-fixture cases for parsers (lib/reconcile.test.ts pins an actual
+Depop slug). Tests run without DB or network; if logic is tangled with Supabase,
+extract the pure core first. The fees round-trip sweep found a real solver bug
+(Vestiaire's floor/cap needed breakpoints) on its first run — keep it green.
+
+**Simulator** (`npm run simulate`): 400 synthetic garments through askPlan on
+every channel, deterministic (--seed), exit 1 on any violated invariant. `--json`
+for machine consumption. This is what "run the simulations" means.
+
+**CI** (.github/workflows/ci.yml): typecheck → tests → simulator → build, every
+push and PR.
+
+**GitHub agents** (need the `ANTHROPIC_API_KEY` repo secret):
+- Mention `@claude` in an issue → an agent does the task and opens a PR
+  (claude.yml; owner/member comments only).
+- Every PR gets an automatic review pass prioritising money math, tenant
+  isolation, and the fills-never-submits boundary (claude-review.yml).
+
+**Project subagents** (.claude/agents/): `selector-medic` (filler repair —
+never guess a selector), `fee-auditor` (verify rates against official pages
+only), `test-writer`, `simulator`. Dispatch these rather than re-deriving
+their disciplines.
+
+**VPS** (Dockerfile + docker-compose.yml + deploy-vps.yml): image builds on
+every main push to GHCR; the deploy job stays dormant until the `VPS_ENABLED`
+repo variable is `true` and the SSH secrets exist. Vercel remains primary.

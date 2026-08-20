@@ -465,6 +465,16 @@ export function askForNet(
     if (rule.type === "tiered" || rule.type === "tiered_percent") {
       breaks.add(rule.threshold);
     }
+    if (rule.type === "percent") {
+      // A floor or cap turns a percentage into three pieces: flat at the
+      // minimum, the percentage itself, flat at the maximum. Vestiaire is the
+      // live case — 12% floored at $10 and capped at $2,000 — and without
+      // these cuts the solver interpolates one line across all three pieces
+      // and lands a $14 answer at $2,000. Found by the round-trip sweep.
+      const offset = rule.basis === "item_plus_shipping" ? shippingCollected : 0;
+      if (typeof rule.min === "number") breaks.add(rule.min / rule.rate - offset);
+      if (typeof rule.max === "number") breaks.add(rule.max / rule.rate - offset);
+    }
     if (rule.type === "flat_tiered") {
       // This threshold is measured on item + shipping, so it bites at a lower ask.
       breaks.add(rule.threshold - shippingCollected);

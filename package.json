@@ -10,7 +10,9 @@
     "start": "next start -p 3737",
     "migrate": "node scripts/migrate.mjs",
     "pack:ext": "node scripts/pack-extension.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "simulate": "node scripts/simulate.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -1,0 +1,40 @@
+name: Claude agent
+
+# Mention @claude in any issue or PR comment and an agent picks it up: reads
+# the repo, does the task on a branch, opens or updates a PR. This is the
+# "fix bugs and do tasks" loop — file an issue describing the bug, mention
+# @claude, review the PR it opens.
+#
+# Requires the ANTHROPIC_API_KEY repo secret (Settings → Secrets → Actions).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+jobs:
+  claude:
+    # Only the repo owner can summon the agent — a drive-by commenter must not
+    # be able to spend the API key or steer code onto main.
+    if: |
+      (contains(github.event.comment.body, '@claude') || contains(github.event.issue.body, '@claude')) &&
+      (github.event.comment.author_association == 'OWNER' || github.event.issue.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' || github.event.issue.author_association == 'MEMBER')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --allowedTools "Bash(npm install),Bash(npm test:*),Bash(npm run typecheck),Bash(npm run simulate),Bash(npm run build)"
