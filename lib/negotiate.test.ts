@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_POLICY, judgeOffer } from "./negotiate";
 import { scoreOffer, type MessageRow, type ScoredOffer } from "./offers";
-import { CHANNELS, askForNet, projectedNet } from "./fees";
+import { CHANNELS, askForNet, projectedNet, type Channel } from "./fees";
 
 /**
  * judgeOffer's whole thesis is "inspectable arithmetic" — the seller reads the
@@ -15,7 +15,12 @@ import { CHANNELS, askForNet, projectedNet } from "./fees";
 
 const offerOf = (
   amount: number,
-  { floor = 60, ask = 90, cost = 12, channel = "depop" as const } = {}
+  {
+    floor = 60,
+    ask = 90,
+    cost = 12,
+    channel = "depop",
+  }: { floor?: number | null; ask?: number | null; cost?: number | null; channel?: Channel } = {}
 ): ScoredOffer =>
   scoreOffer({
     id: "m1", channel, sender: "b", body: null, kind: "offer", direction: "incoming",
@@ -29,7 +34,7 @@ const offerOf = (
 
 describe("judgeOffer", () => {
   it("asks for a floor rather than inventing one", () => {
-    const v = judgeOffer(offerOf(50, { floor: null as unknown as number }));
+    const v = judgeOffer(offerOf(50, { floor: null }));
     expect(v.move).toBe("ask");
     expect(v.counterAt).toBeNull();
   });
