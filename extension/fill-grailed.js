@@ -181,18 +181,41 @@ function triggerMatching(pattern) {
   );
 }
 
-/** Open a Radix dropdown and choose the first item matching any candidate. */
+/**
+ * Open a Radix dropdown and choose an option.
+ *
+ * EXACT BY DEFAULT, and the default is the whole point.
+ *
+ * This used to test `text === candidate || text.includes(candidate)` in a
+ * single pass, so the first option in DOM order that merely CONTAINED the
+ * candidate beat a later exact match. Grailed's menus are ordered
+ * smallest-first and gentlest-first, which turns that into two live bugs:
+ *
+ *   size "S"     -> "xs".includes("s") -> XS, one size too small, and reported
+ *                   as filled so nothing said otherwise.
+ *   condition
+ *   "Used"       -> "gently used".includes("used") -> a garment recorded as
+ *                   good with light wear published as better than it is.
+ *
+ * Both are the Aloye rule again: if a buyer can see the field, match it
+ * exactly or leave it. There is no loose mode and no accept-first fallback,
+ * because every dropdown on this form is buyer-visible — department, category,
+ * sub-category, size, condition. CLAUDE.md records "Tops" substring-matching
+ * "Crop Tops" here and filing a pullover under it.
+ *
+ * Pass several candidates when the garment's own word might be spelled more
+ * than one way; each is tried exactly, in order.
+ */
 async function chooseFrom(trigger, candidates) {
   if (!trigger || trigger.disabled) return null;
 
   pointerClick(trigger);
   await wait(600);
 
-  for (const candidate of candidates) {
-    const item = menuItems().find((el) => {
-      const text = el.textContent.trim().toLowerCase();
-      return text === candidate.toLowerCase() || text.includes(candidate.toLowerCase());
-    });
+  const wanted = candidates.filter(Boolean).map((c) => String(c).trim().toLowerCase());
+
+  for (const candidate of wanted) {
+    const item = menuItems().find((el) => el.textContent.trim().toLowerCase() === candidate);
     if (item) {
       pointerClick(item);
       await wait(900);
@@ -336,19 +359,42 @@ async function setGrailedCascade(item) {
   else result.missing.push("sub-category (pick it by hand)");
 
   if (item.size) {
-    const size = await chooseFrom(triggerMatching(/select size/i), [item.size, String(item.size).toUpperCase()]);
-    if (size) result.filled.push("size");
-    else result.missing.push(`size (no "${item.size}" option)`);
+    // Exact only, and the chosen label is reported rather than the word
+    // "size": a substring match used to turn S into XS and say "size" either
+    // way, so a garment went out one size too small with nothing to notice.
+    const size = await chooseFrom(triggerMatching(/select size/i), [
+      item.size,
+      String(item.size).toUpperCase(),
+    ]);
+    if (size) result.filled.push(`size (${size})`);
+    else result.missing.push(`size — no exact "${item.size}" option`);
   }
 
-  const conditionLabel = {
-    new_with_tags: "New with tags", new_without_tags: "New without tags",
-    excellent: "Gently used", good: "Used", fair: "Very worn", poor: "Very worn",
-  }[item.condition];
+  // Keyed on the item_condition enum, which is exactly nwt | excellent | good
+  // | fair (migration 0001, lib/inference.ts). This map was keyed on
+  // new_with_tags / new_without_tags / poor — values the column cannot hold —
+  // so a brand-new-with-tags garment produced `undefined`, skipped the whole
+  // block, and was never reported as missing either. Grailed then published it
+  // under whatever condition it defaults to, and nothing anywhere said so.
+  const CONDITION = {
+    nwt: "New with tags",
+    excellent: "Gently used",
+    good: "Used",
+    fair: "Very worn",
+  };
+
+  const conditionLabel = CONDITION[item.condition];
   if (conditionLabel) {
+    // Exact only. "Used" is a substring of "Gently used", which sits above it
+    // in Grailed's menu, so a loose match publishes a worn garment as gently
+    // used — better than it is, on a listing the seller answers for.
     const cond = await chooseFrom(triggerMatching(/item condition/i), [conditionLabel]);
-    if (cond) result.filled.push("condition");
-    else result.missing.push("condition");
+    if (cond) result.filled.push(`condition (${cond})`);
+    else result.missing.push(`condition — no "${conditionLabel}" option`);
+  } else {
+    result.missing.push(
+      item.condition ? `condition — no Grailed equivalent of "${item.condition}"` : "condition"
+    );
   }
 
   return result;

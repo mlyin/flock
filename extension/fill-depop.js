@@ -679,7 +679,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (item.brand && (await combo(FIELD.brand, item.brand, { exact: true }))) filled.push("brand");
     else if (item.brand) missing.push(`brand (no exact match for "${item.brand}" — set it by hand)`);
 
-    if (item.color && (await combo(FIELD.colour, item.color))) filled.push("colour");
+    // Exact, and never accept-first. combo()'s defaults are exact:false,
+    // acceptFirst:true, so after exact, startsWith and includes all missed on a
+    // compound colour — "Ivory/Cream", "Off-white", "Multi" — it clicked
+    // whatever happened to be first in Depop's list. Colour is on the listing
+    // card a buyer scrolls past, so the failure is a black jacket advertised as
+    // beige, and the fill reported "colour" either way.
+    if (item.color) {
+      if (await combo(FIELD.colour, item.color, { exact: true, acceptFirst: false })) {
+        filled.push(`colour (${item.color})`);
+      } else {
+        missing.push(`colour — no exact "${item.color}" in Depop's list`);
+      }
+    }
 
     // Optional attributes, best-effort. Exact match only: these are buyer-facing
     // facets and a wrong one is a listing that describes the wrong thing. Silent

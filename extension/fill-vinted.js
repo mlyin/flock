@@ -476,13 +476,30 @@ async function setCategory(listing) {
     });
     if (eligible.length === 0) continue;
 
-    // Prefer a leaf whose own name contains the query over a distant cousin.
+    // Prefer an exact leaf, then one that contains the query. Anything below
+    // that is NOT a match and must not be chosen.
+    //
+    // This used to score 2 or 1 and click `scored[0]` unconditionally, so a
+    // row that matched nothing about the garment was still selected — a
+    // take-the-first fallback on Vinted's category, which is the field that
+    // decides which brand, size and condition options exist at all. Searching
+    // "bag" for a Coach tote returned "Bag charms" first, and every later
+    // field was then filled against the wrong menu.
+    //
+    // Better to leave the category empty and say so. A blank field is a form
+    // the seller finishes; a wrong one is a listing describing something they
+    // do not own.
     const scored = eligible
       .map((r) => {
-        const leaf = r.text.split(" / ")[0].toLowerCase();
-        return { r, score: leaf.includes(query) ? 2 : 1 };
+        const leaf = r.text.split(" / ")[0].toLowerCase().trim();
+        const score = leaf === query ? 3 : leaf.includes(query) ? 2 : 0;
+        return { r, score };
       })
+      .filter((s) => s.score > 0)
       .sort((a, b) => b.score - a.score);
+
+    // Nothing on this query genuinely names the garment; try the next one.
+    if (scored.length === 0) continue;
 
     const chosen = scored[0].r;
     const target = chosen.el.querySelector('[role="button"]') || chosen.el;

@@ -385,12 +385,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // not be empty" with the field present and untouched.
     const categoryChosen =
       Boolean(category) ||
-      // s>s, not s>s. The literal letter s around the chevron can never
-      // match "Men > Tops > T-shirts", so the remembered-category path this
-      // whole block exists to handle always evaluated false — the exact
-      // failure the comment above describes, still live underneath the fix
-      // for it.
-      /s>s/.test(document.querySelector(FIELD.category)?.textContent ?? "");
+      // A chevron with whitespace either side, which is how Mercari renders a
+      // category path: "Men > Tops > T-shirts". This has twice been written as
+      // /s>s/ — the literal letter s around the chevron, which cannot match
+      // anything — so the remembered-category path that this whole block
+      // exists to handle silently evaluated false and size was skipped exactly
+      // when the fallback was meant to save it.
+      /\s>\s/.test(document.querySelector(FIELD.category)?.textContent ?? "");
 
     if (categoryChosen) {
       // It renders after the category is committed; give it a moment to mount.
