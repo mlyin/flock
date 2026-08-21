@@ -730,6 +730,25 @@ Baby & kids, Toys & Games, Electronics & computers, Mobile phones, Bicycles,
 Arts & Crafts, Sports & Outdoors, Auto parts, Musical Instruments, Antiques &
 Collectibles, Garage Sale, Miscellaneous, Vehicles.
 
+### TWO WIDGET SHAPES, and they look identical to a seller
+
+```
+Category            [role="dialog"]   of  div[role="button"]
+Condition, Color    [role="listbox"]  of  [role="option"]
+```
+
+Querying only the dialog shape makes Condition and Color report "menu didn't
+open" while the menu is in fact open — `aria-expanded` is already true, the
+query is just looking in the wrong container. The filler then presses Escape
+and moves on, so both fields are silently never filled and the banner blames
+the page. Query both.
+
+**Verified end to end against the live form on 21 Aug 2026**: all eight fields
+— Title, Price, Category, Condition, Description, Color, Material, SKU — fill
+and stick. Price comes back rendered as "$35", which is Facebook's own handler
+reformatting it, and is how you know the input event was actually processed
+rather than the DOM property being set behind React's back.
+
 ### Condition — exactly four
 
 ```

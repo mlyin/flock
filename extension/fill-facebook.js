@@ -69,9 +69,18 @@ function setField(name, value) {
 /**
  * Open one of Facebook's comboboxes and click the exactly-matching option.
  *
- * The menu renders as a role="dialog" of role="button" rows rather than a
- * listbox of options, so there is nothing semantic to query — the rows are
- * found by their text, which is exactly why the match has to be strict.
+ * THERE ARE TWO WIDGET SHAPES ON THIS ONE FORM, and they look identical to a
+ * seller:
+ *
+ *   Category            [role="dialog"]  of  div[role="button"]
+ *   Condition, Color    [role="listbox"] of  [role="option"]
+ *
+ * Written against the dialog shape alone, this reported "menu didn't open" for
+ * Condition and Color while the menu was in fact open — `aria-expanded` was
+ * already true, the query was just looking in the wrong container. It then
+ * pressed Escape and moved on, so the two fields were silently never filled
+ * and the banner blamed the page. Caught by running the real helpers against
+ * the live form before shipping.
  */
 async function pickExact(fieldName, wanted) {
   if (!wanted) return { ok: false, reason: "nothing to set" };
@@ -82,8 +91,10 @@ async function pickExact(fieldName, wanted) {
   combo.click();
   await wait(900);
 
-  const dialog = document.querySelector('[role="dialog"]');
-  const rows = [...(dialog?.querySelectorAll('div[role="button"]') ?? [])];
+  const container = document.querySelector('[role="dialog"], [role="listbox"]');
+  const rows = [
+    ...(container?.querySelectorAll('div[role="button"], [role="option"]') ?? []),
+  ];
   if (rows.length === 0) return { ok: false, reason: `menu didn't open for ${fieldName}` };
 
   const want = String(wanted).trim().toLowerCase();
