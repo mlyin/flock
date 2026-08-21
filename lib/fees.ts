@@ -111,14 +111,25 @@ export const CHANNEL_ACCESS: Record<Channel, "api" | "extension" | "manual"> = {
  * Channels a filler actually exists for, today.
  *
  * Separate from CHANNEL_ACCESS on purpose. Access says how a channel COULD
- * be written to; this says what is built. Facebook Marketplace is an
- * extension channel with no fill-facebook.js behind it, so offering a Fill
- * button there is a button whose only possible outcome is an error — the
- * same mistake The RealReal already taught us.
+ * be written to; this says what is built. A channel listed here with no filler
+ * behind it is a Fill button whose only possible outcome is an error — the
+ * mistake The RealReal already taught us.
  *
  * Add a channel here the moment its filler lands, and not before.
+ * Facebook joined 21 Aug 2026, after its form was read off the live page.
+ *
+ * Still absent, all for the same reason — nobody has read their form signed in:
+ * Poshmark, Vestiaire, StockX.
  */
-export const FILLABLE: Channel[] = ["depop", "mercari", "vinted", "grailed", "therealreal", "ebay"];
+export const FILLABLE: Channel[] = [
+  "depop",
+  "mercari",
+  "vinted",
+  "grailed",
+  "therealreal",
+  "ebay",
+  "facebook",
+];
 
 export const canFill = (channel: Channel) => FILLABLE.includes(channel);
 

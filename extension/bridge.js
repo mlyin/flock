@@ -100,6 +100,28 @@ window.addEventListener("message", (event) => {
     return;
   }
 
+  // Read completed eBay sales for one garment. The URL is built by the page
+  // (lib/comps.ts) and re-checked in background.js before any tab is opened —
+  // a page must not be able to name an arbitrary URL for the extension to load.
+  if (data.type === "comps" && typeof data.url === "string") {
+    chrome.runtime.sendMessage({ type: "comps", url: data.url }, (result) => {
+      window.postMessage(
+        {
+          source: "threader-extension",
+          type: "comps-read",
+          ok: Boolean(result?.ok),
+          error: result?.error ?? null,
+          comps: result?.data?.comps ?? [],
+          skipped: result?.data?.skipped ?? null,
+          reportedTotal: result?.data?.reportedTotal ?? null,
+          noResults: Boolean(result?.data?.noResults),
+        },
+        window.location.origin
+      );
+    });
+    return;
+  }
+
   if (data.type === "fill" && typeof data.listingId === "string") {
     chrome.runtime.sendMessage({ type: "fill", listingId: data.listingId }, (result) => {
       window.postMessage(

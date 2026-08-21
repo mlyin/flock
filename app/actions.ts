@@ -10,6 +10,7 @@ import { standing } from "@/lib/plan";
 import { CHANNEL_LABEL, type Channel } from "@/lib/fees";
 import { transition, type Custody } from "@/lib/custody";
 import { applyDefaults, parseDefaults } from "@/lib/defaults";
+import { priceFromComps, summarise, trustworthy, type CompStats } from "@/lib/comps";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
   if (photoIds.length === 0) return { ok: false, error: "Select at least one photo." };
@@ -1672,4 +1673,101 @@ export async function setCustody(
   revalidatePath(`/items/${itemId}`);
   revalidatePath("/");
   return { ok: true };
+}
+
+/**
+ * Store a comp read against a garment.
+ *
+ * The reading happens in the extension, because eBay's search page is not
+ * something a server can fetch reliably — a datacentre IP gets a challenge
+ * page. The summarising happens here, so the numbers a seller sees come from
+ * one tested function rather than from whatever the client felt like sending.
+ * The client hands over prices; it does not get to hand over a median.
+ */
+export async function saveComps(
+  itemId: string,
+  input: { prices: number[]; query: string; reportedTotal?: string | null }
+): Promise<{ ok: boolean; error?: string; stats?: CompStats }> {
+  const supabase = await supabaseServer();
+
+  const stats = summarise(input.prices);
+  if (!stats) return { ok: false, error: "No usable sold prices came back." };
+
+  if (!trustworthy(stats)) {
+    // Recorded anyway — "we looked and found four" is worth knowing, and
+    // knowing it stops the seller running the same fruitless search tomorrow.
+    // The UI reads n and decides whether to show a number.
+    await supabase
+      .from("items")
+      .update({
+        comps: { ...stats, query: input.query, reportedTotal: input.reportedTotal ?? null },
+        comps_at: new Date().toISOString(),
+      })
+      .eq("id", itemId);
+    revalidatePath(`/items/${itemId}`);
+    return {
+      ok: false,
+      error: `Only ${stats.n} completed ${stats.n === 1 ? "sale" : "sales"} — not enough to price from.`,
+      stats,
+    };
+  }
+
+  const { error } = await supabase
+    .from("items")
+    .update({
+      comps: { ...stats, query: input.query, reportedTotal: input.reportedTotal ?? null },
+      comps_at: new Date().toISOString(),
+    })
+    .eq("id", itemId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/items/${itemId}`);
+  revalidatePath("/");
+  return { ok: true, stats };
+}
+
+/**
+ * Take the comp median as the asking price.
+ *
+ * Separate from saveComps on purpose: reading the market and acting on it are
+ * two decisions, and a tool that silently repriced a garment the moment it
+ * learned something would be doing the seller's job without asking. Routes
+ * through the same listing update as every other price change, so live
+ * listings move too and the drift queue notices.
+ */
+export async function priceFromMarket(
+  itemId: string
+): Promise<{ ok: boolean; error?: string; price?: number }> {
+  const supabase = await supabaseServer();
+
+  const { data: item } = await supabase
+    .from("items")
+    .select("comps")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  const stats = (item?.comps ?? null) as (CompStats & { query?: string }) | null;
+  if (!stats || !trustworthy(stats)) {
+    return { ok: false, error: "No trustworthy comps for this garment yet." };
+  }
+
+  const price = priceFromComps(stats);
+
+  await supabase
+    .from("items")
+    .update({ list_price: price.suggested })
+    .eq("id", itemId);
+
+  // Draft AND live, same as every other price write. A price drop that only
+  // moves the dashboard is the bug this codebase already fixed once.
+  await supabase
+    .from("listings")
+    .update({ price: price.suggested })
+    .eq("item_id", itemId)
+    .in("status", ["draft", "live"]);
+
+  revalidatePath(`/items/${itemId}`);
+  revalidatePath("/");
+  return { ok: true, price: price.suggested };
 }

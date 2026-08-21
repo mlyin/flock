@@ -406,34 +406,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     await wait(700);
     const blocked = unfilledControls();
 
-    // Mercari now honours autoSubmit like every other channel, at the seller's
-    // explicit request. The reason it didn't is unchanged and worth keeping
-    // written down: this form carries invisible reCAPTCHA v3, which scores
-    // BEHAVIOUR rather than presenting a challenge. A person clicking List
-    // passes; a scripted click is the pattern being scored. If listings start
-    // getting held or the account gets friction, this is the first thing to
-    // turn off.
+    // What we could not fill, so the banner can name it.
+    // `message.autoSubmit` is READ AND IGNORED here, deliberately, and this is
+    // the one filler where that is true.
     //
-    // Same gates as everywhere else: nothing required left empty, and photos
-    // attached — a rejected submission clears the form.
-    const hasPhotos = filled.some((x) => /photo/.test(x));
-    const submitting = Boolean(message.autoSubmit) && blocked.length === 0 && hasPhotos;
-    if (Boolean(message.autoSubmit) && !hasPhotos) missing.push("not submitted — no photos attached");
-    if (!message.autoSubmit) missing.push("auto-submit off — turn it on in Flock's settings");
-    if (submitting) filled.push("submitting — the tab will land on the listing");
+    // This form carries g-recaptcha-response — invisible reCAPTCHA v3, which
+    // scores behaviour instead of showing a challenge. A person clicking List
+    // passes silently; a script clicking it is the exact pattern being scored,
+    // and the cost lands on the seller's real Mercari account rather than on
+    // us. The file header has said so since it was written, CLAUDE.md says so,
+    // and a click-List branch appeared here anyway — so it is spelled out at
+    // the site of the temptation rather than only at the top of the file.
+    if (message.autoSubmit) {
+      missing.push("Mercari is never submitted automatically — press List yourself");
+    } else {
+      missing.push("press List yourself once it looks right");
+    }
 
     banner(filled, missing, blocked);
     sendResponse({ filled, missing, blocked });
-
-    if (submitting) {
-      const list = [...document.querySelectorAll("button")].find(
-        (b) => b.offsetParent !== null && !b.disabled && /^list$/i.test(b.textContent.trim())
-      );
-      if (list) {
-        await wait(400);
-        list.click();
-      }
-    }
   })().catch((error) => {
     // A filler that dies without responding leaves the page stuck on
     // "Filling…" forever — the seller can't tell a crash from a slow form.

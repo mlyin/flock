@@ -13,9 +13,10 @@ const SELL_PAGE = {
   vinted: "https://www.vinted.com/items/new",
   grailed: "https://www.grailed.com/sell/new",
   poshmark: "https://poshmark.com/create-listing",
-  // Facebook refuses /marketplace/create/item directly and bounces to
-  // /marketplace/; its own "Create new listing" link points at /create/.
-  facebook: "https://www.facebook.com/marketplace/create/",
+  // Read live 21 Aug 2026: /marketplace/create/item loads the form directly
+  // when signed in. An earlier note here claimed it bounces to /marketplace/,
+  // which is no longer true and cost us an extra redirect on every fill.
+  facebook: "https://www.facebook.com/marketplace/create/item",
   // Not a listing form: the consignment packing list, reached via
   // Sell → Ship to Us → START. Landing here directly works when signed in.
   // eBay's listing form is four screens in. This is screen one; fill-ebay.js
@@ -42,6 +43,11 @@ const READY = {
   vinted: "#title",
   grailed: 'input[name="title"]',
   therealreal: "#category-dropdown-input",
+  // Facebook gives its fields no stable attribute at all — generated class
+  // names, React ids, no aria-label. The one durable thing is that each field
+  // sits in a <label> carrying its name, so "the form has mounted" means "a
+  // label saying Title exists". Nothing narrower would survive a redeploy.
+  facebook: "label",
   // The prelist's category dialog, not the listing form — see EBAY_FORM below.
   ebay: 'input[aria-label="Enter a category value"]',
 };
@@ -59,6 +65,7 @@ const FILLER = {
   grailed: "fill-grailed.js",
   therealreal: "fill-therealreal.js",
   ebay: "fill-ebay.js",
+  facebook: "fill-facebook.js",
 };
 
 const HOME = "https://www.sellonflock.com";
@@ -583,6 +590,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return;
       }
 
+      if (message.type === "comps") {
+        sendResponse({ ok: true, data: await readSoldComps(message.url) });
+        return;
+      }
+
       if (message.type === "posted") {
         sendResponse({
           ok: true,
@@ -687,7 +699,11 @@ async function syncDepopListings(username) {
     await whenLoaded(tab.id);
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["read-depop-listings.js"],
+      // money.js first: read-depop-listings.js calls parseMoney, and a content
+      // script that runs before its dependency throws a ReferenceError into a
+      // catch and reports an empty shop — which sale detection reads as
+      // "everything vanished".
+      files: ["money.js", "read-depop-listings.js"],
     });
 
     const result = await chrome.tabs.sendMessage(tab.id, { type: "depop-read-shop" });
@@ -708,6 +724,43 @@ async function syncDepopListings(username) {
       found: listings.length,
       matched: imported?.matched ?? 0,
       ambiguous: imported?.ambiguous ?? 0,
+    };
+  } finally {
+    await chrome.tabs.remove(tab.id).catch(() => {});
+  }
+}
+
+/**
+ * Open an eBay sold-listings search in a background tab and read it.
+ *
+ * The page is public, so unlike every other reader here this one does not act
+ * as the seller or depend on a session. It still runs in the extension rather
+ * than on the server for a plainer reason: a datacentre IP scraping eBay
+ * search gets a challenge page, and a person's browser asking for a page a
+ * person could ask for does not.
+ */
+async function readSoldComps(url) {
+  if (!url || !/^https:\/\/www\.ebay\.com\/sch\//.test(url)) {
+    // The URL arrives from the page over postMessage. Anything that is not an
+    // eBay search is not something to open in a tab on the seller's behalf.
+    throw new Error("Not an eBay search URL.");
+  }
+
+  const tab = await chrome.tabs.create({ url, active: false });
+
+  try {
+    await whenLoaded(tab.id);
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["read-ebay-sold.js"],
+    });
+
+    const result = await chrome.tabs.sendMessage(tab.id, { type: "ebay-read-sold" });
+    return {
+      comps: result?.comps ?? [],
+      skipped: result?.skipped ?? null,
+      reportedTotal: result?.reportedTotal ?? null,
+      noResults: Boolean(result?.noResults),
     };
   } finally {
     await chrome.tabs.remove(tab.id).catch(() => {});

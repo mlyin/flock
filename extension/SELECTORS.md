@@ -650,3 +650,110 @@ search-box-attributes.UK Shoe Size
 
 So match on the normalised suffix, not the literal name. Which aspects exist
 depends on the category, exactly like Depop's attributes.
+
+---
+
+## Facebook Marketplace
+
+Read off the live signed-in form at `https://www.facebook.com/marketplace/create/item`
+on **21 Aug 2026**.
+
+**Correction to an older note in `background.js`:** that URL does NOT bounce to
+`/marketplace/`. It loads the create form directly when signed in.
+
+### There are no stable attributes on this form
+
+Every text field looks like this:
+
+```html
+<label>
+  <span>Title</span>
+  <input type="text" id="_r_28_">   <!-- React's id, changes between renders -->
+</label>
+```
+
+No `name`, no `data-testid`, no `aria-label`, and the class names are generated
+(`x1i10hfl x1qjc9v5 ...`). The ids seen on the day were `_r_28_` (Title),
+`_r_2c_` (Price), `_r_2q_` (Description) — **do not use them**, they are a
+render counter.
+
+The one durable hook is the wrapper: **find the `<label>` whose first line of
+text is the field name, then take the `input`/`textarea` inside it.**
+
+First line, because once a combobox has a value its label reads
+`"Category\nMen's clothing & shoes"` — matching whole text stops finding the
+field the moment it is filled.
+
+```
+label > input        Title, Price, Material, SKU
+label > textarea     Description
+label[role=combobox] Category, Condition, Color
+input[type=file][accept*="image"]   Photos — multiple, max 10
+input[type=file][accept="video/*"]  Video — NOT the photo input
+```
+
+### The cascade
+
+Before a category is chosen the form has only: Title, Price, Category,
+Condition, Description. Choosing one adds **Color** (combobox), **Material**
+(input) and **SKU** (input). Query them first and you get null.
+
+Notably there is **no Brand and no Size field** for clothing — those belong in
+the title and description.
+
+### Category — 26 options, and the badge trap
+
+The menu is a `[role="dialog"]` of `div[role="button"]` rows, not a listbox.
+Every shipping-eligible row renders as two lines:
+
+```
+Men's clothing & shoes
+Shipping available
+```
+
+So whole-text matching finds nothing, and a substring match on "clothing" hits
+both the men's and women's rows. **Match the first line, exactly.**
+
+The four that matter for a clothing closet:
+
+```
+Women's clothing & shoes
+Men's clothing & shoes
+Bags & Luggage
+Jewelry & Accessories
+```
+
+Full list, in menu order: Tools, Furniture, Household, Garden, Appliances,
+Video Games, Books Movies & Music, Bags & Luggage, Women's clothing & shoes,
+Men's clothing & shoes, Jewelry & Accessories, Health & beauty, Pet Supplies,
+Baby & kids, Toys & Games, Electronics & computers, Mobile phones, Bicycles,
+Arts & Crafts, Sports & Outdoors, Auto parts, Musical Instruments, Antiques &
+Collectibles, Garage Sale, Miscellaneous, Vehicles.
+
+### Condition — exactly four
+
+```
+New · Used - Like New · Used - Good · Used - Fair
+```
+
+No "New with tags" (that is just New) and nothing below Fair.
+
+### Color — exactly sixteen
+
+```
+Beige · Black · Blue · Brown · Clear · Gold · Gray · Green · Multi-Color
+Orange · Pink · Purple · Red · Silver · White · Yellow
+```
+
+No navy, no cream, no tan. `Gray`, not `Grey`.
+
+### Submitting
+
+The button on this screen is **"Next"**, not Publish — there is a second screen
+after it. There is also **"Save draft"**, which the filler must not press: a
+draft nobody asked for is state appearing in the seller's account on its own.
+
+`Escape` does close the combobox menus, but not instantly — allow ~500ms before
+touching the next field, or the open dialog swallows the click.
+
+Meta AI listing drafts default to **off**, so it does not overwrite our copy.

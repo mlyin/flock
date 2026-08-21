@@ -30,11 +30,22 @@ function readShop() {
     // Price is not on the anchor. It sits a couple of levels up, alongside the
     // card, so walk outward until something looks like money and stop early —
     // going too far up reaches the whole grid and picks a neighbour's price.
+    //
+    // The separators matter. `\d+` stops at the comma, so "$1,250.00" matched
+    // "$1" and reported a price of 1 — and 1 is not obviously wrong anywhere
+    // downstream. It passes the `> 0` check in /api/ext/import, lands in
+    // market_price, and surfaces at the TOP of the price-drift queue (sorted by
+    // size of disagreement) as a one-click "Use $1.00" button that rewrites the
+    // item and every listing on it. read-depop-messages.js already had the
+    // right idiom next door: strip everything that isn't a digit or a point.
     let price = null;
     let node = anchor.parentElement;
     for (let depth = 0; depth < 4 && node && price === null; depth++) {
-      const match = (node.innerText || "").match(/[$£€]\s?(\d+(?:\.\d{2})?)/);
-      if (match) price = Number(match[1]);
+      const match = (node.innerText || "").match(/[$£€]\s?([\d.,]+)/);
+      if (match) {
+        const parsed = parseMoney(match[1]);
+        if (parsed !== null) price = parsed;
+      }
       node = node.parentElement;
     }
 

@@ -57,7 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: already } = await admin
     .from("listings")
-    .select("status")
+    .select("status, item_id")
     .eq("id", id)
     .eq("user_id", userId)
     .maybeSingle();
@@ -78,13 +78,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle();
 
     if (plan?.active_listings != null) {
-      const { count } = await admin
+      // Distinct GARMENTS, not listing rows.
+      //
+      // lib/plan.ts counts `new Set(...map(l => l.item_id)).size` and says
+      // why: one garment on three marketplaces is one against the cap, because
+      // charging three times for one garment punishes the exact behaviour a
+      // cross-lister exists to encourage. This route counted rows, so a Lamb
+      // seller with three garments each live on Depop, Vinted and Grailed was
+      // refused at nine — with a message quoting a limit of five they had not
+      // reached. The cap has to mean the same thing on both sides or the
+      // extension and the dashboard disagree about whether the seller is full.
+      const { data: live } = await admin
         .from("listings")
-        .select("id", { count: "exact", head: true })
+        .select("item_id")
         .eq("user_id", userId)
         .eq("status", "live");
 
-      if ((count ?? 0) >= plan.active_listings) {
+      const garments = new Set((live ?? []).map((l) => l.item_id));
+      // A garment already live somewhere spends no new slot by going live on
+      // one more channel — same rule as roomForOneMore.
+      const count = garments.has(already?.item_id ?? null) ? garments.size - 1 : garments.size;
+
+      if (count >= plan.active_listings) {
         // 409, not 403: nothing is wrong with the request or the token — the
         // account simply has no room, and the extension shows this text.
         return json(
@@ -112,14 +127,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error) return json({ error: error.message }, 500);
 
   // Anything with a live listing is no longer a draft garment.
-  const { data: listing } = await supabaseAdmin()
+  //
+  // BOTH queries scope by user_id, and the read is why. supabaseAdmin()
+  // bypasses row-level security, so this route is responsible for its own
+  // tenant scoping — and the read above was not scoped. The UPDATE on
+  // `listings` was, so it correctly affected zero rows for someone else's
+  // listing id; then this read resolved that id to its owner's item_id anyway
+  // and the items UPDATE flipped a stranger's garment to "listed". Any valid
+  // extension token plus a guessed listing uuid was enough, and the route
+  // still answered { ok: true }.
+  const { data: listing } = await admin
     .from("listings")
     .select("item_id")
     .eq("id", id)
-    .single();
+    .eq("user_id", userId)
+    .maybeSingle();
 
   if (listing) {
-    await supabaseAdmin().from("items").update({ status: "listed" }).eq("id", listing.item_id);
+    await admin
+      .from("items")
+      .update({ status: "listed" })
+      .eq("id", listing.item_id)
+      .eq("user_id", userId);
   }
 
   return json({ ok: true });
