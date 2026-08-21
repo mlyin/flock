@@ -27,6 +27,18 @@ until you restart dev.
 
 ## Load-bearing decisions
 
+**RLS is ROW level, and that is not a pedantic distinction.** It decides which
+rows a role may touch, never which columns. `channel_accounts` carried a comment
+claiming its tokens were "only ever read in full by the service role" while its
+policy was a plain `for all using (auth.uid() = user_id)` — so any signed-in
+seller, or anything running in their page, could select their own live
+marketplace `refresh_token` straight out of PostgREST. Their own token, so never
+a cross-tenant leak; worse in another direction, because that token acts on
+their real marketplace account with no second factor. Column-level `grant
+select (...)` is the mechanism RLS does not provide, and `anon` is revoked
+outright there. If a table holds a credential, check its GRANTS, not just its
+policy.
+
 **Row-level security does the tenant isolation, not application code.** Every table has
 RLS on with an `auth.uid() = user_id` policy, so you won't see `where user_id = ...` in
 `lib/data.ts`. That's deliberate: forgetting a filter returns nothing rather than leaking
@@ -169,8 +181,12 @@ for six channels, one-click fill from the inventory row, and a published Depop l
 
 Known gaps, roughly in order of how much they'd hurt:
 
-- `channel_accounts` stores OAuth tokens in plaintext, and has no code at all.
-  **Encrypt before anyone but the owner connects an account.**
+- `channel_accounts` still has no code — nothing writes a token yet. What it now
+  has is the machinery to do it safely: `lib/secrets.ts` (AES-256-GCM under
+  `CHANNEL_TOKEN_KEY`, held outside the database so a Postgres dump alone is not
+  enough to act as a seller), and column-level grants. **Any OAuth callback that
+  lands must call `encryptToken` — the column comments say so and nothing enforces
+  it.**
 - Pricing is an admitted model guess with no sold comps.
 - `items.custody` has schema and no reader or writer.
 - Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook.

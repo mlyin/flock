@@ -1,0 +1,16 @@
+-- Same table, the other role.
+--
+-- 0030 restricted `authenticated` and I checked the result, which is how this
+-- turned up: `anon` still held SELECT, INSERT and UPDATE on every column of
+-- channel_accounts, access_token and refresh_token included. Supabase grants
+-- both roles by default and expects row-level security to do the gating, and
+-- here RLS does hold -- auth.uid() is null for anon, so `auth.uid() = user_id`
+-- matches no row and the check clause rejects every insert.
+--
+-- So this was not exploitable. It was one layer deep. Every other table in the
+-- schema is fine on one layer; a table of live marketplace credentials should
+-- not be, because the cost of a single mistaken policy edit there is every
+-- connected seller's account rather than one page of inventory.
+--
+-- A signed-out client has no business with this table under any policy.
+revoke all on channel_accounts from anon;
