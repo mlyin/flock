@@ -212,6 +212,16 @@ Depop slug). Tests run without DB or network; if logic is tangled with Supabase,
 extract the pure core first. The fees round-trip sweep found a real solver bug
 (Vestiaire's floor/cap needed breakpoints) on its first run — keep it green.
 
+**Database audit** (`npm run audit:db`): impersonates the `authenticated` role
+with a forged `request.jwt.claims` — the exact context PostgREST builds for a
+signed-in request — and *performs* each operation inside a rolled-back
+transaction. It proves a seller can reach their own rows and nothing else:
+billing columns refuse writes, credentials refuse reads, another seller's
+inventory comes back empty. Catalog reads are not enough; that is how two holes
+survived, one of them a `revoke` that returned success without revoking
+anything. Needs `SUPABASE_DB_URL`, so it is not in CI — run it after any
+migration that touches a policy or a grant.
+
 **Simulator** (`npm run simulate`): 400 synthetic garments through askPlan on
 every channel, deterministic (--seed), exit 1 on any violated invariant. `--json`
 for machine consumption. This is what "run the simulations" means.

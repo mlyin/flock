@@ -10,6 +10,7 @@
     "start": "next start -p 3737",
     "migrate": "node scripts/migrate.mjs",
     "pack:ext": "node scripts/pack-extension.mjs",
+    "audit:db": "node scripts/audit-db.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "simulate": "node scripts/simulate.mjs"
