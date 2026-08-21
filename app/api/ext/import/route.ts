@@ -3,6 +3,7 @@ import { CHANNELS, type Channel } from "@/lib/fees";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
 import { matchListingToItem } from "@/lib/reconcile";
 import { detectVanished, type LiveListing } from "@/lib/vanished";
+import { notify } from "@/lib/push";
 
 export const dynamic = "force-dynamic";
 
@@ -242,21 +243,50 @@ async function checkVanished(
     await admin.from("listings").update({ absent_streak: misses }).eq("id", listing.id);
   }
 
+  let raised = 0;
+
   for (const { listing, misses } of result.flag) {
     await admin.from("listings").update({ absent_streak: misses }).eq("id", listing.id);
     // One candidate per listing. Re-asking a question the seller already
     // answered is how a useful prompt becomes an ignored one.
-    await admin.from("sale_candidates").upsert(
-      {
-        user_id: userId,
-        item_id: listing.item_id,
-        listing_id: listing.id,
-        channel,
-        misses,
-        detected_at: now,
-      },
-      { onConflict: "listing_id", ignoreDuplicates: true }
-    );
+    const { data: inserted } = await admin
+      .from("sale_candidates")
+      .upsert(
+        {
+          user_id: userId,
+          item_id: listing.item_id,
+          listing_id: listing.id,
+          channel,
+          misses,
+          detected_at: now,
+        },
+        { onConflict: "listing_id", ignoreDuplicates: true }
+      )
+      .select("id");
+
+    // ignoreDuplicates means an existing candidate returns no row. Counting
+    // only the new ones is what keeps the notification below from firing on
+    // every sync for a question the seller has already been asked.
+    if (inserted && inserted.length > 0) raised += 1;
+  }
+
+  // Worth a phone buzz. This is the one thing in the product that gets worse
+  // while you don't know about it: if it sold, the same garment is still for
+  // sale on three other channels, and a second buyer paying is a cancellation
+  // and a defect. Deliberately not sent for the pending misses — one look at
+  // an empty shop should not wake anybody.
+  if (raised > 0) {
+    await notify(userId, {
+      title: raised === 1 ? "Did something sell?" : `${raised} listings vanished`,
+      body:
+        raised === 1
+          ? `A listing is no longer showing in your ${channel} shop. If it sold, the other channels need to come down.`
+          : `${raised} listings stopped showing in your ${channel} shop. If they sold, other channels need to come down.`,
+      url: "/",
+      // One tag per channel, so a later sync replaces this rather than
+      // stacking a second identical question on the lock screen.
+      tag: `vanished-${channel}`,
+    });
   }
 
   return { vanished: result.flag.length };

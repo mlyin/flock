@@ -1042,6 +1042,16 @@ export async function recordSale(
       })),
       { onConflict: "listing_id" }
     );
+
+    // No push notification here, deliberately. Both callers of recordSale are
+    // things the seller clicks — the channel board and answering a sale
+    // question — so they are looking at the screen, and DelistQueue renders
+    // directly above. Buzzing their phone about a list already in front of
+    // them is how a notification channel stops being read.
+    //
+    // The useful version is a REMINDER: "you recorded this six hours ago and
+    // three listings are still up." That needs a scheduled job, which does not
+    // exist yet.
   }
 
   revalidatePath(`/items/${listing.item_id}`);
