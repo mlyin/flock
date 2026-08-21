@@ -115,6 +115,73 @@ export async function POST(request: Request) {
 type AdminClient = ReturnType<typeof supabaseAdmin>;
 
 /**
+ * Raise the question "did this sell?" against one listing.
+ *
+ * Shared by the two things that can suggest a sale: a listing that vanished
+ * from the shop, and one the scrape saw carrying a SOLD badge. Both are
+ * evidence, neither is proof, and neither may write a sale — recordSale is the
+ * only thing that does, because it also writes the fees and the delist queue.
+ *
+ * Returns true only when a NEW question was raised, so the caller can notify
+ * without re-notifying every sync.
+ */
+async function raiseSaleCandidate(
+  admin: AdminClient,
+  userId: string,
+  listing: { id: string; item_id: string },
+  channel: Channel,
+  misses: number,
+  now: string
+): Promise<boolean> {
+  // `unique (listing_id)` means there is at most one question per listing ever,
+  // so what happens to an existing row decides whether detection keeps working.
+  const { data: existing } = await admin
+    .from("sale_candidates")
+    .select("id, state")
+    .eq("listing_id", listing.id)
+    .maybeSingle();
+
+  if (existing) {
+    // Still unanswered — leave it alone. Re-asking a question already on screen
+    // is how a useful prompt becomes an ignored one.
+    if (existing.state === "open") return false;
+
+    // Answered before, and the evidence has come back. This used to be an
+    // `ignoreDuplicates` upsert, which meant a resolved row blocked every
+    // future question for that listing — so a seller who once answered "still
+    // up" turned sale detection off for that garment permanently, silently,
+    // and for the rest of its life. The listing most likely to sell is the one
+    // that already looked like it had.
+    //
+    // 'sold' is the exception: that garment is done, and re-asking about a sale
+    // already in the books would invite recording it twice.
+    if (existing.state === "sold") return false;
+
+    await admin
+      .from("sale_candidates")
+      .update({ state: "open", misses, detected_at: now, resolved_at: null })
+      .eq("id", existing.id);
+
+    return true;
+  }
+
+  const { data } = await admin
+    .from("sale_candidates")
+    .insert({
+      user_id: userId,
+      item_id: listing.item_id,
+      listing_id: listing.id,
+      channel,
+      misses,
+      detected_at: now,
+    })
+    .select("id");
+
+  return Boolean(data && data.length > 0);
+}
+
+
+/**
  * Attach scraped listings to the items they belong to.
  *
  * Deliberately conservative (see lib/reconcile.ts): a slug has to contain an
@@ -129,17 +196,18 @@ async function reconcile(
   rows: Array<{ external_id: string; url: string | null; status: string; price: number | null }>,
   now: string
 ) {
-  if (rows.length === 0) return { matched: 0, ambiguous: 0 };
+  if (rows.length === 0) return { matched: 0, ambiguous: 0, soldSeen: 0 };
 
   const { data: items } = await admin
     .from("items")
     .select("id, title, brand")
     .eq("user_id", userId);
 
-  if (!items?.length) return { matched: 0, ambiguous: 0 };
+  if (!items?.length) return { matched: 0, ambiguous: 0, soldSeen: 0 };
 
   let matched = 0;
   let ambiguous = 0;
+  let soldSeen = 0;
 
   for (const row of rows) {
     const result = matchListingToItem(row.external_id, items);
@@ -184,11 +252,41 @@ async function reconcile(
       patch.market_price = row.price;
       patch.market_price_at = now;
     }
-    if (row.status === "active" && listing.status !== "live") patch.status = "live";
-    if (row.status === "sold") patch.status = "sold";
+    // Status moves are deliberately one-directional and deliberately narrow.
+    //
+    // A shop read is a scrape, and the sold badge it keys off is unverified —
+    // read-depop-listings.js says so in its own comment. So it may promote a
+    // draft to live, and it may end a live listing. It may NOT do either of
+    // these, both of which it used to:
+    //
+    // 1. Resurrect a sold listing. The old condition was `listing.status !==
+    //    "live"`, which includes 'sold'. One missed SOLD badge and a garment
+    //    with a recorded sale, fees and a delist queue went back to 'live' and
+    //    the item back to 'listed' — inviting the seller to sell it twice.
+    //
+    // 2. Mark a listing sold. That looks helpful and is the worst of the two:
+    //    recordSale is the only writer of `sales`, `fees` and `delist_tasks`,
+    //    so a listing flipped to 'sold' here has no sale row, no fee
+    //    breakdown, no takedown queue for the other channels, and no way to
+    //    record the sale afterwards because the button that does it only shows
+    //    on a live listing. The money silently never enters the books.
+    //
+    // A scrape that thinks something sold raises a QUESTION instead —
+    // checkVanished below already owns that, and the seller answers it.
+    if (row.status === "active" && listing.status === "draft") patch.status = "live";
     if (row.status === "ended" && listing.status === "live") patch.status = "ended";
 
     await admin.from("listings").update(patch).eq("id", listing.id);
+
+    // A SOLD badge on a live listing is the strongest sale signal we get —
+    // stronger than the absence checkVanished works from — so it raises the
+    // same question rather than being thrown away. `misses: 0` distinguishes
+    // it: this listing did not go missing, it was seen and it said sold.
+    if (row.status === "sold" && listing.status === "live") {
+      if (await raiseSaleCandidate(admin, userId, { id: listing.id, item_id: result.itemId }, channel, 0, now)) {
+        soldSeen += 1;
+      }
+    }
 
     if (patch.url || patch.status) {
       matched++;
@@ -198,7 +296,7 @@ async function reconcile(
     }
   }
 
-  return { matched, ambiguous };
+  return { matched, ambiguous, soldSeen };
 }
 
 /**
@@ -248,26 +346,10 @@ async function checkVanished(
   for (const { listing, misses } of result.flag) {
     await admin.from("listings").update({ absent_streak: misses }).eq("id", listing.id);
     // One candidate per listing. Re-asking a question the seller already
-    // answered is how a useful prompt becomes an ignored one.
-    const { data: inserted } = await admin
-      .from("sale_candidates")
-      .upsert(
-        {
-          user_id: userId,
-          item_id: listing.item_id,
-          listing_id: listing.id,
-          channel,
-          misses,
-          detected_at: now,
-        },
-        { onConflict: "listing_id", ignoreDuplicates: true }
-      )
-      .select("id");
-
-    // ignoreDuplicates means an existing candidate returns no row. Counting
-    // only the new ones is what keeps the notification below from firing on
-    // every sync for a question the seller has already been asked.
-    if (inserted && inserted.length > 0) raised += 1;
+    // answered is how a useful prompt becomes an ignored one — and counting
+    // only genuinely new rows is what stops the notification below firing on
+    // every sync.
+    if (await raiseSaleCandidate(admin, userId, listing, channel, misses, now)) raised += 1;
   }
 
   // Worth a phone buzz. This is the one thing in the product that gets worse

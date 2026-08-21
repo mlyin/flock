@@ -8,7 +8,7 @@ import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 import { standing } from "@/lib/plan";
 import { CHANNEL_LABEL, type Channel } from "@/lib/fees";
-import { transition, type Custody } from "@/lib/custody";
+import { canList, transition, type Custody } from "@/lib/custody";
 import { applyDefaults, parseDefaults } from "@/lib/defaults";
 import { priceFromComps, summarise, trustworthy, type CompStats } from "@/lib/comps";
 
@@ -76,6 +76,110 @@ export async function deleteInboxPhoto(photoId: string) {
 }
 
 export type DraftOutcome = { ok: true } | { ok: false; error: string };
+
+type DraftRow = {
+  user_id: string;
+  item_id: string;
+  channel: Channel;
+  title: string | null;
+  description: string | null;
+  price?: number;
+  status?: "draft";
+  draft?: unknown;
+  drafted_by?: string;
+  drafted_at?: string;
+};
+
+/**
+ * Write generated copy without undoing anything the seller has already done.
+ *
+ * Both draft paths used to `upsert(..., { onConflict: "item_id,channel" })`
+ * with `status: "draft"` and a price in every row. That conflict target hits
+ * LIVE listings too, so re-drafting copy for a garment already published on
+ * Depop flipped it back to draft and replaced its price with a fresh guess.
+ * The channel chip stopped linking to the real listing, the delist queue no
+ * longer saw it as live, and the plan cap silently handed back a slot. All
+ * from a button labelled "Rewrite with AI".
+ *
+ * So the write splits by what already exists:
+ *
+ *   nothing        insert a draft
+ *   a draft        replace it wholesale, price included — nothing is at stake
+ *   anything else  update the COPY ONLY. status, price, url and posted_at are
+ *                  facts about the marketplace, and this function has no
+ *                  business touching them.
+ *
+ * It also refuses channels the garment cannot be listed on. Migration 0034
+ * rejects those at the database, which is correct but arrives as a Postgres
+ * exception that aborts the whole multi-row statement — so one consigned item
+ * lost its drafts on all nine channels rather than the one it was consigned to.
+ */
+async function writeDrafts(
+  supabase: Awaited<ReturnType<typeof supabaseServer>>,
+  itemId: string,
+  rows: DraftRow[]
+): Promise<{ error?: string; skipped: string[] }> {
+  const { data: item } = await supabase
+    .from("items")
+    .select("custody, consigned_to")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  const custody = {
+    custody: (item?.custody ?? "hand") as Custody,
+    consigned_to: (item?.consigned_to ?? null) as Channel | null,
+  };
+
+  const skipped: string[] = [];
+  const allowed = rows.filter((row) => {
+    const verdict = canList(custody, row.channel);
+    if (!verdict.allowed) skipped.push(`${CHANNEL_LABEL[row.channel]} — ${verdict.reason}`);
+    return verdict.allowed;
+  });
+
+  if (allowed.length === 0) return { skipped };
+
+  const { data: existing } = await supabase
+    .from("listings")
+    .select("id, channel, status")
+    .eq("item_id", itemId);
+
+  const byChannel = new Map((existing ?? []).map((l) => [l.channel as Channel, l]));
+
+  const fresh = allowed.filter((row) => {
+    const current = byChannel.get(row.channel);
+    return !current || current.status === "draft";
+  });
+
+  if (fresh.length > 0) {
+    const { error } = await supabase
+      .from("listings")
+      .upsert(fresh, { onConflict: "item_id,channel" });
+    if (error) return { error: error.message, skipped };
+  }
+
+  for (const row of allowed) {
+    const current = byChannel.get(row.channel);
+    if (!current || current.status === "draft") continue;
+
+    const { error } = await supabase
+      .from("listings")
+      .update({
+        title: row.title,
+        description: row.description,
+        draft: row.draft ?? null,
+        drafted_by: row.drafted_by ?? null,
+        drafted_at: row.drafted_at ?? new Date().toISOString(),
+      })
+      .eq("id", current.id);
+
+    if (error) return { error: error.message, skipped };
+  }
+
+  return { skipped };
+}
+
+
 
 /** Generate eBay, Depop, Vinted, and Grailed copy for a confirmed garment. */
 export async function prepareListings(itemId: string): Promise<DraftOutcome> {
@@ -180,12 +284,11 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
       },
     ];
 
-    // Re-drafting replaces the previous copy rather than stacking duplicates.
-    const { error: writeError } = await supabase
-      .from("listings")
-      .upsert(rows, { onConflict: "item_id,channel" });
-
-    if (writeError) return { ok: false, error: writeError.message };
+    // Re-drafting replaces the previous COPY. It must not touch status, price
+    // or url on a listing that is already live — see writeDrafts.
+    const { error: writeError, skipped } = await writeDrafts(supabase, itemId, rows);
+    if (writeError) return { ok: false, error: writeError };
+    if (skipped.length > 0) console.info("[flock] drafts skipped:", skipped.join("; "));
 
     revalidatePath(`/items/${itemId}`);
     return { ok: true };
@@ -419,11 +522,10 @@ export async function createBasicListings(itemId: string): Promise<DraftOutcome>
     drafted_at: new Date().toISOString(),
   }));
 
-  const { error: writeError } = await supabase
-    .from("listings")
-    .upsert(rows, { onConflict: "item_id,channel" });
+  const { error: writeError, skipped } = await writeDrafts(supabase, itemId, rows);
+  if (skipped.length > 0) console.info("[flock] drafts skipped:", skipped.join("; "));
 
-  if (writeError) return { ok: false, error: writeError.message };
+  if (writeError) return { ok: false, error: writeError };
 
   revalidatePath(`/items/${itemId}`);
   return { ok: true };
@@ -559,24 +661,42 @@ export async function unmarkListed(
   listingId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await supabaseServer();
+  // Never a sold listing. That row is what the sale, its fees and the delist
+  // queue all hang off; putting it back to draft would orphan a sale nothing
+  // points at any more. Use "this didn't actually sell" if a sale was recorded
+  // in error.
   const { data: listing, error } = await supabase
     .from("listings")
     .update({ status: "draft", posted_at: null })
     .eq("id", listingId)
+    .neq("status", "sold")
     .select("item_id")
     .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
-  if (!listing) return { ok: false, error: "Couldn't find that listing." };
+  if (!listing) {
+    return { ok: false, error: "That listing has a sale recorded against it, so it can't go back to draft." };
+  }
 
-  // Only drop the item back to draft if nothing else is still live.
-  const { data: live } = await supabase
+  // Only drop the item back to draft if nothing else is still live — AND the
+  // garment hasn't sold.
+  //
+  // A sale leaves the sold listing at 'sold' and the others live, each with a
+  // delist task. Taking the last of those down is the normal end of that
+  // queue, and it used to walk the garment from "sold" back to "draft": gone
+  // from the sold figures, back in the to-list count, and inviting the seller
+  // to relist something they have already posted to a buyer. The sale row
+  // stayed in the database the whole time, so the books and the status
+  // disagreed.
+  const { data: siblings } = await supabase
     .from("listings")
-    .select("id")
-    .eq("item_id", listing.item_id)
-    .eq("status", "live");
+    .select("id, status")
+    .eq("item_id", listing.item_id);
 
-  if (!live || live.length === 0) {
+  const stillLive = (siblings ?? []).some((l) => l.status === "live");
+  const hasSold = (siblings ?? []).some((l) => l.status === "sold");
+
+  if (!stillLive && !hasSold) {
     await supabase.from("items").update({ status: "draft" }).eq("id", listing.item_id);
   }
 
