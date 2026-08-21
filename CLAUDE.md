@@ -49,11 +49,29 @@ net-proceeds maths.
 **Money is `numeric(10,2)`, never float.** PostgREST can return numerics as strings, so
 `lib/data.ts` coerces with `num()`.
 
-**Fee rules are data, not code** — `lib/fees.ts`. Six channels were verified against
-official fee pages on 2026-08-19, with source URLs in each note. The headline
-correction: Depop removed its 10% US selling fee in July 2024, and Mercari charges
-sellers no payment processing — the old table showed Depop near-worst when it is
-near-best. Facebook and The RealReal remain unverified placeholders.
+**Fee rules are data, not code** — `lib/fees.ts`. All ten channels are now verified
+against the marketplace's own fee page, with the source URL and date in each note.
+Nothing else counts as a source: the five-band Vestiaire schedule that circulates on
+blogs is contradicted by Vestiaire's own page, and the 5%/$0.40 Facebook rate that
+still saturates search results belongs to a program Meta retired in 2025.
+
+The corrections that changed routing answers:
+
+- **Depop** removed its 10% US selling fee in July 2024, and **Mercari** charges
+  sellers no payment processing. The old table showed Depop near-worst when it is
+  near-best.
+- **Facebook** is 10%, not 5% — and the basis is item + shipping + *tax*, so a
+  commission is charged on money the seller never receives.
+- **The RealReal** is not a flat 45%. It is five category tables of price bands, and
+  the band is set by that item's own price: a $99 sale keeps 20%, a $100 sale keeps
+  30%. Clothing & More is what's modelled; handbags, watches, sneakers and branded
+  jewellery are all better and are not.
+- **StockX** raised US seller shipping from $4 to $5 on 1 March 2026, and Flex sales
+  pay 2 points more at every level (not modelled).
+
+`unverifiedChannels()` computes the honesty warning the UI shows. Don't hardcode that
+sentence — it sat on three pages saying "every rate is unverified" long after six of
+them had been checked.
 
 **Three prices, and they mean different things.** `cost_basis` is what you paid,
 `list_price` what you're asking, `floor_price` what you'd actually take. The floor is what
@@ -153,14 +171,15 @@ Known gaps, roughly in order of how much they'd hurt:
 
 - `channel_accounts` stores OAuth tokens in plaintext, and has no code at all.
   **Encrypt before anyone but the owner connects an account.**
-- **Live listings cannot be repriced** — both price-write paths filter to
-  `status = 'draft'`, so a price drop on something already live does nothing.
-- No bulk operations anywhere: no row selection in the inventory table, so a price
-  drop across 40 items is 40 visits.
 - Pricing is an admitted model guess with no sold comps.
-- `external_listings`, `channel_syncs` and `items.custody` all have schema and no
-  reader, no writer, or neither.
+- `items.custody` has schema and no reader or writer.
 - Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook.
+- No filler for Poshmark, Facebook, Vestiaire or StockX. Each needs its form read
+  off a live signed-in page first — see the selector rule above.
+
+Closed since this list was written: repricing live listings (all three price-write
+paths now cover `draft` and `live`), bulk operations (`BulkController`),
+`external_listings` and `channel_syncs` (both written by the import route).
 
 ## Where this is going
 

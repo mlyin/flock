@@ -1,4 +1,4 @@
-import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, FEE_RULES, computeFees, projectedNet } from "@/lib/fees";
+import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, FEE_RULES, computeFees, describeRule, projectedNet, unverifiedChannels } from "@/lib/fees";
 import ChannelIcon from "@/components/ChannelIcon";
 import { usd } from "@/lib/money";
 
@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 const PRICE_POINTS = [12, 25, 60, 150];
 
 export default async function FeesPage() {
+  const unverified = unverifiedChannels();
+
   return (
     <>
       <div className="sectionhead">
@@ -15,14 +17,29 @@ export default async function FeesPage() {
         <p>Stored as data, not code — edit lib/fees.ts and everything downstream re-computes.</p>
       </div>
 
-      <div className="notice">
-        <strong>Every rate here is unverified</strong>
-        <p>
-          These were written from public fee pages and will go stale. Check each channel&apos;s current
-          fee schedule and update <code>lib/fees.ts</code>, then set <code>verifiedOn</code> to the date
-          you checked. The dashboard&apos;s net figures are only as honest as this table.
-        </p>
-      </div>
+      {unverified.length > 0 ? (
+        <div className="notice notice-warn">
+          <strong>
+            {unverified.length} of {CHANNELS.length} rates {unverified.length === 1 ? "is" : "are"} unverified
+          </strong>
+          <p>
+            {unverified.map((c) => CHANNEL_LABEL[c]).join(", ")} —{" "}
+            {unverified.length === 1 ? "its rate was" : "their rates were"} written from memory, not from the
+            marketplace&apos;s own fee page. Every net figure for{" "}
+            {unverified.length === 1 ? "that channel" : "those channels"} is a guess. Check the official
+            schedule, update <code>lib/fees.ts</code>, and set <code>verifiedOn</code> to the date you checked.
+          </p>
+        </div>
+      ) : (
+        <div className="notice">
+          <strong>Every rate here was read off the marketplace&apos;s own fee page</strong>
+          <p>
+            Not a blog, not a comparison table — those are where confidently wrong numbers come from. Each
+            note carries its source URL and the date it was checked. Rates drift, so the dates matter as
+            much as the rates: the dashboard&apos;s net figures are only as honest as this table.
+          </p>
+        </div>
+      )}
 
       <div className="tablewrap">
         <table className="grid" style={{ minWidth: 720 }}>
@@ -54,18 +71,7 @@ export default async function FeesPage() {
                       <div className="cell-meta" style={{ fontSize: 11.5 }}>
                         {config.rules.map((rule) => (
                           <span key={rule.label}>
-                            {rule.label}:{" "}
-                            {rule.type === "percent"
-                              ? `${(rule.rate * 100).toFixed(2)}%`
-                              : rule.type === "flat"
-                                ? usd(rule.amount)
-                                : rule.type === "tiered"
-                                  ? `${usd(rule.below.amount)} under ${usd(rule.threshold)}, else ${(
-                                      rule.atOrAbove.rate * 100
-                                    ).toFixed(0)}%`
-                                  : rule.type === "tiered_percent"
-                                    ? `${(rule.below.rate * 100).toFixed(0)}%${rule.below.min ? ` (min ${usd(rule.below.min)})` : ""} under ${usd(rule.threshold)}, else ${(rule.atOrAbove.rate * 100).toFixed(0)}%`
-                                    : `${usd(rule.below.amount)} to ${usd(rule.threshold)}, else ${usd(rule.atOrAbove.amount)}`}
+                            {rule.label}: {describeRule(rule)}
                           </span>
                         ))}
                       </div>

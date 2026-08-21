@@ -50,10 +50,14 @@ Rules for whoever (or whatever) works this:
 
 ## Soon
 
-- [ ] Poshmark filler (agreed as MVP in the group chat, never started).
-- [ ] Verify the three `unverified` fee rates — `therealreal`, and the two others
-      `lib/fees.ts` still admits to. Every net figure rests on them.
-      Dispatch `.claude/agents/fee-auditor.md`.
+- [ ] Poshmark filler (agreed as MVP in the group chat, never started). BLOCKED
+      the same way Vinted is: the create-listing form needs a signed-in session to
+      read, and a filler written from guessed selectors is the mistake The RealReal
+      already taught us. Needs a DOM read before a line is written.
+- [x] Verify the three `unverified` fee rates — done 20 Aug. Facebook, StockX and
+      The RealReal, each read off the marketplace's own page and then put through
+      an adversarial pass that refuted all three researchers on detail. All ten
+      channels now carry a source URL and a date.
 - [x] Wire `markMessageRead` — done 20 Aug, plus the count itself was wrong:
       outgoing rows have no `read_at` either, so your own replies were unread.
 - [x] Repack the extension — 0.3.0 packed and published 20 Aug. `bridge.js` now

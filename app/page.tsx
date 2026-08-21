@@ -4,7 +4,7 @@ import { currentUser } from "@/lib/supabase/server";
 import ChannelActions from "@/components/ChannelActions";
 import Filters from "@/components/Filters";
 import ChannelViewToggle from "@/components/ChannelViewToggle";
-import { CHANNEL_LABEL } from "@/lib/fees";
+import { CHANNEL_LABEL, unverifiedChannels } from "@/lib/fees";
 import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
 import { bestProjection, getItems, openDelistTasks, priceDrift, shelfAge, signPhotos, summarize } from "@/lib/data";
@@ -82,6 +82,7 @@ export default async function Inventory({
   // Below the delist queue on purpose: a wrong price costs margin, a listing
   // that should be down costs a cancellation.
   const drifts = await priceDrift();
+  const unverifiedRates = unverifiedChannels();
 
   return (
     <>
@@ -153,8 +154,14 @@ export default async function Inventory({
           ))}
         </div>
         <p className="prose-fine">
-          Take rate is what the platform actually kept, not what it advertises. Every rate is
-          still unverified — see <Link href="/settings" className="link">Settings</Link>.
+          Take rate is what the platform actually kept, not what it advertises.{" "}
+          {unverifiedRates.length > 0 && (
+            <>
+              {unverifiedRates.length} of these {unverifiedRates.length === 1 ? "rate is" : "rates are"}{" "}
+              unverified —{" "}
+            </>
+          )}
+          see <Link href="/fees" className="link">the fee table</Link>.
         </p>
       </details>
 

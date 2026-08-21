@@ -5,8 +5,10 @@ import {
   askForNet,
   askPlan,
   computeFees,
+  describeRule,
   isConsignment,
   projectedNet,
+  unverifiedChannels,
 } from "./fees";
 
 /**
@@ -146,11 +148,112 @@ describe("askPlan", () => {
   });
 });
 
+/**
+ * The three schedules verified on 2026-08-20, pinned.
+ *
+ * Each of these was wrong in the table before that audit, and each was wrong
+ * in a way that produced a plausible number rather than an obvious error —
+ * which is exactly the kind that survives review and reaches a seller.
+ */
+describe("rates verified 2026-08-20", () => {
+  const feeOf = (channel: Parameters<typeof computeFees>[0], price: number, shipping = 0) =>
+    computeFees(channel, { soldPrice: price, shippingCollected: shipping }).reduce(
+      (sum, f) => sum + f.amount,
+      0
+    );
+
+  it("Facebook charges 10%, not the 5% the blogs still print", () => {
+    expect(feeOf("facebook", 100)).toBeCloseTo(10, 2);
+  });
+
+  it("Facebook's fee basis includes shipping the buyer paid", () => {
+    // The trap: shipping is usually money the seller never receives, yet it
+    // inflates the commission. 10% of the item alone would be $10.
+    expect(feeOf("facebook", 100, 8)).toBeCloseTo(10.8, 2);
+  });
+
+  it("Facebook's $0.80 floor binds below an $8 basis", () => {
+    expect(feeOf("facebook", 5)).toBeCloseTo(0.8, 2);
+    expect(feeOf("facebook", 8)).toBeCloseTo(0.8, 2);
+    // And stops binding the moment 10% clears it.
+    expect(feeOf("facebook", 20)).toBeCloseTo(2, 2);
+  });
+
+  it("StockX Level 1 is 12% plus $5 shipping", () => {
+    // 9% transaction + 3% processing, and the $5 US label — raised from $4 on
+    // 1 March 2026, which the previous table predated and did not carry at all.
+    expect(feeOf("stockx", 200)).toBeCloseTo(29, 2);
+  });
+
+  it("The RealReal steps hard at every band edge", () => {
+    // A dollar more on the sale price moves the consignor from 20% to 30% of
+    // it. Modelling this as one average rate is what the old flat 45% did.
+    const keeps = (price: number) => price - feeOf("therealreal", price);
+    expect(keeps(99)).toBeCloseTo(99 * 0.2, 2);
+    expect(keeps(100)).toBeCloseTo(100 * 0.3, 2);
+    expect(keeps(199)).toBeCloseTo(199 * 0.45, 2);
+    expect(keeps(200)).toBeCloseTo(200 * 0.55, 2);
+    expect(keeps(5000)).toBeCloseTo(5000 * 0.7, 2);
+  });
+
+  it("The RealReal's ladder never pays a consignor less for a higher sale", () => {
+    // Band edges are steps, so the payout curve jumps — but it must never dip.
+    // A schedule where selling for more nets less would be a real finding, and
+    // encoding one by mistake is easy with nine hand-typed bands.
+    let previous = -Infinity;
+    for (let price = 1; price <= 6000; price += 1) {
+      const keeps = price - feeOf("therealreal", price);
+      expect(keeps + 0.005).toBeGreaterThanOrEqual(previous);
+      previous = keeps;
+    }
+  });
+
+  it("the three formerly-unverified channels are no longer unverified", () => {
+    expect(unverifiedChannels()).toEqual([]);
+  });
+});
+
+describe("describeRule", () => {
+  it("describes every rule in the table without leaving a hole", () => {
+    // A new rule shape that this cannot render shows the seller a blank cell
+    // on the one page whose whole job is saying what a channel takes.
+    for (const channel of CHANNELS) {
+      for (const rule of FEE_RULES[channel].rules) {
+        const text = describeRule(rule);
+        expect(text, `${channel} / ${rule.label}`).toBeTruthy();
+        expect(text).not.toMatch(/undefined|NaN|\[object/);
+      }
+    }
+  });
+
+  it("shows the floors and caps the old nested ternary dropped", () => {
+    // Vestiaire's 12% is floored at $10 and capped at $2,000; those two numbers
+    // distort its take more than the rate does, and they were invisible.
+    const vestiaire = FEE_RULES.vestiaire.rules.map(describeRule).join(" ");
+    expect(vestiaire).toContain("min $10.00");
+    expect(vestiaire).toContain("max $2,000.00");
+  });
+});
+
 describe("fee table hygiene", () => {
   it("every channel's rules carry a verification date or an honest 'unverified'", () => {
     for (const channel of CHANNELS) {
       const v = FEE_RULES[channel].verifiedOn;
       expect(v === "unverified" || /^\d{4}-\d{2}-\d{2}$/.test(v), `${channel}: "${v}"`).toBe(true);
+    }
+  });
+
+  it("every banded rule starts at zero and ascends", () => {
+    // A ladder with a gap at the bottom silently charges the first band's rate
+    // to everything below it; one out of order makes a whole band unreachable.
+    for (const channel of CHANNELS) {
+      for (const rule of FEE_RULES[channel].rules) {
+        if (rule.type !== "bands") continue;
+        expect(rule.bands[0].from, channel).toBe(0);
+        for (let i = 1; i < rule.bands.length; i++) {
+          expect(rule.bands[i].from, `${channel} band ${i}`).toBeGreaterThan(rule.bands[i - 1].from);
+        }
+      }
     }
   });
 });

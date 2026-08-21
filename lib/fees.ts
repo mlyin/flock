@@ -166,6 +166,18 @@ type Rule =
       threshold: number;
       below: { amount: number };
       atOrAbove: { amount: number };
+    }
+  // The RealReal's shape: a whole ladder of price bands, each with its own
+  // rate, applied to the item's own price. Not two tiers with a threshold —
+  // nine bands, and the edges are hard steps, so a $99 sale and a $100 sale
+  // are ten points apart.
+  | {
+      kind: FeeKind;
+      label: string;
+      type: "bands";
+      basis: Basis;
+      /** Ascending by `from`. The first must be 0; the last has no upper edge. */
+      bands: Array<{ from: number; rate: number }>;
     };
 
 export type ChannelFees = {
@@ -270,29 +282,52 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
     rules: [],
   },
   facebook: {
-    verifiedOn: "unverified",
+    verifiedOn: "2026-08-20",
     note:
-      "Local pickup is free — cash changes hands and Meta isn't involved. The fee only applies to shipped orders, " +
-      "with a minimum on cheap items. Because the same listing can settle either way, a net figure here is a " +
-      "guess about how it sells, not a property of the channel. Modelled as shipped, the worse case.",
+      "10% per transaction with a $0.80 minimum, on item + shipping + TAX. The 5%/$0.40 figure that saturates " +
+      "blogs is dead twice over: it was the old Marketplace rate, and the Shops page it now redirects to retired " +
+      "onsite checkout in Sept 2025 — using it understates the fee by half. The basis is the trap here: shipping " +
+      "and sales tax are usually buyer-paid money the seller never receives, yet both inflate the commission, so " +
+      "10% of the item price alone is systematically too low. Local pickup is free — cash changes hands and Meta " +
+      "is not involved — so the same listing settles two ways and this models the worse one. The $0.80 floor is " +
+      "per TRANSACTION (goods shipped together count once) per the legal page; the help centre says per item, and " +
+      "on a multi-item sub-$8 shipment those differ. Not modelled: the $20 chargeback fee, and payouts held once " +
+      "sales pass an unstated limit without a tax ID. Whether the 10% is credited back on an ordinary refund is " +
+      "not documented on any official page. Source: facebook.com/legal/merchant_policies and " +
+      "facebook.com/help/376859780413203 (\"applied to the total cost, including tax and shipping\").",
     rules: [
-      { kind: "commission", label: "Selling fee (shipped orders)", type: "percent", rate: 0.05, basis: "item" },
+      {
+        kind: "commission",
+        label: "Selling fee (shipped orders)",
+        type: "percent",
+        rate: 0.1,
+        basis: "item_plus_shipping",
+        min: 0.8,
+      },
     ],
   },
   stockx: {
-    verifiedOn: "unverified",
+    verifiedOn: "2026-08-20",
     note:
       "CATALOG-MATCHED — you place an ask against a product already in StockX's catalog, keyed by style code; " +
-      "there is no listing to write. Fees are tiered by seller level and have changed repeatedly: modelled here " +
-      "as the entry level, roughly 9% transaction + 3% payment processing. Sneakers-first; apparel coverage is " +
-      "thinner, and an item not in the catalog cannot be sold at all. Verify against a real payout before " +
-      "trusting any net. A failed authentication also carries a penalty not modelled here. " +
+      "there is no listing to write. Modelled as Level 1, the level every new seller starts at: 9% transaction " +
+      "fee on the final sale price, plus 3% payment processing, plus $5 US seller shipping (raised from $4 on " +
+      "1 March 2026). Levels 2-5 pay 8.5/8/7.5/7% at 12 sales or $1,500 / 40 or $5,000 / 200 or $25,000 / 800 or " +
+      "$100,000 in a calendar quarter, held for that quarter and the next — so this OVERSTATES fees for a " +
+      "high-volume seller, which is the safe direction. Not modelled: Flex sales pay 2 points MORE at every level " +
+      "(Level 1 Flex = 11%) since 1 March 2026; the $15 flat penalty for shipping late, failing condition " +
+      "guidelines, or mismatching the listing; the Level 3-5 penalty for missing ship deadlines on 5%+ of orders; " +
+      "non-US shipping, which runs to EUR 35 and $48 in some regions against the $5 modelled here. StockX does " +
+      "not say whether the $5 regional minimum seller fee applies to the transaction fee alone or to both fees " +
+      "together — a genuine gap in their own documentation. " +
       "READ LIVE 19 Aug 2026: the ask flow is a URL, /sell/{slug}?defaultAsk=true, not a modal — but it " +
       "REDIRECTS to /selling/onboarding until the seller account has a payment method and verified identity, " +
-      "so the ask form itself has never been read and no filler exists. See extension/SELECTORS.md.",
+      "so the ask form itself has never been read and no filler exists. See extension/SELECTORS.md. " +
+      "Sources: stockx.com/help/en_US/sell/fees-and-payouts and stockx.com/news/updates-to-the-stockx-seller-program",
     rules: [
-      { kind: "commission", label: "Transaction fee", type: "percent", rate: 0.09, basis: "item" },
+      { kind: "commission", label: "Transaction fee (Level 1)", type: "percent", rate: 0.09, basis: "item" },
       { kind: "payment", label: "Payment processing", type: "percent", rate: 0.03, basis: "item" },
+      { kind: "shipping", label: "Seller shipping (US)", type: "flat", amount: 5 },
     ],
   },
   vestiaire: {
@@ -326,16 +361,40 @@ export const FEE_RULES: Record<Channel, ChannelFees> = {
     ],
   },
   therealreal: {
-    verifiedOn: "unverified",
+    verifiedOn: "2026-08-20",
     note:
-      "CONSIGNMENT — read this before trusting any number. The RealReal sets the sale price, not you, and pays a " +
-      "commission on whatever it eventually sells for. The rate is tiered by category and by your trailing annual " +
-      "sales, so a single percentage is a simplification of a table that moves. Fine jewellery and watches are on " +
-      "different terms again. The commission below is a placeholder standing in for the lowest ordinary tier: it " +
-      "will understate what a high-volume consignor earns and may overstate a first-timer's. Verify against a real " +
-      "payout statement before showing anyone a net.",
+      "CONSIGNMENT — The RealReal sets the sale price, not you, and pays a commission on whatever it eventually " +
+      "sells for. There is no single rate: five category tables of price bands, and the band is set by THAT " +
+      "item's own net selling price, not a blended account rate. Modelled below is Clothing & More — women's and " +
+      "men's clothing, shoes, accessories, unbranded jewellery — which is what a resale closet actually consigns. " +
+      "Band edges are hard steps, so a $99 sale keeps 20% and a $100 sale keeps 30%. The old flat 45% placeholder " +
+      "was wrong in both directions: far too generous under $200 and far too harsh above $750. " +
+      "Other categories are better and are NOT modelled: handbags reach 80% over $7,500, watches 85%, men's " +
+      "sneakers 85% from just $1,000, and branded fine jewellery skips the 60% band entirely (55% to 65% at $300). " +
+      "Also not modelled: the RealReal Rewards bonus, which adds 1/2/5 points for $1,500/$5,000/$10,000 of " +
+      "trailing sales but ONLY on items at $200 and over; the $12.50 fee on their DEFAULT payout method, a mailed " +
+      "check; $20 per item ($100 for fine art or oversized) to pull an unsold item back inside 365 days, waived " +
+      "for VIP consignors; and the 5% uplift for taking site credit instead of cash, which multiplies the " +
+      "commission rather than adding points. Basis is net selling price — after discounts, before tax and " +
+      "shipping. Sources: therealreal.com/seller/commissions, /consignor_terms, /faq/consign, /returns",
     rules: [
-      { kind: "commission", label: "Consignment commission", type: "percent", rate: 0.45, basis: "item" },
+      {
+        kind: "commission",
+        label: "Consignment commission (clothing & accessories)",
+        type: "bands",
+        basis: "item",
+        // TRR's chart states the SELLER's share; these are its complement,
+        // what they keep. 20% payout is an 80% commission.
+        bands: [
+          { from: 0, rate: 0.8 },
+          { from: 100, rate: 0.7 },
+          { from: 150, rate: 0.55 },
+          { from: 200, rate: 0.45 },
+          { from: 300, rate: 0.4 },
+          { from: 750, rate: 0.35 },
+          { from: 5000, rate: 0.3 },
+        ],
+      },
     ],
   },
 };
@@ -344,6 +403,62 @@ export type ComputedFee = { kind: FeeKind; label: string; amount: number };
 
 /** Round to cents once, at the point of producing a fee — never mid-calculation. */
 const cents = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Channels whose rates nobody has checked against the marketplace's own page.
+ *
+ * Computed, never written down. The UI used to carry the sentence "every rate
+ * is still unverified" in three places, and it stayed there after six of the
+ * ten were verified -- so the product was understating its own honesty and the
+ * warning had stopped meaning anything.
+ */
+export function unverifiedChannels(): Channel[] {
+  return CHANNELS.filter((c) => FEE_RULES[c].verifiedOn === "unverified");
+}
+
+/**
+ * One rule, in words, for the fee table page.
+ *
+ * Lives here rather than in the page because the shapes live here: a new rule
+ * type should fail to compile until it can describe itself. The previous
+ * version was a five-deep nested ternary in JSX that silently dropped the
+ * min and max on percent rules — so Vestiaire's $10 floor and $2,000 cap, the
+ * two numbers that most distort its take, were the ones you couldn't see.
+ */
+export function describeRule(rule: Rule): string {
+  const pct = (r: number) => `${+(r * 100).toFixed(2)}%`;
+  const money = (n: number) =>
+    `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  switch (rule.type) {
+    case "percent": {
+      const bounds = [
+        typeof rule.min === "number" ? `min ${money(rule.min)}` : null,
+        typeof rule.max === "number" ? `max ${money(rule.max)}` : null,
+      ].filter(Boolean);
+      const on = rule.basis === "item_plus_shipping" ? " of item + shipping" : "";
+      return `${pct(rule.rate)}${on}${bounds.length ? ` (${bounds.join(", ")})` : ""}`;
+    }
+    case "flat":
+      return money(rule.amount);
+    case "tiered":
+      return `${money(rule.below.amount)} under ${money(rule.threshold)}, else ${pct(rule.atOrAbove.rate)}`;
+    case "tiered_percent": {
+      const floor = typeof rule.below.min === "number" ? ` (min ${money(rule.below.min)})` : "";
+      return `${pct(rule.below.rate)}${floor} under ${money(rule.threshold)}, else ${pct(rule.atOrAbove.rate)}`;
+    }
+    case "flat_tiered":
+      return `${money(rule.below.amount)} to ${money(rule.threshold)}, else ${money(rule.atOrAbove.amount)}`;
+    case "bands":
+      return rule.bands
+        .map((b, i) => {
+          const next = rule.bands[i + 1];
+          const range = next ? `${money(b.from)}–${money(next.from - 0.01)}` : `${money(b.from)}+`;
+          return `${range} ${pct(b.rate)}`;
+        })
+        .join(" · ");
+  }
+}
 
 export function computeFees(
   channel: Channel,
@@ -380,6 +495,17 @@ export function computeFees(
       case "flat_tiered": {
         const amount = basisAmount("item_plus_shipping") <= rule.threshold ? rule.below.amount : rule.atOrAbove.amount;
         return { kind: rule.kind, label: rule.label, amount: cents(amount) };
+      }
+      case "bands": {
+        // The band is chosen by the item's own price even when the rate is
+        // charged on a wider basis — The RealReal's ladder steps on the item.
+        const band =
+          [...rule.bands].reverse().find((b) => sale.soldPrice >= b.from) ?? rule.bands[0];
+        return {
+          kind: rule.kind,
+          label: rule.label,
+          amount: cents(basisAmount(rule.basis) * band.rate),
+        };
       }
     }
   });
@@ -478,6 +604,13 @@ export function askForNet(
     if (rule.type === "flat_tiered") {
       // This threshold is measured on item + shipping, so it bites at a lower ask.
       breaks.add(rule.threshold - shippingCollected);
+    }
+    if (rule.type === "bands") {
+      // Every band edge is a discontinuity. Only consignment uses this today,
+      // and askForNet refuses consignment outright — but the solver must not
+      // silently interpolate one line across a nine-step ladder the day some
+      // non-consignment channel adopts the shape.
+      for (const band of rule.bands) breaks.add(band.from);
     }
     if (rule.type === "tiered_percent" && typeof rule.below.min === "number") {
       // Below this ask the minimum fee applies as a flat, not as a percentage.

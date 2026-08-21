@@ -4,6 +4,7 @@ import BillingCard from "@/components/BillingCard";
 import ListingDefaultsForm from "@/components/ListingDefaultsForm";
 import { getListingDefaults } from "@/app/actions";
 import { standing } from "@/lib/plan";
+import { CHANNELS, unverifiedChannels } from "@/lib/fees";
 import type { AddressRow } from "@/app/actions";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -18,6 +19,7 @@ export default async function SettingsPage() {
     .order("created_at");
 
   const where = await standing();
+  const unverified = unverifiedChannels();
   const listingDefaults = await getListingDefaults();
 
   return (
@@ -46,7 +48,12 @@ export default async function SettingsPage() {
         </a>
         <Link href="/fees" className="settingslink">
           <strong>Fee table</strong>
-          <span>What each channel takes. Every rate is still unverified</span>
+          <span>
+            What each channel takes.{" "}
+            {unverified.length === 0
+              ? "Every rate read off the marketplace's own fee page"
+              : `${unverified.length} of ${CHANNELS.length} rates still unverified`}
+          </span>
         </Link>
       </div>
       <div className="sectionhead">
