@@ -71,3 +71,31 @@ Rules for whoever (or whatever) works this:
 - **Never meter the AI.** SellRaze paywalled their formerly-free identify
   feature and it is the single loudest complaint against them. That's the wedge.
 - **Never publish a fee rate without a source URL and a date.**
+
+## Found by the adversarial sweep, 21 Aug — all fixed
+
+Five finder agents over distinct lenses, every finding then handed to a skeptic
+whose job was to refute it. 29 candidates, 26 survived, 3 refuted.
+
+The two criticals were both invisible rather than loud:
+
+- A `$1,250` Depop listing read as `$1.00`, because the price regex stopped at
+  the comma. That number passes every downstream check and lands at the TOP of
+  the price-drift queue as a one-click "Use $1.00".
+- The Mercari filler had grown a branch that clicks List — the one channel the
+  file's own header, and CLAUDE.md, forbid auto-submitting.
+
+The lesson worth keeping: both had a correct version of themselves sitting
+next door. `read-depop-messages.js` already parsed money properly, and the
+Mercari header already said not to submit. Neither was consulted.
+
+## Still open
+
+- [ ] Poshmark, Vestiaire and StockX fillers. All blocked the same way: their
+      forms need reading off a live signed-in page before a line is written.
+- [ ] A reminder for the delist queue. Recording a sale doesn't notify, on
+      purpose — the seller is looking at the screen. The useful version is
+      "you recorded this six hours ago and three listings are still up", which
+      needs a scheduled job.
+- [ ] Comp reads are per-garment and manual. Reading them in bulk at intake
+      would price a whole box in one pass.

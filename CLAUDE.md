@@ -142,6 +142,16 @@ the cause of fills that opened a tab and silently did nothing.
 Depop, Vinted and Grailed all do this. Set category, wait, then re-scan. Querying up front
 is what put listings in Depop's Incomplete drafts.
 
+**Facebook Marketplace gives its fields no stable attribute.** Generated class
+names, React ids that change between renders, no `name`, no `data-testid`, no
+`aria-label`. The only durable hook is that every field sits inside a `<label>`
+whose FIRST LINE is the field name — first line because once a combobox has a
+value its label reads `"Category
+Men's clothing & shoes"`, so whole-text
+matching stops finding a field the moment it is filled. Its category rows carry
+"Shipping available" on a second line, which is the badge trap for the fifth
+time.
+
 **All selectors live in `extension/SELECTORS.md`**, read off live signed-in pages with the
 date taken. Anything added there should come from an actual DOM read, never a guess.
 
@@ -196,12 +206,18 @@ Known gaps, roughly in order of how much they'd hurt:
   enough to act as a seller), and column-level grants. **Any OAuth callback that
   lands must call `encryptToken` — the column comments say so and nothing enforces
   it.**
-- Pricing is an admitted model guess with no sold comps.
+- Pricing has REAL COMPS now (`lib/comps.ts`). eBay publishes completed sales on
+  a public search page — no API key, no developer approval — and the extension
+  reads it. Median and quartiles, not mean and range, because resale
+  distributions have a long right tail; a 1.5x IQR fence trims it, and under
+  eight sales it refuses to print a number at all. The model guess is still
+  there as the fallback, and the UI says which one you are looking at.
 - The RealReal packing-list filler has still never run end to end, so consigning
   is a state you set by hand rather than a flow.
 - Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook.
-- No filler for Poshmark, Facebook, Vestiaire or StockX. Each needs its form read
-  off a live signed-in page first — see the selector rule above.
+- No filler for Poshmark, Vestiaire or StockX. Each needs its form read off a
+  live signed-in page first — see the selector rule above. **Facebook landed
+  21 Aug**, read off the real form.
 
 Closed since this list was written: repricing live listings (all three price-write
 paths now cover `draft` and `live`), bulk operations (`BulkController`),
