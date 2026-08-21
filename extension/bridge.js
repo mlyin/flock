@@ -11,8 +11,18 @@
  */
 
 // Tell the page we exist, so it can show the button rather than an install prompt.
-document.documentElement.setAttribute("data-threader-extension", "1");
-window.postMessage({ source: "threader-extension", type: "ready" }, window.location.origin);
+//
+// The attribute carries the version rather than "1". Manual installs never
+// auto-update, so someone can run a build from weeks ago — with a selector fix
+// they don't have — and the failure looks exactly like the marketplace having
+// changed. The page compares this against the version it shipped with and says
+// so. Any truthy value still satisfies the older hasAttribute() checks.
+const VERSION = chrome.runtime.getManifest().version;
+document.documentElement.setAttribute("data-threader-extension", VERSION);
+window.postMessage(
+  { source: "threader-extension", type: "ready", version: VERSION },
+  window.location.origin
+);
 
 window.addEventListener("message", (event) => {
   // Same-origin only: never act on a message another site framed in.

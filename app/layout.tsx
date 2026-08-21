@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Nav from "@/components/Nav";
 import PushSetup from "@/components/PushSetup";
-import { currentUser, supabaseConfigured } from "@/lib/supabase/server";
+import { currentUser } from "@/lib/supabase/server";
 import { standing } from "@/lib/plan";
 import "./globals.css";
 
@@ -44,9 +44,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // does not render rather than the shell failing to.
   const where = user ? await standing() : null;
 
-  // The login page renders bare. In local SQLite mode there's no auth at all,
-  // so the shell stays up regardless.
-  const showShell = !supabaseConfigured() || Boolean(user);
+  // The login page and the signed-out landing page render bare.
+  const showShell = Boolean(user);
 
   return (
     /* suppressHydrationWarning is for our OWN extension: bridge.js stamps

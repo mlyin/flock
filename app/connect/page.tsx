@@ -1,6 +1,8 @@
 import PairExtension from "@/components/PairExtension";
 import PairedDevices from "@/components/PairedDevices";
 import ExtensionSettings from "@/components/ExtensionSettings";
+import ExtensionVersion from "@/components/ExtensionVersion";
+import { EXTENSION_VERSION } from "@/lib/extension";
 import ProbeForm from "@/components/ProbeForm";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -35,6 +37,8 @@ export default async function ConnectPage() {
         Don&apos;t have the extension yet? <a href="/install">Install it</a> — it&apos;s a
         one-minute manual install until the Chrome Web Store listing is approved.
       </p>
+
+      <ExtensionVersion current={EXTENSION_VERSION} />
 
       <PairExtension existing={tokens?.length ?? 0} />
 

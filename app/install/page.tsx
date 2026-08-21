@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import ExtensionVersion from "@/components/ExtensionVersion";
+import { EXTENSION_VERSION } from "@/lib/extension";
 
 export const metadata: Metadata = {
   title: "Install the extension — Flock",
@@ -22,6 +24,8 @@ export default function InstallPage() {
         everything and press publish yourself. It isn&apos;t on the Chrome Web Store yet, so for
         now it installs manually. Takes about a minute.
       </p>
+
+      <ExtensionVersion current={EXTENSION_VERSION} showCurrent />
 
       <p>
         <a className="button" href={ZIP_URL}>

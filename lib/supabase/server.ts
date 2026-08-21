@@ -28,7 +28,13 @@ export async function supabaseServer() {
   );
 }
 
-/** True once Supabase env vars exist. False means we're still in local SQLite mode. */
+/**
+ * True once Supabase env vars exist.
+ *
+ * Only for telling a developer with no `.env.local` why the sign-in button is
+ * missing. Never gate access on this: false means the app cannot work at all,
+ * so anything that treats it as "skip the auth check" fails open.
+ */
 export function supabaseConfigured() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY

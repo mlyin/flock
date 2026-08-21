@@ -8,10 +8,16 @@ import { NextResponse, type NextRequest } from "next/server";
  * sessions expire mid-use.
  */
 export async function middleware(request: NextRequest) {
-  // Until Supabase is configured, stay out of the way so the local SQLite app
-  // keeps working. Remove this guard once auth is the only way in.
+  // Fail closed. This used to wave the request through so the old local SQLite
+  // mode kept working, but SQLite is gone and auth is now the only way in — so
+  // a missing or misspelt env var silently removed the gate from every page
+  // instead of breaking anything loudly enough to notice. A deploy that loses
+  // its Supabase config should serve nothing, not serve everything.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-    return NextResponse.next({ request });
+    return new NextResponse(
+      "Flock is misconfigured: Supabase environment variables are missing. See .env.example.",
+      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
+    );
   }
 
   let response = NextResponse.next({ request });
