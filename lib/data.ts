@@ -45,6 +45,9 @@ export type Item = {
   /** The consignor holding it, or null. Only meaningful while consigned. */
   consigned_to: Channel | null;
   consigned_at: string | null;
+  /** Completed-sale summary from lib/comps.ts. Null means nobody has looked. */
+  comps: Record<string, unknown> | null;
+  comps_at: string | null;
 };
 
 export type Listing = {

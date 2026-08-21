@@ -5,6 +5,8 @@ import DeleteItem from "@/components/DeleteItem";
 import ListingDrafts from "@/components/ListingDrafts";
 import ItemMessages from "@/components/ItemMessages";
 import CustodyCard from "@/components/CustodyCard";
+import CompsCard, { type StoredComps } from "@/components/CompsCard";
+import { compQuery } from "@/lib/comps";
 import ChannelBoard from "@/components/ChannelBoard";
 import AskPlanner from "@/components/AskPlanner";
 import FillReports from "@/components/FillReports";
@@ -33,6 +35,12 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
   const unreviewed = item.review_state === "unreviewed";
   const inference = unreviewed ? await latestInference(item.id) : null;
   const reports = await fillReportsFor(item.id);
+  // Two searches: with the size and without. Size moves resale price but cuts
+  // the result count hard, so the card tries the precise one and widens if it
+  // comes back too thin to be evidence.
+  const narrowComps = compQuery(item, { narrow: true });
+  const broadComps = compQuery(item, { narrow: false });
+
   const fields = (inference?.fields ?? {}) as { questions?: string[] };
   const confidence = (inference?.confidence ?? {}) as Record<string, number>;
 
@@ -43,6 +51,15 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           <Link href="/">← Inventory</Link>
         </h2>
       </div>
+
+      <CompsCard
+        itemId={item.id}
+        narrowUrl={narrowComps?.url ?? null}
+        broadUrl={broadComps?.url ?? null}
+        query={broadComps?.query ?? narrowComps?.query ?? null}
+        stored={(item.comps ?? null) as StoredComps | null}
+        storedAt={item.comps_at ? shortDate(item.comps_at) : null}
+      />
 
       <CustodyCard
         itemId={item.id}
