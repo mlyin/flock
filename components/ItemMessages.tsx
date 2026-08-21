@@ -41,11 +41,14 @@ export default async function ItemMessages({ itemId }: { itemId: string }) {
         {messages.map((message) => {
           const offer = message.kind === "offer" ? scoreOffer(message) : null;
           const outgoing = message.direction === "outgoing";
+          // Your own replies have no read_at either, so keying the unread
+          // stripe off that alone marked everything you sent as unread.
+          const unread = !outgoing && !message.read_at;
 
           return (
             <div
               key={message.id}
-              className={`msg ${outgoing ? "msg-out" : ""} ${message.read_at ? "" : "msg-unread"}`}
+              className={`msg ${outgoing ? "msg-out" : ""} ${unread ? "msg-unread" : ""}`}
             >
               <div className="msg-head">
                 <span className="msg-sender">{outgoing ? "You" : message.sender ?? "Buyer"}</span>

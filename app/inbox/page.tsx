@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SyncMessages from "@/components/SyncMessages";
 import OfferQueue, { type OfferView } from "@/components/OfferQueue";
+import { MarkAllRead, MarkRead } from "@/components/ReadControls";
 import { CHANNEL_LABEL } from "@/lib/fees";
 import { usd } from "@/lib/money";
 import { getMessages, getOpenOffers, groupByItem, scoreOffer } from "@/lib/offers";
@@ -50,7 +51,13 @@ export default async function InboxPage({
   }));
 
   const groups = groupByItem(messages);
-  const unread = messages.filter((m) => !m.read_at).length;
+
+  // Incoming only. Messages you sent have no read_at either, so counting every
+  // null made your own replies inflate the badge — and a thread you had just
+  // answered came back styled as unread.
+  const isUnread = (m: { direction: string; read_at: string | null }) =>
+    m.direction !== "outgoing" && !m.read_at;
+  const unread = messages.filter(isUnread).length;
 
   return (
     <>
@@ -69,6 +76,11 @@ export default async function InboxPage({
         <Link href="/inbox?view=messages" className={view === "messages" ? "tab tab-on" : "tab"}>
           All messages{unread > 0 && <b>{unread}</b>}
         </Link>
+        {view === "messages" && (
+          <span className="tabs-end">
+            <MarkAllRead unread={unread} />
+          </span>
+        )}
       </div>
 
       <SyncMessages />
@@ -125,14 +137,16 @@ export default async function InboxPage({
 
                 {group.rows.map((message) => {
                   const offer = message.kind === "offer" ? scoreOffer(message) : null;
+                  const unreadRow = isUnread(message);
                   return (
-                    <div key={message.id} className={message.read_at ? "msg" : "msg msg-unread"}>
+                    <div key={message.id} className={unreadRow ? "msg msg-unread" : "msg"}>
                       <div className="msg-head">
                         <span className="msg-sender">
                           {message.direction === "outgoing" ? "You" : message.sender ?? "Buyer"}
                         </span>
                         <span className="msg-channel">{CHANNEL_LABEL[message.channel]}</span>
                         <span className="msg-time">{ago(message.received_at)}</span>
+                        {unreadRow && <MarkRead messageId={message.id} />}
                       </div>
 
                       {offer && (

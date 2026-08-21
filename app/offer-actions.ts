@@ -89,6 +89,29 @@ export async function markMessageRead(messageId: string): Promise<OfferOutcome> 
 
   if (error) return { ok: false, error: error.message };
   revalidatePath("/inbox");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/**
+ * Clear the whole unread count.
+ *
+ * Incoming only — a message you sent has nothing to read. Row-level security
+ * scopes the update to the signed-in seller, which is why there's no
+ * `user_id` filter here; the `.is("read_at", null)` is what keeps it from
+ * rewriting timestamps on mail that was already read.
+ */
+export async function markAllMessagesRead(): Promise<OfferOutcome> {
+  const supabase = await supabaseServer();
+  const { error } = await supabase
+    .from("messages")
+    .update({ read_at: new Date().toISOString() })
+    .eq("direction", "incoming")
+    .is("read_at", null);
+
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/inbox");
+  revalidatePath("/");
   return { ok: true };
 }
 
