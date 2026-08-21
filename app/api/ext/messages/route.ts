@@ -156,7 +156,9 @@ async function notifyNewMessages(userId: string): Promise<number> {
     sent += await notify(userId, {
       title,
       body: (message.body ?? "").slice(0, 140) || "Open Flock to reply.",
-      url: message.item_id ? `/items/${message.item_id}` : "/messages",
+      // /inbox, not /messages — there is no /messages route, so an unmatched
+      // message notified the seller and then dropped them on a 404.
+      url: message.item_id ? `/items/${message.item_id}` : "/inbox",
       tag: `thread-${key}`,
     });
   }

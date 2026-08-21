@@ -203,6 +203,17 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
       flaws: Array.isArray(item.flaws) ? (item.flaws as string[]) : [],
     });
 
+    // The seller's standing listing text. createBasicListings has always
+    // applied this and "Rewrite with AI" never did — applyDefaults had exactly
+    // one call site in the repo — so paying for better copy silently dropped
+    // "Ships next working day. No returns." from every channel.
+    const { data: defaultsRow } = await supabase
+      .from("listing_defaults")
+      .select("footer, preamble, per_channel")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const defaults = parseDefaults(defaultsRow);
+
     const now = new Date().toISOString();
     const rows = [
       {
@@ -210,7 +221,7 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         item_id: itemId,
         channel: "ebay" as const,
         title: draft.ebay.title,
-        description: draft.ebay.description,
+        description: applyDefaults(draft.ebay.description, defaults, "ebay"),
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { category: draft.ebay.category, specifics: draft.ebay.specifics, price: draft.price },
@@ -222,7 +233,7 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         item_id: itemId,
         channel: "depop" as const,
         title: draft.depop.title,
-        description: draft.depop.description,
+        description: applyDefaults(draft.depop.description, defaults, "depop"),
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { tags: draft.depop.tags, price: draft.price },
@@ -236,7 +247,7 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         item_id: itemId,
         channel: "mercari" as const,
         title: draft.vinted.title,
-        description: draft.vinted.description,
+        description: applyDefaults(draft.vinted.description, defaults, "mercari"),
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { price: draft.price },
@@ -248,7 +259,7 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         item_id: itemId,
         channel: "vinted" as const,
         title: draft.vinted.title,
-        description: draft.vinted.description,
+        description: applyDefaults(draft.vinted.description, defaults, "vinted"),
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { price: draft.price },
@@ -260,7 +271,7 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         item_id: itemId,
         channel: "grailed" as const,
         title: draft.grailed.title,
-        description: draft.grailed.description,
+        description: applyDefaults(draft.grailed.description, defaults, "grailed"),
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { price: draft.price },
@@ -275,7 +286,7 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
         item_id: itemId,
         channel: "vestiaire" as const,
         title: draft.grailed.title,
-        description: draft.grailed.description,
+        description: applyDefaults(draft.grailed.description, defaults, "vestiaire"),
         price: draft.price.suggested,
         status: "draft" as const,
         draft: { price: draft.price },
@@ -386,16 +397,21 @@ export async function createPairingCode(): Promise<
  * check, re-recording a URL for a live listing would fail at the cap and look
  * like the seller had lost a slot they never spent.
  */
-async function roomForOneMore(listingId: string): Promise<string | null> {
+async function roomForOneMore(listingId: string | null): Promise<string | null> {
   const supabase = await supabaseServer();
 
-  const { data: current } = await supabase
-    .from("listings")
-    .select("status")
-    .eq("id", listingId)
-    .maybeSingle();
+  // A null id means "is there room for a listing that doesn't exist yet" —
+  // adopting an imported one. There is nothing to look up, so skip straight to
+  // the cap.
+  if (listingId) {
+    const { data: current } = await supabase
+      .from("listings")
+      .select("status")
+      .eq("id", listingId)
+      .maybeSingle();
 
-  if (current?.status === "live") return null;
+    if (current?.status === "live") return null;
+  }
 
   const where = await standing();
   if (!where || !where.atCap) return null;
@@ -1273,17 +1289,24 @@ export async function bulkDropPrices(
     const floor = item.floor_price == null ? null : Number(item.floor_price);
 
     let next = target;
-    if (floor !== null && target < floor) {
+    const hitFloor = floor !== null && target < floor;
+    if (hitFloor) {
       // Land on the floor rather than skipping: the seller wants a drop, and
       // the floor is where they said the drop stops.
       next = floor;
-      floored += 1;
     }
 
     if (next >= current) {
+      // Already at or below where the drop would land — most often a garment
+      // already sitting on its floor. Counted once, as skipped. It used to be
+      // counted as floored AND skipped, so one selected item reported "0
+      // repriced · 1 stopped at floor · 1 skipped" and the seller was told
+      // about two garments when they had chosen one.
       skipped += 1;
       continue;
     }
+
+    if (hitFloor) floored += 1;
 
     await supabase.from("items").update({ list_price: next }).eq("id", item.id);
     await supabase
@@ -1574,7 +1597,16 @@ export async function adoptExternalListing(
   if (itemError || !item) return { ok: false, error: itemError?.message ?? "Couldn't create it." };
 
   // The listing already exists out there, so it goes in live with its real URL
-  // rather than as a draft to be filled.
+  // rather than as a draft to be filled — unless that would put the seller
+  // past their plan.
+  //
+  // Every other path that flips a listing live checks this; adopt did not, so
+  // importing a 200-listing Depop closet and pressing "Adopt all" handed a
+  // free-tier account 200 live listings. Adopting as a DRAFT rather than
+  // refusing: the garment is genuinely out there and losing it would be worse
+  // than recording it in the wrong state, and the seller can see what happened.
+  const overCap = ext.status !== "sold" ? await roomForOneMore(null) : null;
+
   await supabase.from("listings").upsert(
     {
       user_id: user.id,
@@ -1584,7 +1616,7 @@ export async function adoptExternalListing(
       url: ext.url,
       title: ext.title,
       price: ext.price ?? 0,
-      status: ext.status === "sold" ? "sold" : "live",
+      status: ext.status === "sold" ? "sold" : overCap ? "draft" : "live",
       posted_at: new Date().toISOString(),
       posted_via: "imported",
     },

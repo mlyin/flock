@@ -35,6 +35,7 @@ export default function PostFlow({
   reminders: string[];
 }) {
   const [done, setDone] = useState<string[]>([]);
+  const [postError, setPostError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -106,19 +107,32 @@ export default function PostFlow({
         {alreadyLive ? (
           <span className="badge badge-listed">already marked live</span>
         ) : (
+          <>
+          {postError && (
+            <div className="notice notice-bad">
+              <strong>Not recorded</strong>
+              <p>{postError}</p>
+            </div>
+          )}
           <button
             type="button"
             className="pill"
             disabled={pending || !allCopied}
             onClick={() =>
               startTransition(async () => {
-                await markListed(listingId);
+                // The result was thrown away, so a seller at their plan cap
+                // pressed this, watched the page refresh, and the listing was
+                // still a draft with nothing anywhere saying why.
+                const outcome = await markListed(listingId);
+                if (outcome && !outcome.ok) setPostError(outcome.error ?? "Couldn't record that.");
+                else setPostError(null);
                 router.refresh();
               })
             }
           >
             {allCopied ? "I've posted it" : "Copy every field first"}
           </button>
+          </>
         )}
       </div>
     </>
