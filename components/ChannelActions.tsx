@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CHANNELS, CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import { canList, type Custody } from "@/lib/custody";
 import ChannelIcon from "./ChannelIcon";
 
 export type ChannelState = {
@@ -21,7 +22,15 @@ export type ChannelState = {
  *
  * The whole point is not having to open the item to act on it.
  */
-export default function ChannelActions({ states }: { states: ChannelState[] }) {
+export default function ChannelActions({
+  states,
+  custody = "hand",
+  consignedTo = null,
+}: {
+  states: ChannelState[];
+  custody?: Custody;
+  consignedTo?: Channel | null;
+}) {
   const [installed, setInstalled] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ channel: Channel; text: string; ok: boolean } | null>(null);
@@ -118,6 +127,18 @@ export default function ChannelActions({ states }: { states: ChannelState[] }) {
           if (state?.status === "live") {
             return (
               <span key={channel} className="mchip mchip-live" title={`Listed on ${label}`}>
+                {label2(channel)}
+              </span>
+            );
+          }
+
+          // A consignor has the garment, so there is nothing to ship if this
+          // sells. The database refuses the listing outright; this is so the
+          // seller sees why instead of clicking a button that errors.
+          const verdict = canList({ custody, consigned_to: consignedTo }, channel);
+          if (!verdict.allowed) {
+            return (
+              <span key={channel} className="mchip mchip-blocked" title={verdict.reason}>
                 {label2(channel)}
               </span>
             );

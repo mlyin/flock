@@ -1,6 +1,7 @@
 import { supabaseServer } from "./supabase/server";
 import { computeFees, projectedNet, CHANNELS, type Channel } from "./fees";
 import { detectDrift } from "./drift";
+import type { Custody } from "./custody";
 
 /**
  * All reads and writes go through the request-scoped Supabase client, so every
@@ -39,6 +40,11 @@ export type Item = {
   review_state: string;
   notes: string | null;
   created_at: string;
+  /** Where the garment physically is. See lib/custody.ts. */
+  custody: Custody;
+  /** The consignor holding it, or null. Only meaningful while consigned. */
+  consigned_to: Channel | null;
+  consigned_at: string | null;
 };
 
 export type Listing = {

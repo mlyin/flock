@@ -7,7 +7,8 @@ import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 import { standing } from "@/lib/plan";
-import type { Channel } from "@/lib/fees";
+import { CHANNEL_LABEL, type Channel } from "@/lib/fees";
+import { transition, type Custody } from "@/lib/custody";
 import { applyDefaults, parseDefaults } from "@/lib/defaults";
 
 export async function analyzePhotos(photoIds: string[]): Promise<IdentifyOutcome> {
@@ -1594,5 +1595,71 @@ export async function resolvePriceDrift(
 
   revalidatePath("/");
   revalidatePath(`/items/${listing.item_id}`);
+  return { ok: true };
+}
+
+/**
+ * Send a garment to a consignor, or take it back.
+ *
+ * Custody is a physical fact about where the item is, and it is the one
+ * property that makes cross-listing unsafe: while a consignor holds it, a
+ * listing anywhere else is an oversell. Migration 0034 enforces that in the
+ * database; this exists so the seller gets a sentence instead of a Postgres
+ * exception.
+ */
+export async function setCustody(
+  itemId: string,
+  to: "consigned" | "returned" | "hand",
+  channel?: Channel
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await supabaseServer();
+
+  const { data: item, error: readError } = await supabase
+    .from("items")
+    .select("id, custody, consigned_to")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  if (readError) return { ok: false, error: readError.message };
+  if (!item) return { ok: false, error: "Couldn't find that garment." };
+
+  const move = transition(item.custody as Custody, to, channel);
+  if (!move.ok) return { ok: false, error: move.error };
+
+  // The database refuses this too, but its message names a table and a
+  // constraint. Say the useful thing first.
+  if (to === "consigned") {
+    const { data: live } = await supabase
+      .from("listings")
+      .select("channel")
+      .eq("item_id", itemId)
+      .eq("status", "live");
+
+    const elsewhere = (live ?? []).map((l) => l.channel).filter((c) => c !== channel);
+    if (elsewhere.length > 0) {
+      const names = [...new Set(elsewhere)].map((c) => CHANNEL_LABEL[c as Channel]).join(", ");
+      return {
+        ok: false,
+        error: `It's still live on ${names}. Take those down first — once the box ships you can't fulfil them.`,
+      };
+    }
+  }
+
+  const patch: Record<string, unknown> = { custody: move.custody };
+  if (move.custody === "consigned") {
+    patch.consigned_to = channel;
+    patch.consigned_at = new Date().toISOString();
+  } else {
+    // Keep consigned_to only while it means something. A returned item that
+    // still names a holder reads as though it were still there.
+    patch.consigned_to = null;
+    patch.consigned_at = null;
+  }
+
+  const { error } = await supabase.from("items").update(patch).eq("id", itemId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/items/${itemId}`);
+  revalidatePath("/");
   return { ok: true };
 }

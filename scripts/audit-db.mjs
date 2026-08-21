@@ -167,6 +167,73 @@ if (others.length === 0) {
     "update public.items set title = title where user_id = $1 returning 1", [other]);
 }
 
+console.log("\nA consigned garment cannot be listed elsewhere");
+// Against a throwaway item, so the positive cases are real. The first version
+// of this ran against an existing row and every "should be allowed" case died
+// on a unique constraint instead — passing for the wrong reason would have
+// been worse, since it would have looked like coverage.
+async function custodyCase(description, expect, steps) {
+  await client.query("begin");
+  let outcome = "allowed";
+  let detail = "";
+  try {
+    const { rows } = await client.query(
+      `insert into public.items (user_id, sku, title, category, condition, cost_basis)
+       values ($1, 'AUDIT-TMP', 'audit probe', 'tops', 'good', 1) returning id`,
+      [seller]
+    );
+    await steps(rows[0].id);
+  } catch (error) {
+    outcome = "refused";
+    detail = error.message.split("\n")[0].slice(0, 80);
+  }
+  await client.query("rollback");
+
+  const ok = outcome === expect;
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${description.padEnd(46)} ${outcome}${detail ? ` — ${detail}` : ""}`);
+  if (!ok) violations.push(`${description}: expected ${expect}, got ${outcome}`);
+}
+
+const draft = (itemId, channel, status = "draft") =>
+  client.query(
+    `insert into public.listings (user_id, item_id, channel, price, status)
+     values ($1, $2, $3, 50, $4)`,
+    [seller, itemId, channel, status]
+  );
+const consign = (itemId) =>
+  client.query(
+    "update public.items set custody = 'consigned', consigned_to = 'therealreal' where id = $1",
+    [itemId]
+  );
+
+await custodyCase("listing elsewhere while consigned", "refused", async (id) => {
+  await consign(id);
+  await draft(id, "depop");
+});
+await custodyCase("listing with the consignor holding it", "allowed", async (id) => {
+  await consign(id);
+  await draft(id, "therealreal");
+});
+await custodyCase("listing anywhere while in hand", "allowed", (id) => draft(id, "depop"));
+await custodyCase("listing again once it came back", "allowed", async (id) => {
+  await consign(id);
+  await client.query(
+    "update public.items set custody = 'returned', consigned_to = null where id = $1",
+    [id]
+  );
+  await draft(id, "depop");
+});
+await custodyCase("consigning while still live elsewhere", "refused", async (id) => {
+  await draft(id, "depop", "live");
+  await consign(id);
+});
+await custodyCase("consigning with only a draft elsewhere", "allowed", async (id) => {
+  // A draft was never published, so nobody can buy it. Blocking this would
+  // make the normal path — draft everywhere, then decide — impossible.
+  await draft(id, "depop");
+  await consign(id);
+});
+
 console.log("\nEvery table has row-level security on");
 const { rows: tables } = await client.query(`
   select c.relname, c.relrowsecurity,

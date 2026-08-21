@@ -4,6 +4,7 @@ import ReviewForm from "@/components/ReviewForm";
 import DeleteItem from "@/components/DeleteItem";
 import ListingDrafts from "@/components/ListingDrafts";
 import ItemMessages from "@/components/ItemMessages";
+import CustodyCard from "@/components/CustodyCard";
 import ChannelBoard from "@/components/ChannelBoard";
 import AskPlanner from "@/components/AskPlanner";
 import FillReports from "@/components/FillReports";
@@ -42,6 +43,14 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           <Link href="/">← Inventory</Link>
         </h2>
       </div>
+
+      <CustodyCard
+        itemId={item.id}
+        custody={item.custody}
+        consignedTo={item.consigned_to}
+        consignedAt={item.consigned_at}
+        liveChannels={item.listings.filter((l) => l.status === "live").map((l) => l.channel)}
+      />
 
       <div className="detail">
         <div>

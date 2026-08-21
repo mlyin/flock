@@ -242,6 +242,8 @@ export default async function Inventory({
                         status: l.status,
                         url: l.url,
                       }))}
+                      custody={item.custody}
+                      consignedTo={item.consigned_to}
                     />
                   </td>
 

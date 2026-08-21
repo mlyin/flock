@@ -375,6 +375,14 @@ a { color: inherit; text-decoration: none; }
 .mchip-draft  { border-style: dotted; color: var(--ink-3); }
 .mchip-error  { border-color: var(--brick); background: var(--brick-soft); color: var(--brick); }
 .mchip-off    { opacity: .3; }
+/* Not "nothing here yet" — actively unavailable, because a consignor has the
+   garment. Dimmer than an empty chip AND struck through, so it reads as
+   refused rather than merely unfilled. The title says why. */
+.mchip-blocked {
+  opacity: .35;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
 
 /* ---------- status badge ---------- */
 

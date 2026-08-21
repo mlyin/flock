@@ -49,6 +49,15 @@ Bearer-authenticated routes under `/api/ext/*` are the exception. The extension 
 token, not a session, so there's no `auth.uid()` for RLS to match — those routes use
 `supabaseAdmin()` and **scope by `user_id` by hand**. Every one of them must.
 
+**Consignment is exclusive, and the database enforces it.** While The RealReal
+holds a garment, a listing on any other channel is an oversell — the seller
+finds out when a buyer pays for something 2,000 miles away. `items.custody` had
+carried that rule as a comment since migration 0011 with nothing reading it;
+0034 makes it a trigger, because there are four paths that create listings and
+"remember to check" has four places to be forgotten. `lib/custody.ts` holds the
+same rule in app code so the seller gets a sentence before Postgres gives them
+an exception. Verified by `npm run audit:db`.
+
 **An `item` is a physical garment; a `listing` is one item on one channel.** Marketplace
 vocabulary never leaks into `items`. Don't collapse it.
 
@@ -188,7 +197,8 @@ Known gaps, roughly in order of how much they'd hurt:
   lands must call `encryptToken` — the column comments say so and nothing enforces
   it.**
 - Pricing is an admitted model guess with no sold comps.
-- `items.custody` has schema and no reader or writer.
+- The RealReal packing-list filler has still never run end to end, so consigning
+  is a state you set by hand rather than a flow.
 - Message bodies are read as leaf text nodes; Depop's bubbles have no stable hook.
 - No filler for Poshmark, Facebook, Vestiaire or StockX. Each needs its form read
   off a live signed-in page first — see the selector rule above.
