@@ -42,7 +42,7 @@ export function MarkRead({ messageId }: { messageId: string }) {
   return (
     <button
       type="button"
-      className="linkbutton"
+      className="linkbtn"
       disabled={pending}
       onClick={() =>
         start(async () => {

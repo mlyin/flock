@@ -1534,3 +1534,65 @@ export async function bulkDraftListings(
   revalidatePath("/");
   return { ok: true, drafted, failed };
 }
+
+/**
+ * Answer a price disagreement between Flock and a marketplace.
+ *
+ * Two honest answers, because Flock genuinely does not know which number is
+ * the intended one:
+ *
+ *   "adopt"  — the marketplace is right. Take its price as ours, on the
+ *              listing and on the item, so offers stop being judged against a
+ *              number no buyer has seen.
+ *   "keep"   — ours is right and the marketplace is stale. Nothing changes;
+ *              the seller goes and edits the form. We record which market
+ *              price they were looking at so the question does not come back
+ *              on every sync, but a NEW market price raises it again.
+ *
+ * There is no third option that silently picks one, and there never should be.
+ * A repricing tool that overwrites the seller's intent is worse than one that
+ * asks.
+ */
+export async function resolvePriceDrift(
+  listingId: string,
+  answer: "adopt" | "keep"
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await supabaseServer();
+
+  const { data: listing, error: readError } = await supabase
+    .from("listings")
+    .select("id, item_id, market_price")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (readError) return { ok: false, error: readError.message };
+  if (!listing) return { ok: false, error: "Couldn't find that listing." };
+
+  const market = listing.market_price === null ? null : Number(listing.market_price);
+  if (market === null || !(market > 0)) {
+    return { ok: false, error: "No marketplace price recorded for that listing." };
+  }
+
+  if (answer === "adopt") {
+    // The listing AND the item. Leaving item.list_price behind would put the
+    // planner and the marketplace back out of step on the next reprice, which
+    // is the bug we are here to remove.
+    const { error } = await supabase
+      .from("listings")
+      .update({ price: market, price_drift_ack: market })
+      .eq("id", listingId);
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from("items").update({ list_price: market }).eq("id", listing.item_id);
+  } else {
+    const { error } = await supabase
+      .from("listings")
+      .update({ price_drift_ack: market })
+      .eq("id", listingId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/");
+  revalidatePath(`/items/${listing.item_id}`);
+  return { ok: true };
+}

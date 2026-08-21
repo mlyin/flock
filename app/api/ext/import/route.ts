@@ -125,7 +125,7 @@ async function reconcile(
   admin: AdminClient,
   userId: string,
   channel: Channel,
-  rows: Array<{ external_id: string; url: string | null; status: string }>,
+  rows: Array<{ external_id: string; url: string | null; status: string; price: number | null }>,
   now: string
 ) {
   if (rows.length === 0) return { matched: 0, ambiguous: 0 };
@@ -171,6 +171,18 @@ async function reconcile(
 
     const patch: Record<string, unknown> = { last_synced_at: now };
     if (!listing.url && row.url) patch.url = row.url;
+
+    // What a buyer is actually being shown. Recorded, never applied: adopting
+    // it silently would overwrite a price drop the seller made in Flock ten
+    // minutes ago and hasn't had a chance to key into Depop yet. The
+    // disagreement becomes a question on the dashboard — see lib/drift.ts.
+    //
+    // Zero means the price node was empty (Depop does this on sold items),
+    // which is a failed read rather than a free garment.
+    if (row.price !== null && row.price > 0) {
+      patch.market_price = row.price;
+      patch.market_price_at = now;
+    }
     if (row.status === "active" && listing.status !== "live") patch.status = "live";
     if (row.status === "sold") patch.status = "sold";
     if (row.status === "ended" && listing.status === "live") patch.status = "ended";

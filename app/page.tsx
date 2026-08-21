@@ -7,8 +7,9 @@ import ChannelViewToggle from "@/components/ChannelViewToggle";
 import { CHANNEL_LABEL } from "@/lib/fees";
 import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
-import { bestProjection, getItems, openDelistTasks, shelfAge, signPhotos, summarize } from "@/lib/data";
+import { bestProjection, getItems, openDelistTasks, priceDrift, shelfAge, signPhotos, summarize } from "@/lib/data";
 import DelistQueue from "@/components/DelistQueue";
+import PriceDrift from "@/components/PriceDrift";
 import SaleQuestions from "@/components/SaleQuestions";
 import { getSaleCandidates } from "@/app/actions";
 import BulkController from "@/components/BulkController";
@@ -78,11 +79,15 @@ export default async function Inventory({
   // that sold is the only thing on this page that gets worse while you read it.
   const delist = await openDelistTasks();
   const saleQuestions = await getSaleCandidates();
+  // Below the delist queue on purpose: a wrong price costs margin, a listing
+  // that should be down costs a cancellation.
+  const drifts = await priceDrift();
 
   return (
     <>
       <SaleQuestions candidates={saleQuestions} />
       <DelistQueue tasks={delist} />
+      <PriceDrift drifts={drifts} />
 
       <div className="pagehead">
         <h1>Inventory</h1>

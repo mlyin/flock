@@ -1111,21 +1111,6 @@ button.mchip:disabled { cursor: default; opacity: .5; }
 .msg-sender { color: var(--ink); font-weight: 650; }
 .msg-channel { color: var(--denim); }
 .msg-time { margin-left: auto; }
-
-/* A control that reads as text: it sits inside a metadata row where a real
-   button would outweigh the message it belongs to. */
-.linkbutton {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: var(--ink-3);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.linkbutton:hover:not(:disabled) { color: var(--denim); }
-.linkbutton:disabled { cursor: default; opacity: 0.6; }
 .msg-offer {
   display: flex;
   align-items: baseline;
@@ -2619,6 +2604,12 @@ body { font-size: 15px; line-height: 1.55; }
   padding: 14px 16px;
   margin-bottom: 20px;
 }
+/* Same shape, lower alarm. A price disagreement costs you margin; a listing
+   still up for something that sold costs you a cancellation and a defect. They
+   should not shout at the same volume. */
+.delist-quiet { border-color: var(--ochre); background: var(--ochre-soft); }
+.delist-quiet .delist-head strong { color: var(--ochre); }
+
 .delist-head strong { display: block; font-size: 15px; color: var(--brick); }
 .delist-head p { margin: 4px 0 12px; font-size: 13px; }
 .delist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

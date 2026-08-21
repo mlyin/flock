@@ -1,5 +1,6 @@
 import { supabaseServer } from "./supabase/server";
 import { computeFees, projectedNet, CHANNELS, type Channel } from "./fees";
+import { detectDrift } from "./drift";
 
 /**
  * All reads and writes go through the request-scoped Supabase client, so every
@@ -383,4 +384,67 @@ export async function openDelistTasks(): Promise<DelistTask[]> {
     listing: (row.listings ?? null) as DelistTask["listing"],
     item: (row.items ?? null) as DelistTask["item"],
   }));
+}
+
+export type PriceDriftView = {
+  listingId: string;
+  channel: Channel;
+  url: string | null;
+  ours: number;
+  theirs: number;
+  delta: number;
+  seenAt: string | null;
+  item: { id: string; sku: string; title: string; brand: string | null } | null;
+};
+
+/**
+ * Live listings whose price on the marketplace is not the price Flock has.
+ *
+ * The comparison itself lives in lib/drift.ts so it can be tested without a
+ * database; this only fetches. Restricted to live listings: a draft has never
+ * been on a marketplace, and a sold or ended one keeps the price it went for.
+ */
+export async function priceDrift(): Promise<PriceDriftView[]> {
+  const supabase = await supabaseServer();
+
+  const { data } = await supabase
+    .from("listings")
+    .select(
+      "id, item_id, channel, price, market_price, market_price_at, price_drift_ack, url, items (id, sku, title, brand)"
+    )
+    .eq("status", "live")
+    .not("market_price", "is", null);
+
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
+
+  // num() folds null to 0, which drift.ts reads as a failed price read rather
+  // than "never set". Same outcome here, but keep the distinction honest.
+  const maybe = (v: unknown) => (v === null || v === undefined ? null : num(v));
+
+  const drifts = detectDrift(
+    rows.map((r) => ({
+      id: r.id as string,
+      item_id: r.item_id as string,
+      channel: r.channel as string,
+      price: maybe(r.price),
+      market_price: maybe(r.market_price),
+      price_drift_ack: maybe(r.price_drift_ack),
+    }))
+  );
+
+  const byId = new Map(rows.map((r) => [r.id as string, r]));
+
+  return drifts.map((d) => {
+    const row = byId.get(d.listing.id)!;
+    return {
+      listingId: d.listing.id,
+      channel: d.listing.channel as Channel,
+      url: (row.url ?? null) as string | null,
+      ours: d.ours,
+      theirs: d.theirs,
+      delta: d.delta,
+      seenAt: (row.market_price_at ?? null) as string | null,
+      item: (row.items ?? null) as PriceDriftView["item"],
+    };
+  });
 }

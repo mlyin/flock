@@ -54,12 +54,13 @@ Rules for whoever (or whatever) works this:
 - [ ] Verify the three `unverified` fee rates — `therealreal`, and the two others
       `lib/fees.ts` still admits to. Every net figure rests on them.
       Dispatch `.claude/agents/fee-auditor.md`.
-- [ ] Wire `markMessageRead` — unread state is write-only, so the badge can only
-      grow.
-- [ ] Repack the extension. `dist/` is older than the source and the version
-      never moved past 0.2.0, so `/install` is likely serving a stale build.
-- [ ] Delete the legacy no-Supabase path in `middleware.ts`. Losing the env vars
-      currently ungates the whole app rather than failing loudly.
+- [x] Wire `markMessageRead` — done 20 Aug, plus the count itself was wrong:
+      outgoing rows have no `read_at` either, so your own replies were unread.
+- [x] Repack the extension — 0.3.0 packed and published 20 Aug. `bridge.js` now
+      stamps its version so the app can say when an install is behind.
+- [x] Delete the legacy no-Supabase path in `middleware.ts` — done 20 Aug.
+      Missing env vars now serve a 503 instead of removing the gate. Same
+      fail-open shape was in `app/page.tsx` and `app/layout.tsx`.
 
 ## Standing rules
 
