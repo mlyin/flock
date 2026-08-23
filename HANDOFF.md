@@ -35,10 +35,11 @@ Vinted's own "Find a category" search.
 1. **Vinted account needs verification.** Selecting a category redirects to
    `/users/verification?ref_url=/items/new`. Vinted cannot list at all until
    that's done, so the cascade fix is unverified end to end.
-2. **Mercari serves automated tabs an empty shell** — zero inputs, zero buttons,
-   in a fresh tab, twice. Its category/brand/shipping selectors therefore cannot
-   be read, and per the project rule they must not be guessed. Mercari may stay
-   extension-only, or need a real browser session.
+2. ~~Mercari serves automated tabs an empty shell~~ — **this was wrong.** It was
+   never bot mitigation. `active: false` is the whole cause: Mercari renders its
+   sell form in a normal tab and serves a *background* one an empty document.
+   Reads failed and fills worked purely because `chrome.tabs.create` defaults to
+   active. Mercari is now exempted and always gets a foreground tab.
 3. **Accessibility permission for desktop control** (optional). Screen Recording
    is already granted. To let Claude drive the cursor: System Settings → Privacy
    & Security → Accessibility → add `/Applications/Claude.app`, then restart

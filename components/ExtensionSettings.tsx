@@ -17,7 +17,11 @@ import { useEffect, useState } from "react";
  */
 export default function ExtensionSettings() {
   const [installed, setInstalled] = useState(false);
-  const [prefs, setPrefs] = useState<{ autoSubmit: boolean; background: boolean } | null>(null);
+  const [prefs, setPrefs] = useState<{
+    autoSubmit: boolean;
+    background: boolean;
+    syncPaused: boolean;
+  } | null>(null);
   const [depopUsername, setDepopUsername] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -36,7 +40,11 @@ export default function ExtensionSettings() {
         window.postMessage({ source: "threader-page", type: "get-prefs" }, window.location.origin);
       }
       if (data.type === "prefs") {
-        setPrefs({ autoSubmit: Boolean(data.autoSubmit), background: Boolean(data.background) });
+        setPrefs({
+          autoSubmit: Boolean(data.autoSubmit),
+          background: Boolean(data.background),
+          syncPaused: Boolean(data.syncPaused),
+        });
         setDepopUsername(data.depopUsername ?? "");
       }
     };
@@ -97,6 +105,31 @@ export default function ExtensionSettings() {
             <span className="muted">
               Opens in this window without stealing focus. It comes to the front if something
               needs you, and Mercari is always shown — it serves a background tab a blank page.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div className="sectionhead">
+        <h2>Background syncing</h2>
+        <p>Reading your inbox and shop needs a real page, so it opens one.</p>
+      </div>
+
+      <div className="notice">
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <input
+            type="checkbox"
+            checked={prefs?.syncPaused ?? false}
+            onChange={(e) => update({ syncPaused: e.target.checked })}
+          />
+          <span>
+            <strong>Pause background syncing</strong>
+            <br />
+            <span className="muted">
+              Stops Depop tabs opening on their own. Nothing can read a marketplace without
+              rendering its page, so the alternative to a tab you notice is a hidden window,
+              which reads as the app misbehaving. While this is on, offers and sold items only
+              update when you sync by hand.
             </span>
           </span>
         </label>

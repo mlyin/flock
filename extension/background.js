@@ -385,6 +385,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           "autoSubmit",
           "background",
           "depopUsername",
+          "syncPaused",
         ]);
         sendResponse({ ok: true, data: prefs });
         return;
@@ -393,7 +394,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === "set-prefs") {
         // Whitelisted keys only — this arrives from a web page, and letting it
         // write arbitrary keys would let it overwrite the pairing token.
-        const allowed = ["autoSubmit", "background", "depopUsername"];
+        const allowed = ["autoSubmit", "background", "depopUsername", "syncPaused"];
         const patch = {};
         for (const key of allowed) {
           if (key in message.prefs) patch[key] = message.prefs[key];
@@ -647,6 +648,12 @@ async function scheduleSync() {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== SYNC_ALARM) return;
 
+  // A real off switch. Reading the inbox opens a Depop tab, and a tab you
+  // didn't ask for appearing while you work is worth being able to stop
+  // outright rather than merely making quieter.
+  const { syncPaused } = await chrome.storage.local.get(["syncPaused"]);
+  if (syncPaused) return;
+
   // Unpaired means there's nowhere to send what we read; don't open tabs for
   // nothing, and don't nag.
   const { token } = await chrome.storage.local.get(["token"]);
@@ -781,13 +788,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   (async () => {
     try {
-      const { token, lastBadge } = await chrome.storage.local.get(["token", "lastBadge"]);
+      const { token, lastBadge, syncPaused, lastBadgeSync } = await chrome.storage.local.get([
+        "token",
+        "lastBadge",
+        "syncPaused",
+        "lastBadgeSync",
+      ]);
       if (!token) return sendResponse({ ok: true, skipped: "unpaired" });
+      if (syncPaused) return sendResponse({ ok: true, skipped: "paused" });
 
       // Only act on a rise. Going 2 -> 0 just means they read them.
       const previous = lastBadge ?? 0;
       await chrome.storage.local.set({ lastBadge: message.count });
       if (message.count <= previous) return sendResponse({ ok: true, skipped: "no increase" });
+
+      // The badge is read from a MutationObserver on a busy page, so it can
+      // rise more than once in quick succession. Without a floor, each rise
+      // opens another Depop tab. Five minutes is still far faster than the
+      // half-hourly alarm and is bounded.
+      if (lastBadgeSync && Date.now() - lastBadgeSync < 5 * 60 * 1000) {
+        return sendResponse({ ok: true, skipped: "cooling down" });
+      }
+      await chrome.storage.local.set({ lastBadgeSync: Date.now() });
 
       const data = await syncDepopMessages();
       await chrome.storage.local.set({ lastSyncAt: Date.now(), lastSyncResult: { ok: true, ...data } });
