@@ -239,6 +239,33 @@ paths now cover `draft` and `live`), bulk operations (`BulkController`),
 - eBay via its real API once approved; Etsy and Shopify also have real APIs.
 - Poshmark, and readers for the other channels' messages.
 
+## Deadlines and the calendar feed
+
+`lib/calendar.ts` serves a subscribable `.ics` from `/api/calendar/[token]`,
+gated by a hashed, revocable token because a calendar client has no login step
+— the URL IS the credential. A feed rather than OAuth into the seller's own
+calendar: writing there would mean holding something that can also delete their
+dentist appointment.
+
+**`DISPATCH` follows the `FEE_RULES` discipline exactly.** Verified 26 Aug
+against each marketplace's own help pages, then through a refutation pass:
+Poshmark 7 calendar, Depop 10 calendar, Vinted 5 business, Facebook 7 calendar,
+Mercari 3 business (a *request*, not enforced — the hard clock is a 24-hour
+cancellation response), Grailed 2 business.
+
+Two entries are load-bearing and easy to "fix" wrongly:
+
+- **eBay is `days: null` and VERIFIED.** Handling time is a per-listing seller
+  setting, and the seller also chooses whether weekends count. Verified to be
+  unknowable from here, which is different from unchecked.
+- **Grailed shows the EARLIER of its two.** Standard is 7 calendar days,
+  Expedited 2 business, and the order does not say which. Early costs the
+  seller a day of hurry; late costs an automatic cancellation and a refund, so
+  it takes the tighter one and says so in the event body.
+
+A test asserts no channel may carry a day count while `unverified`. StockX and
+Vestiaire still are.
+
 ## Agents, tests, CI — how work gets done here
 
 **Tests** (`npm test`): property sweeps for money math (lib/fees.test.ts — dense

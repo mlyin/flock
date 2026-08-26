@@ -55,25 +55,97 @@ export type DispatchRule = {
 };
 
 export const DISPATCH: Record<Channel, DispatchRule> = {
+  // Verified against each marketplace's own help pages on 2026-08-26, then put
+  // through a pass whose job was to refute the first reading.
   ebay: {
     days: null,
     businessDays: true,
-    verifiedOn: "unverified",
-    note: "Set per listing by the seller's own handling time, so there is no single number.",
+    verifiedOn: "2026-08-26",
+    note:
+      "eBay has no single number: handling time is a per-LISTING seller setting, and the seller " +
+      "also chooses whether weekends count. Verified, and verified to be unknowable from here — " +
+      "so no event is emitted rather than a made-up one. " +
+      "Source: ebay.com/sellercenter/shipping/preparing-your-shipment/handling-time",
   },
-  poshmark: { days: null, businessDays: false, verifiedOn: "unverified", note: "" },
-  depop: { days: null, businessDays: false, verifiedOn: "unverified", note: "" },
-  mercari: { days: null, businessDays: true, verifiedOn: "unverified", note: "" },
-  vinted: { days: null, businessDays: true, verifiedOn: "unverified", note: "" },
-  grailed: { days: null, businessDays: false, verifiedOn: "unverified", note: "" },
-  facebook: { days: null, businessDays: false, verifiedOn: "unverified", note: "" },
-  stockx: { days: null, businessDays: true, verifiedOn: "unverified", note: "" },
-  vestiaire: { days: null, businessDays: false, verifiedOn: "unverified", note: "" },
-  therealreal: {
+  poshmark: {
+    days: 7,
+    businessDays: false,
+    verifiedOn: "2026-08-26",
+    note:
+      "7 days from purchase to ship. The buyer may cancel on the 8th day, and Poshmark cancels " +
+      "automatically at 14. Source: support.poshmark.com article 841448447",
+  },
+  depop: {
+    days: 10,
+    businessDays: false,
+    verifiedOn: "2026-08-26",
+    note:
+      "10 days to ship or add tracking, then automatic cancellation and a full refund. Depop's " +
+      "own page notes most sellers ship within 2 days. " +
+      "Source: depophelp.zendesk.com article 16523051318033",
+  },
+  mercari: {
+    days: 3,
+    businessDays: true,
+    verifiedOn: "2026-08-26",
+    note:
+      "A REQUEST, not an enforced deadline — Mercari's wording is 'we ask sellers to ship within " +
+      "3 business days'. The hard clock is elsewhere: a buyer can request cancellation any time " +
+      "before it ships, and you have 24 hours to respond. " +
+      "Source: mercari.com/us/help_center/topics/cancelation",
+  },
+  vinted: {
+    days: 5,
+    businessDays: true,
+    verifiedOn: "2026-08-26",
+    note:
+      "5 business days from purchase; the order cancels the next business day if there is still " +
+      "no tracking. The buyer can grant 3 or 5 more business days.",
+  },
+  grailed: {
+    // The earlier of Grailed's two, deliberately.
+    //
+    // Standard is 7 calendar days and Expedited is 2 business days, and which
+    // one applies is a property of the ORDER that Flock cannot see. The
+    // asymmetry decides it: a deadline that is too early costs the seller a
+    // day of hurry, one that is too late costs an automatic cancellation and a
+    // refund. So take the tighter one and say so in the event.
+    days: 2,
+    businessDays: true,
+    verifiedOn: "2026-08-26",
+    note:
+      "This is the EXPEDITED deadline, 2 business days. Standard orders get 7 calendar days — " +
+      "Flock cannot tell which this was, so it shows the earlier one. A buyer can grant a " +
+      "14-calendar-day extension either way.",
+  },
+  facebook: {
+    days: 7,
+    businessDays: false,
+    verifiedOn: "2026-08-26",
+    note:
+      "7 days to ship AND mark shipped. Separately, Facebook requires a 90% on-time shipping " +
+      "rate, and breaching it can restrict shipping features — so this one carries both an " +
+      "order-level and an account-level consequence. Source: facebook.com/help/701015577168337",
+  },
+  stockx: {
+    days: null,
+    businessDays: true,
+    verifiedOn: "unverified",
+    note: "",
+  },
+  vestiaire: {
     days: null,
     businessDays: false,
     verifiedOn: "unverified",
-    note: "Consignment — they hold the garment, so there is nothing to dispatch per sale.",
+    note: "",
+  },
+  therealreal: {
+    days: null,
+    businessDays: false,
+    verifiedOn: "2026-08-26",
+    note:
+      "Consignment — they hold the garment, so there is nothing to dispatch per sale. Verified " +
+      "as having no deadline rather than left unchecked.",
   },
 };
 

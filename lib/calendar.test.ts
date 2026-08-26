@@ -136,25 +136,50 @@ describe("buildEvents", () => {
   };
 
   it("says nothing about dispatch for a channel with no published deadline", () => {
-    // Every DISPATCH entry is `days: null` until somebody verifies it against
-    // the marketplace's own page. A guessed date is worse than none: the
-    // seller either panics on a date that isn't real or relaxes into one later
-    // than the truth.
-    const events = buildEvents({ sales: [sale], offers: [], consignments: [] }, origin);
-    expect(events).toEqual([]);
+    // A guessed date is worse than none: the seller either panics on a date
+    // that isn't real, or relaxes into one later than the truth. StockX and
+    // Vestiaire are still unverified, and eBay is verified to have no single
+    // number at all — handling time is a per-listing seller setting.
+    for (const channel of ["stockx", "vestiaire", "ebay"] as const) {
+      const events = buildEvents(
+        { sales: [{ ...sale, channel }], offers: [], consignments: [] },
+        origin
+      );
+      expect(events, channel).toEqual([]);
+    }
   });
 
-  it("emits a dispatch deadline once a channel is verified", () => {
-    const original = { ...DISPATCH.depop };
-    try {
-      Object.assign(DISPATCH.depop, { days: 5, businessDays: false, verifiedOn: "2026-08-21" });
-      const events = buildEvents({ sales: [sale], offers: [], consignments: [] }, origin);
-      expect(events).toHaveLength(1);
-      expect(events[0].start.toISOString().slice(0, 10)).toBe("2026-08-26");
-      expect(events[0].uid).toBe("sale-dispatch-s1@sellonflock.com");
-    } finally {
-      Object.assign(DISPATCH.depop, original);
-    }
+  it("emits Depop's real 10 calendar days", () => {
+    // Verified 2026-08-26: ship or add tracking within 10 days, then automatic
+    // cancellation and a full refund. Sold 21 Aug -> due 31 Aug.
+    const events = buildEvents({ sales: [sale], offers: [], consignments: [] }, origin);
+    expect(events).toHaveLength(1);
+    expect(events[0].start.toISOString().slice(0, 10)).toBe("2026-08-31");
+    expect(events[0].uid).toBe("sale-dispatch-s1@sellonflock.com");
+  });
+
+  it("counts Vinted's five days as business days", () => {
+    // Sold Friday 21 Aug; five business days is Friday 28th, not Wednesday
+    // 26th. Getting this wrong puts the deadline two days early on every
+    // business-day channel.
+    const events = buildEvents(
+      { sales: [{ ...sale, channel: "vinted" }], offers: [], consignments: [] },
+      origin
+    );
+    expect(events[0].start.toISOString().slice(0, 10)).toBe("2026-08-28");
+  });
+
+  it("takes Grailed's tighter deadline and says which one it used", () => {
+    // Standard is 7 calendar days, Expedited 2 business days, and the order
+    // does not tell us which. Early costs a day of hurry; late costs an
+    // automatic cancellation — so it shows the earlier one and explains.
+    const events = buildEvents(
+      { sales: [{ ...sale, channel: "grailed" }], offers: [], consignments: [] },
+      origin
+    );
+    expect(events[0].start.toISOString().slice(0, 10)).toBe("2026-08-25");
+    expect(events[0].description).toContain("EXPEDITED");
+    expect(events[0].description).toContain("7 calendar days");
   });
 
   it("gives every event a UID that survives regeneration", () => {
