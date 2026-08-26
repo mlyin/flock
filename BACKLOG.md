@@ -14,7 +14,10 @@ Rules for whoever (or whatever) works this:
 - **Never guess a marketplace selector.** Read it off the live page or a fill
   report, or leave the field and say so. See `.claude/agents/selector-medic.md`.
 - **Money changes need a test before the commit**, and `npm run simulate` green.
-- **Nothing auto-submits** a marketplace form. Fills stop; the seller commits.
+- **A fill stops by default; the seller commits.** This said "nothing auto-submits"
+  until 26 Aug, which was false -- Depop, Vinted and Grailed press submit when the
+  popup's auto-submit toggle is on. It defaults to off, so the rule is "opt-in, and
+  never on Mercari", not "never".
 - **Don't mark a feature done in `lib/plan.ts`** until it actually works.
 - Blocked items stay blocked — say what's blocking and move down the list.
 
@@ -42,11 +45,17 @@ Rules for whoever (or whatever) works this:
 
 ## Blocked
 
-- [ ] **Finish one filler end to end.** Five of seven have never completed a
-      fill. *Blocked: Vinted needs account verification; Mercari serves
-      automated tabs an empty shell.*
-- [ ] **Pricing from sold comps.** *Blocked: eBay developer approval.* Unlocks
-      API-grade sale detection too, so it does double duty when it lands.
+- [ ] **Finish the remaining fillers end to end.** Two of seven have now
+      completed one: Depop (a real listing went live) and Facebook (verified
+      field by field against the live form, 21 Aug). Grailed is partial — its
+      designer field reverts any scripted value, so one field is always typed by
+      hand. eBay and The RealReal are written and unrun. *Blocked: Vinted needs
+      account verification; Mercari serves automated tabs an empty shell.*
+- [x] **Pricing from sold comps** — done 21 Aug, by routing around the block
+      rather than waiting on it. eBay publishes completed sales on a PUBLIC
+      search page; `read-ebay-sold.js` reads it with no API key and no approval.
+      The blocker turned out not to be load-bearing. Worth remembering the next
+      time something looks blocked.
 
 ## Soon
 

@@ -23,20 +23,28 @@ in your Flock account, so you don't retype the same garment on every site.
 
 How it works:
 
-1. Prepare a listing in Flock — photos, title, description, price, size,
+1. Prepare a listing in Flock - photos, title, description, price, size,
    condition.
 2. Open the extension and pick the listing you want to post.
 3. It opens that marketplace's sell page and fills in the fields it can.
-4. You check everything, adjust anything it left blank, and press the
-   marketplace's own submit button yourself.
+4. It stops there. You check everything, fix anything it left blank, and press
+   the marketplace's own submit button.
 
-The extension never submits a listing for you and never asks for your
-marketplace password. It works inside the browser session you're already
-signed in to, and a banner tells you exactly which fields it filled and which
-it left for you.
+Step 4 is the default and it is what the extension does unless you change it.
+There is an auto-submit toggle in the popup, off until you switch it on, which
+presses submit for you on Depop, Vinted and Grailed once nothing required is
+empty and photos have attached. Mercari ignores that toggle by design: its form
+scores behaviour with invisible reCAPTCHA, so a scripted click is the pattern
+being measured, and the cost of failing that check lands on your account rather
+than ours.
 
-Requires a Flock account (sellonflock.com). Currently supports Depop,
-Mercari, Vinted and Grailed sell forms.
+The extension never asks for your marketplace password. It works inside the
+browser session you're already signed in to, and a banner tells you exactly
+which fields it filled and which it left for you.
+
+Requires a Flock account (sellonflock.com). Fills sell forms on Depop, Vinted,
+Grailed, Mercari, Facebook Marketplace and eBay, and the consignment packing
+list on The RealReal.
 ```
 
 ---

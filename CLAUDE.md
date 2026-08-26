@@ -100,14 +100,24 @@ offers in the Inbox are judged against.
 
 ## The extension
 
-**It never submits a listing.** It fills the form and stops; the seller clicks. That's the
-honest boundary when it's someone else's marketplace account, and a listing originating
-from their real browser and IP is far less likely to be flagged than one from a server.
-Do not move this automation server-side.
+**It fills the form and stops — unless the seller turns auto-submit on.** That is the
+honest statement, and this section said "it never submits a listing" until 26 Aug, which
+was false. `fill-depop.js`, `fill-vinted.js` and `fill-grailed.js` all press submit when
+`autoSubmit` is set, gated on nothing required being empty and photos having attached.
+The flag defaults to off and is an explicit toggle in the popup, so this is an opt-in
+feature rather than a rogue branch — but three public surfaces claimed it did not exist
+(the Chrome Web Store description, `extension/STORE.md`, `/install`), which is the kind
+of overclaim that gets an extension pulled.
 
-**Never auto-submit Mercari.** Its form carries `g-recaptcha-response` — invisible
-reCAPTCHA v3, which scores behaviour. A person clicking List passes; a script clicking it
-is the pattern being scored. `fill-mercari.js` ignores `autoSubmit` by design.
+**Mercari ignores `autoSubmit` by design and must keep ignoring it.** Its form carries
+invisible reCAPTCHA v3, which scores behaviour rather than presenting a challenge: a
+person clicking List passes, a scripted click is the pattern being scored, and the cost
+lands on the seller's real account. A click-List branch appeared there anyway and was
+removed on 21 Aug; the reasoning now sits at the site of the temptation, not only here.
+
+**The seller's own browser and IP is still the point.** A listing originating from a real
+browser is far less likely to be flagged than one from a server. Do not move this
+automation server-side.
 
 **Identity fields take an exact match or nothing — and CATEGORY is one of them.**
 

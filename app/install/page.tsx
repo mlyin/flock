@@ -64,7 +64,8 @@ export default function InstallPage() {
       <p>
         From then on, every listing in your inventory gets a one-click <em>Fill</em> button per
         marketplace. The extension opens the sell form in a tab, fills what it can, and stops —
-        it never submits a listing for you.
+        you press the marketplace&apos;s own submit button. There&apos;s an auto-submit toggle in
+        the popup if you want it, off until you switch it on, and Mercari ignores it either way.
       </p>
 
       <h2>Updating</h2>

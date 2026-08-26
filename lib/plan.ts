@@ -74,8 +74,16 @@ export const PLANS: Plan[] = [
     features: [
       { text: "400 listings live at once" },
       { text: "Everything in Lamb, nothing clipped" },
-      { text: "One inbox across every marketplace" },
-      { text: "Bulk relist and price drops", soon: true },
+      // "One inbox across every marketplace" until 26 Aug, with no `soon` flag
+      // — on a PAID tier, while background.js throws by name for every channel
+      // except Depop and read-depop-messages.js is the only reader that exists.
+      // The inbox is real and works; its reach was the overclaim.
+      { text: "Buyer messages and offers in one inbox — Depop today" },
+      // These were one bullet marked `soon`, which was wrong in both
+      // directions at once: bulk price drops shipped (bulkDropPrices), and
+      // bulk relist genuinely has not been built.
+      { text: "Bulk price drops across your inventory" },
+      { text: "Bulk relist", soon: true },
       { text: "CSV export, any time" },
     ],
   },
@@ -92,7 +100,11 @@ export const PLANS: Plan[] = [
     features: [
       { text: "No cap on listings live at once" },
       { text: "Offers answered against your floor price" },
-      { text: "Consignment tracking — The RealReal, ThredUp", soon: true },
+      // Shipped 21 Aug: lib/custody.ts, and migration 0034 enforces it in the
+      // database. ThredUp is dropped rather than deflagged — it has never been
+      // a channel in lib/fees.ts, so naming it promised a marketplace the
+      // product has never had.
+      { text: "Consignment tracking — The RealReal" },
       { text: "Profit and sell-through by marketplace" },
       { text: "Email that reaches the person who builds Flock" },
     ],

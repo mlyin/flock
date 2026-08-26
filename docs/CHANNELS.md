@@ -20,10 +20,23 @@ access model is the first column, not an afterthought.
 | **Grailed** | extension | ✅ | ✅ 8 fields; designer needs typing (see below) |
 | **Vinted** | extension | ✅ | ⚠️ account verified, fill not yet confirmed |
 | **Mercari** | extension | fill-only | ❌ served an empty document to automated tabs |
-| **eBay** | api | copy only | ❌ developer approval pending |
+| **eBay** | extension | ✅ four-screen filler | ❌ written 19 Aug, never run |
 | **Poshmark** | extension | ❌ not built | — |
-| **Facebook Marketplace** | extension | ❌ selectors unread | — |
-| **The RealReal** | manual | n/a by design | — |
+| **Facebook Marketplace** | extension | ✅ | ✅ 8 fields, 21 Aug |
+| **The RealReal** | extension | ✅ packing list | ❌ written 19 Aug, never run |
+| **Vestiaire Collective** | extension | ❌ form unread | — |
+| **StockX** | extension | ❌ ask form unreachable | — |
+
+### eBay — the API was refused, so the extension is the path
+
+`CLAUDE.md` carried "eBay — copy generated, no API integration; developer
+account rejected" long after `extension/fill-ebay.js` existed as a complete
+four-screen filler. Both halves mattered and both were stale in opposite
+directions: the filler is written, and the API application was **denied**.
+
+That is worth stating plainly rather than filing under "not done yet". Flock's
+credential-free posture is a real seller-safety advantage, and on the largest
+channel it is also a constraint we did not choose. Re-applying costs nothing.
 
 ### Grailed's designer field
 `#designer-autocomplete` reverts any scripted value synchronously. Real
