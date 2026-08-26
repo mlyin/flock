@@ -2,7 +2,8 @@ import Link from "next/link";
 import AddressBook from "@/components/AddressBook";
 import BillingCard from "@/components/BillingCard";
 import ListingDefaultsForm from "@/components/ListingDefaultsForm";
-import { getListingDefaults } from "@/app/actions";
+import { getCalendarFeeds, getListingDefaults } from "@/app/actions";
+import CalendarFeed from "@/components/CalendarFeed";
 import { standing } from "@/lib/plan";
 import { CHANNELS, unverifiedChannels } from "@/lib/fees";
 import type { AddressRow } from "@/app/actions";
@@ -20,6 +21,7 @@ export default async function SettingsPage() {
 
   const where = await standing();
   const unverified = unverifiedChannels();
+  const calendarFeeds = await getCalendarFeeds();
   const listingDefaults = await getListingDefaults();
 
   return (
@@ -62,6 +64,12 @@ export default async function SettingsPage() {
       </div>
       <ListingDefaultsForm defaults={listingDefaults} />
 
+
+      <div className="sectionhead">
+        <h2>Calendar</h2>
+        <p>Subscribe your Mac or phone to the deadlines that cost money if you miss them</p>
+      </div>
+      <CalendarFeed feeds={calendarFeeds} />
 
       <div className="sectionhead">
         <h2>Ship-from addresses</h2>

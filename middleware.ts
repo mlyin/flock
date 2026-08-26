@@ -67,7 +67,14 @@ export async function middleware(request: NextRequest) {
     // this bounced every webhook to /login with a 307, so a paid subscription
     // would never have reached profiles.plan. The route verifies Stripe's own
     // signature, which is a stronger check than a session would be.
-    request.nextUrl.pathname.startsWith("/api/stripe");
+    request.nextUrl.pathname.startsWith("/api/stripe") ||
+    // The calendar feed. Calendar.app, Google Calendar and iOS have no login
+    // step when subscribing, so they carry no session and never will — the
+    // token in the path is the credential, and the route verifies it itself.
+    // Gating this would hand a calendar client an HTML redirect where it
+    // expects an .ics, which every client reports as "the URL is not a
+    // calendar" rather than as an auth problem.
+    request.nextUrl.pathname.startsWith("/api/calendar");
 
   if (!data.user && !isPublic) {
     const login = request.nextUrl.clone();

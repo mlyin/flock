@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
+import { issueFeedToken, revokeFeed } from "@/lib/calfeed";
 import { standing } from "@/lib/plan";
 import { CHANNEL_LABEL, type Channel } from "@/lib/fees";
 import { canList, transition, type Custody } from "@/lib/custody";
@@ -1922,4 +1923,53 @@ export async function priceFromMarket(
   revalidatePath(`/items/${itemId}`);
   revalidatePath("/");
   return { ok: true, price: price.suggested };
+}
+
+export type CalendarFeedRow = {
+  id: string;
+  label: string | null;
+  created_at: string;
+  last_used_at: string | null;
+};
+
+export async function getCalendarFeeds(): Promise<CalendarFeedRow[]> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("calendar_feeds")
+    .select("id, label, created_at, last_used_at")
+    .is("revoked_at", null)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as CalendarFeedRow[];
+}
+
+/**
+ * Mint a calendar feed URL.
+ *
+ * The token comes back exactly once and is never readable again — only its
+ * hash is stored, and the column is not even selectable from a session. Losing
+ * it means making a new one, which is the correct trade for a URL that is
+ * itself a credential.
+ */
+export async function createCalendarFeed(
+  label?: string
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    const token = await issueFeedToken(label?.trim() || "Calendar");
+    const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.sellonflock.com";
+    revalidatePath("/settings");
+    return { ok: true, url: `${origin}/api/calendar/${token}` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export async function revokeCalendarFeed(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await revokeFeed(id);
+    revalidatePath("/settings");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
