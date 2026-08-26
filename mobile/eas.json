@@ -1,5 +1,8 @@
 {
-  "cli": { "version": ">= 5.0.0", "appVersionSource": "remote" },
+  "cli": {
+    "version": ">= 22.0.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
@@ -16,9 +19,12 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "REPLACE_WITH_YOUR_APPLE_ID",
-        "ascAppId": "REPLACE_AFTER_CREATING_APP_IN_APP_STORE_CONNECT",
-        "appleTeamId": "REPLACE_WITH_YOUR_TEAM_ID"
+        "ascAppId": "REPLACE_ASC_APP_ID",
+        "appleTeamId": "REPLACE_APPLE_TEAM_ID",
+        "ascApiKeyPath": "REPLACE_PATH_TO_AuthKey_XXXXXXXXXX.p8",
+        "ascApiKeyId": "REPLACE_ASC_KEY_ID",
+        "ascApiKeyIssuerId": "REPLACE_ASC_ISSUER_ID",
+        "groups": ["Internal"]
       }
     }
   }
