@@ -2,6 +2,7 @@ import { supabaseServer } from "./supabase/server";
 import { computeFees, projectedNet, CHANNELS, type Channel } from "./fees";
 import { detectDrift } from "./drift";
 import type { Custody } from "./custody";
+import { assessAll, type ChannelHealth, type SyncRow } from "./heartbeat";
 
 /**
  * All reads and writes go through the request-scoped Supabase client, so every
@@ -456,4 +457,20 @@ export async function priceDrift(): Promise<PriceDriftView[]> {
       item: (row.items ?? null) as PriceDriftView["item"],
     };
   });
+}
+
+/**
+ * When each channel last reported in.
+ *
+ * `channel_syncs` has been written on every sync since March and read by
+ * nothing. This is the reader — see lib/heartbeat.ts for why silence is the
+ * failure mode worth surfacing.
+ */
+export async function syncHealth(): Promise<ChannelHealth[]> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("channel_syncs")
+    .select("channel, last_sync_at, found, error");
+
+  return assessAll((data ?? []) as SyncRow[], new Date());
 }

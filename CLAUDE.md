@@ -239,6 +239,33 @@ paths now cover `draft` and `live`), bulk operations (`BulkController`),
 - eBay via its real API once approved; Etsy and Shopify also have real APIs.
 - Poshmark, and readers for the other channels' messages.
 
+## The always-on node, and why silence is the failure
+
+`docs/MAC-MINI.md` is the runbook for dedicating a Mac mini to this. Two things
+in it are load-bearing and counterintuitive:
+
+**It cannot run logged out.** A Chrome MV3 extension needs a GUI session, so
+the node is auto-logged-in and unattended. Auto-login is the hinge the whole
+build hangs off, not the sleep settings — and signing in with an Apple Account
+during Setup Assistant trips two of Apple's three auto-login blockers at once.
+
+**FileVault must be OFF.** At the pre-boot unlock screen macOS has not booted:
+no network, no Tailscale, no SSH. A reboot with FileVault on means the machine
+is gone until somebody walks to it with a keyboard.
+
+`chrome.alarms` survives display sleep — display sleep is not one of Apple's
+three occlusion conditions. The **screen saver** is, so it must be Never. That,
+not sleep, is what silently kills the syncs.
+
+**Every failure of an unattended browser presents as silence** — an expired
+marketplace session, an occluded Chrome, a macOS update that rebooted the box,
+a revoked pairing token. `channel_syncs` had recorded every sync since March
+and been read by nothing; `lib/heartbeat.ts` reads it and `SyncHealth` puts a
+silence on the dashboard. An error counts even when the timestamp is fresh: a
+node failing every half hour for six hours is recent and broken. Channels that
+have never synced are not reported — silence is only evidence once there was
+noise.
+
 ## Deadlines and the calendar feed
 
 `lib/calendar.ts` serves a subscribable `.ics` from `/api/calendar/[token]`,

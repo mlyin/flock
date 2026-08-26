@@ -7,10 +7,11 @@ import ChannelViewToggle from "@/components/ChannelViewToggle";
 import { CHANNEL_LABEL, unverifiedChannels } from "@/lib/fees";
 import ChannelIcon from "@/components/ChannelIcon";
 import { usd, usdShort, pct } from "@/lib/money";
-import { bestProjection, getItems, openDelistTasks, priceDrift, shelfAge, signPhotos, summarize } from "@/lib/data";
+import { bestProjection, getItems, openDelistTasks, priceDrift, shelfAge, syncHealth, signPhotos, summarize } from "@/lib/data";
 import DelistQueue from "@/components/DelistQueue";
 import PriceDrift from "@/components/PriceDrift";
 import SaleQuestions from "@/components/SaleQuestions";
+import SyncHealth from "@/components/SyncHealth";
 import { getSaleCandidates } from "@/app/actions";
 import BulkController from "@/components/BulkController";
 
@@ -83,9 +84,13 @@ export default async function Inventory({
   // that should be down costs a cancellation.
   const drifts = await priceDrift();
   const unverifiedRates = unverifiedChannels();
+  const health = await syncHealth();
 
   return (
     <>
+      {/* Above the queues: a queue you can't see because nothing is syncing is
+          worse than an empty one. */}
+      <SyncHealth health={health} />
       <SaleQuestions candidates={saleQuestions} />
       <DelistQueue tasks={delist} />
       <PriceDrift drifts={drifts} />

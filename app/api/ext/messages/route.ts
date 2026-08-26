@@ -48,7 +48,19 @@ export async function POST(request: Request) {
   const scraped = (Array.isArray(body?.messages) ? body!.messages! : []).filter(
     (m) => m.external_id
   );
-  if (scraped.length === 0) return json({ ok: true, imported: 0 });
+  if (scraped.length === 0) {
+    // An empty read still proves the node ran and reached the marketplace.
+    // Treating it as "nothing happened" is how a box that has been quietly
+    // signed out for a week looks identical to a quiet week.
+    await supabaseAdmin().from("channel_syncs").upsert({
+      user_id: userId,
+      channel,
+      last_sync_at: new Date().toISOString(),
+      found: 0,
+      error: null,
+    });
+    return json({ ok: true, imported: 0 });
+  }
 
   const admin = supabaseAdmin();
 
@@ -101,6 +113,18 @@ export async function POST(request: Request) {
   const { error } = await admin
     .from("messages")
     .upsert(rows, { onConflict: "user_id,channel,external_id", ignoreDuplicates: false });
+
+  // Record the sync either way. This table is the only evidence the seller has
+  // that the node is alive: every failure mode of an always-on browser looks
+  // identical from outside — nothing arrives, and nobody is told. A read that
+  // errored is still a heartbeat, and its message is the diagnosis.
+  await admin.from("channel_syncs").upsert({
+    user_id: userId,
+    channel,
+    last_sync_at: new Date().toISOString(),
+    found: error ? 0 : rows.length,
+    error: error ? error.message : null,
+  });
 
   if (error) return json({ error: error.message }, 500);
 
