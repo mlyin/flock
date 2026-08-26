@@ -4,6 +4,7 @@ name: Deploy to VPS
 # secrets exist, so this workflow is safe to merge before any server does.
 #
 # Required secrets when you have a box: VPS_HOST, VPS_USER, VPS_SSH_KEY,
+# SUPABASE_DB_URL (for the migration step),
 # plus the app env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 # NEXT_PUBLIC_VAPID_PUBLIC_KEY) for the build args.
 
@@ -37,8 +38,28 @@ jobs:
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
             NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
 
-  deploy:
+  # Schema before code. A deploy that ships a migration but never applies it
+  # runs new code against an old database, and the failure surfaces as a column
+  # that does not exist somewhere deep in a request rather than as a failed
+  # deploy. Runs from CI rather than on the box so the VPS never needs database
+  # credentials of its own.
+  migrate:
     needs: image
+    runs-on: ubuntu-latest
+    if: ${{ vars.VPS_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run migrate
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+  deploy:
+    needs: [image, migrate]
     runs-on: ubuntu-latest
     # Skips quietly until a VPS exists.
     if: ${{ vars.VPS_ENABLED == 'true' }}
@@ -49,7 +70,18 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -euo pipefail
             cd /opt/flock
             docker compose pull
             docker compose up -d
+            # Wait for the healthcheck rather than declaring success the moment
+            # compose returns — `up -d` returns when the container STARTS, which
+            # is not the same as the app serving. Without this a broken deploy
+            # reports green.
+            for i in $(seq 1 30); do
+              state=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q flock)" 2>/dev/null || echo starting)
+              [ "$state" = healthy ] && break
+              [ "$i" = 30 ] && { echo "flock did not become healthy"; docker compose logs --tail=50 flock; exit 1; }
+              sleep 4
+            done
             docker image prune -f

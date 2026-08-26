@@ -1,0 +1,25 @@
+# Caddy gets and renews Let's Encrypt certificates on its own. The only
+# requirement is that DOMAIN's A record already points at this box before the
+# container starts — Let's Encrypt validates by connecting back to port 80.
+{
+	email {$TLS_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy flock:3737
+
+	# Next serves its own hashed assets under /_next/static and they never
+	# change content for a given URL, so they can be cached hard.
+	@static path /_next/static/*
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		# Flock is same-origin everywhere except the extension, which talks to
+		# /api/ext/* and gets its CORS headers from the route itself.
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+}

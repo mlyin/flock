@@ -1,10 +1,19 @@
-# One-box Flock. Secrets come from .env on the host (same names as
-# .env.example) — never baked into the image. Supabase stays managed; the box
-# runs only the app, which is what keeps this a 30-minute setup instead of a
+# One-box Flock: the app behind Caddy, which gets TLS certificates by itself.
+#
+# Supabase stays managed. The box runs the app and a reverse proxy and nothing
+# else, which is what keeps this an evening's work rather than a
 # database-operations career.
+#
+# Secrets come from .env on the host — same names as .env.example, never baked
+# into the image. NEXT_PUBLIC_* are the exception: Next inlines them into the
+# client bundle at BUILD time, so they are build args as well as runtime env.
 services:
   flock:
-    image: ghcr.io/mlyin/threader:latest
+    # Must match what .github/workflows/deploy-vps.yml pushes, which is
+    # ghcr.io/<owner>/<repo>. This said "threader" until 21 Aug — a leftover
+    # from the rename — so the very first `docker compose pull` on a new box
+    # failed on an image that does not exist.
+    image: ghcr.io/mlyin/flock:latest
     build:
       context: .
       args:
@@ -12,11 +21,42 @@ services:
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
     env_file: .env
-    ports:
-      - "127.0.0.1:3737:3737"   # reverse proxy (Caddy/nginx) terminates TLS in front
+    expose:
+      - "3737"
     restart: unless-stopped
+    # /login is the right probe: it is public, so it does not need a session,
+    # and middleware.ts now returns 503 there when the Supabase env vars are
+    # missing. So this checks the app is CONFIGURED, not merely listening.
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3737/login"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certificates live here — losing this re-issues them
+      - caddy_config:/config
+    environment:
+      # Set in .env alongside everything else.
+      DOMAIN: ${DOMAIN}
+      TLS_EMAIL: ${TLS_EMAIL}
+    depends_on:
+      - flock
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  caddy_data:
+  caddy_config:

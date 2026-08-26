@@ -266,6 +266,15 @@ never guess a selector), `fee-auditor` (verify rates against official pages
 only), `test-writer`, `simulator`. Dispatch these rather than re-deriving
 their disciplines.
 
-**VPS** (Dockerfile + docker-compose.yml + deploy-vps.yml): image builds on
-every main push to GHCR; the deploy job stays dormant until the `VPS_ENABLED`
-repo variable is `true` and the SSH secrets exist. Vercel remains primary.
+**VPS** (Dockerfile + docker-compose.yml + Caddyfile + deploy-vps.yml, and
+**docs/VPS.md** for the walkthrough): image builds on every main push to GHCR;
+the deploy job stays dormant until the `VPS_ENABLED` repo variable is `true`
+and the SSH secrets exist. Vercel remains primary.
+
+The pipeline is **image -> migrate -> deploy**, in that order. A deploy that
+ships a migration without applying it runs new code against an old schema, and
+that surfaces as a missing column deep inside a request rather than as a failed
+deploy. Migrations run from CI, not on the box, so the VPS never holds database
+credentials. The deploy step then waits for the container healthcheck rather
+than trusting `up -d`, which returns when the container starts, not when the
+app serves.
