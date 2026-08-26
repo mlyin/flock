@@ -1,0 +1,33 @@
+# Without this, `COPY . .` in the Dockerfile does two bad things.
+#
+# It overwrites the linux node_modules that `COPY --from=deps` just installed
+# with whatever is on the build machine. On Windows that means
+# node_modules/@img/sharp-win32-x64 lands in a linux/amd64 image and sharp
+# throws on the first photo resize. CI never sees it, because actions/checkout
+# produces no node_modules at all — so the bug is invisible until the first
+# local build, and then it is invisible again because it only fires at runtime.
+#
+# And it drags .env.local into the build context. That file holds live
+# ANTHROPIC_API_KEY, SUPABASE_SECRET_KEY and STRIPE_SECRET_KEY. Anything in the
+# build context is readable from the image layers by anyone who can pull it.
+.git
+.github
+.vercel
+.claude
+node_modules
+.next
+dist
+mobile
+photos
+docs
+*.md
+.env
+.env.*
+Dockerfile
+.dockerignore
+docker-compose.yml
+Caddyfile
+tsconfig.tsbuildinfo
+*.zip
+store-icon-*.png
+store-screenshot-*.png

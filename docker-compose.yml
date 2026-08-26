@@ -13,7 +13,13 @@ services:
     # ghcr.io/<owner>/<repo>. This said "threader" until 21 Aug — a leftover
     # from the rename — so the very first `docker compose pull` on a new box
     # failed on an image that does not exist.
-    image: ghcr.io/mlyin/flock:latest
+    # Tagged, not pinned to :latest, so a rollback has something to point at.
+    # `docker compose pull` moves :latest onto the new image and the deploy's
+    # `docker image prune -f` then deletes the old one — so the thing you would
+    # roll back to was being removed by the deploy that broke it. The deploy
+    # tags the running image as :previous before pulling; roll back with
+    #   IMAGE_TAG=previous docker compose up -d --no-build
+    image: ghcr.io/mlyin/flock:${IMAGE_TAG:-latest}
     build:
       context: .
       args:
@@ -50,6 +56,7 @@ services:
     environment:
       # Set in .env alongside everything else.
       DOMAIN: ${DOMAIN}
+      APEX_DOMAIN: ${APEX_DOMAIN}
       TLS_EMAIL: ${TLS_EMAIL}
     depends_on:
       - flock

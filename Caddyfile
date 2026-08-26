@@ -5,6 +5,15 @@
 	email {$TLS_EMAIL}
 }
 
+# Canonical host is www. extension/background.js pins
+# https://www.sellonflock.com as HOME and lists the bare apex in OLD_HOMES as a
+# stale apiBase to migrate installs away from — so the apex only ever needs to
+# redirect. It still needs its own certificate to do that: with a single site
+# block, someone typing the apex gets a TLS error rather than a redirect.
+{$APEX_DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
 {$DOMAIN} {
 	encode zstd gzip
 	reverse_proxy flock:3737

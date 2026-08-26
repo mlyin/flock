@@ -80,10 +80,18 @@ skipping.
 
 ## 3. Point the domain at it
 
-An `A` record for your domain to the box's IPv4, and `AAAA` to its IPv6 if it
-has one. Do this **now**: Caddy gets its certificate by having Let's Encrypt
-connect back on port 80, so DNS has to have propagated before the container
-starts. Check with `dig +short yourdomain.com`.
+**Two** `A` records to the box's IPv4 — `www` and the bare apex — and `AAAA`
+for each if it has IPv6.
+
+Both, because www is canonical (`extension/background.js` pins
+`https://www.sellonflock.com` and treats the apex as a stale address to migrate
+installs away from) and Caddy serves the apex purely to redirect. It still
+needs its own certificate to do that: with only a www record, someone typing
+the apex gets a TLS error rather than a redirect.
+
+Do this **now**. Caddy gets its certificates by having Let's Encrypt connect
+back on port 80, so DNS has to have propagated before the container starts.
+Check with `dig +short www.yourdomain.com yourdomain.com`.
 
 ---
 
@@ -117,12 +125,18 @@ echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-s
 The token needs `read:packages` and nothing else.
 
 ```bash
-docker compose up -d
+docker compose up -d --no-build
 docker compose logs -f
 ```
 
-Caddy will fetch a certificate on first request. Watch for `certificate
-obtained successfully`.
+`--no-build` is not optional here. The compose file carries both `image:` and
+`build:`, so if the GHCR pull 401s — packages published by a workflow's
+`GITHUB_TOKEN` are private by default — compose falls through to *building*
+from `/opt/flock`, which contains no source, and dies with `failed to read
+dockerfile`. That is two stacked errors hiding one auth problem.
+
+Caddy will fetch certificates for both hostnames on first request. Watch for
+`certificate obtained successfully` twice.
 
 ---
 
@@ -175,8 +189,19 @@ When you move the apex over, remember what is pinned to the origin:
   explicitly. A new domain means a new version and a reload for every install.
 - **Stripe webhook** endpoint URL.
 
-Rolling back is a DNS change. Keep the Vercel project alive until you have gone
-a week without touching it.
+Rolling back to Vercel is a DNS change. Keep that project alive until you have
+gone a week without touching it.
+
+Rolling back a bad *image* is one command on the box:
+
+```bash
+IMAGE_TAG=previous docker compose up -d --no-build
+```
+
+The deploy tags the outgoing image `:previous` before it pulls. That step
+exists because `docker compose pull` moves `:latest` onto the new image and the
+deploy's closing `docker image prune -f` then deletes the old one — so without
+it, the deploy that broke things also removed the thing you would roll back to.
 
 ---
 

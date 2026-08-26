@@ -72,8 +72,16 @@ jobs:
           script: |
             set -euo pipefail
             cd /opt/flock
+            # Keep the outgoing image reachable. Without this, `pull` moves
+            # :latest and `prune -f` below deletes what you would roll back to.
+            docker tag ghcr.io/mlyin/flock:latest ghcr.io/mlyin/flock:previous || true
             docker compose pull
-            docker compose up -d
+            # --no-build matters: compose carries both `image:` and `build:`,
+            # so a GHCR 401 (packages are private by default) would otherwise
+            # fall through to building from /opt/flock, which holds no source,
+            # and fail with a confusing `failed to read dockerfile` instead of
+            # an auth error.
+            docker compose up -d --no-build
             # Wait for the healthcheck rather than declaring success the moment
             # compose returns — `up -d` returns when the container STARTS, which
             # is not the same as the app serving. Without this a broken deploy
