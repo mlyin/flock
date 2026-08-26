@@ -79,7 +79,7 @@ export default function PrivacyPage() {
 
       <h2>Deleting your data</h2>
       <p>
-        Email us and we will delete your account, inventory, and photos. Removing the extension
+        Delete your account yourself, from Settings — it removes every garment, listing, sale, photo and message, cancels any subscription first, and cannot be undone by us afterwards. Email us if you would rather we did it. Removing the extension
         deletes its local storage, including the pairing token; you can also revoke a pairing
         code at any time from the Extension page in Flock.
       </p>

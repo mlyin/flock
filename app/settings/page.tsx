@@ -4,6 +4,7 @@ import BillingCard from "@/components/BillingCard";
 import ListingDefaultsForm from "@/components/ListingDefaultsForm";
 import { getCalendarFeeds, getListingDefaults } from "@/app/actions";
 import CalendarFeed from "@/components/CalendarFeed";
+import DeleteAccount from "@/components/DeleteAccount";
 import { standing } from "@/lib/plan";
 import { CHANNELS, unverifiedChannels } from "@/lib/fees";
 import type { AddressRow } from "@/app/actions";
@@ -77,6 +78,13 @@ export default async function SettingsPage() {
       </div>
 
       <AddressBook addresses={(data ?? []) as AddressRow[]} />
+    
+      <div className="sectionhead">
+        <h2>Your account</h2>
+        <p>Leaving, and taking your data with you</p>
+      </div>
+      <DeleteAccount hasSubscription={Boolean(where?.plan && where.plan.id !== "lamb")} />
+
     </>
   );
 }
