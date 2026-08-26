@@ -1,7 +1,10 @@
 # Flock for iOS
 
-An Expo shell around sellonflock.com, plus the native pieces a browser can't give
-you: push that arrives when the app is closed, and the system camera.
+An Expo shell around sellonflock.com, plus push that arrives when the app is closed.
+
+**Never built, never submitted.** `eas.json` still carries placeholder Apple
+credentials, and see the Guideline 4.2 section below before spending anything —
+as it stands this is a website in a wrapper with one native feature.
 
 **Built entirely from Windows.** EAS compiles iOS on Apple hardware in the cloud, so
 no Mac and no Xcode.
@@ -34,16 +37,30 @@ placeholders in `eas.json` (`appleId`, `ascAppId`, `appleTeamId`).
 
 ## Guideline 4.2 — the thing that gets wrappers rejected
 
-Apple rejects apps that are a website in a shell. What's here to answer that:
+Apple rejects apps that are a website in a shell. What is actually implemented today:
 
-- **Push notifications** — buyer messages reach the phone with the app closed
-- **System camera and photo library**, declared with usage strings in `app.json`
-- **Offline screen** with pull-to-refresh, not a browser error page
-- **External links open in Safari** — OAuth and Stripe never run in the embedded view
+- **Push notifications** — real. `expo-notifications` registers for APNs and hands the
+  token to the web app, so buyer messages arrive with the app closed. This is the one
+  genuinely native capability here.
+- **Offline screen** with pull-to-refresh, not a browser error page. Real, and thin.
+- **External links open in Safari** — real. OAuth and Stripe never run in the embedded
+  view.
 
-Realistically this is still the likeliest rejection reason. If it comes back, the usual
-fix is more native surface: a Photos share extension so a garment can be sent into Flock
-from the camera roll, or a home-screen widget showing what's live.
+**The camera is NOT implemented, and an earlier version of this file said it was.**
+`app.json` declares `NSCameraUsageDescription`, and `App.js` sets
+`mediaCapturePermissionGrantType="grant"` on the WebView. Both are real lines of
+config, and neither is native functionality: together they only permit *the website's*
+file input and `getUserMedia` to work inside the wrapper. `expo-camera` and
+`expo-image-picker` are not in `package.json`. A usage string with no native capture
+behind it is a declaration, not a feature, and a reviewer looking for native surface
+will not find one.
+
+So the honest position is that this shell currently offers **push and nothing else**
+above what Safari already does, and 4.2 is the likeliest rejection by a distance.
+Closing it means a real native surface — capture a garment photo in the app and feed it
+to the existing intake pipeline, a Photos share extension so something can be sent into
+Flock from the camera roll, or a home-screen widget. Pick one and build it before
+paying $99.
 
 ## Guideline 3.1.1 — subscriptions
 
