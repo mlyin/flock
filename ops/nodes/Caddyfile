@@ -1,0 +1,29 @@
+# The node host. One site: the provisioner's two routes, then one imported
+# route file per seller, which new-node.sh writes and caddy reloads.
+#
+# host-setup.sh substitutes the hostname and installs this at
+# /etc/caddy/Caddyfile. The A record must point at the box before caddy
+# starts, because Let's Encrypt validates by connecting back on port 80.
+nodes.sellonflock.com {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# The provisioner. Bearer-gated inside; nothing else on the host answers here.
+	handle /provision {
+		reverse_proxy 127.0.0.1:9000
+	}
+	handle /nodes/* {
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	# One file per node: handle /n/<slug>/* { reverse_proxy 127.0.0.1:<port> }
+	# KasmVNC's websocket rides through reverse_proxy without configuration.
+	import /etc/caddy/routes/*.caddy
+
+	respond "no such node" 404
+}

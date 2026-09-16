@@ -115,9 +115,13 @@ person clicking List passes, a scripted click is the pattern being scored, and t
 lands on the seller's real account. A click-List branch appeared there anyway and was
 removed on 21 Aug; the reasoning now sits at the site of the temptation, not only here.
 
-**The seller's own browser and IP is still the point.** A listing originating from a real
-browser is far less likely to be flagged than one from a server. Do not move this
-automation server-side.
+**The seller's own browser and IP is still the default.** A listing originating from a real
+browser is far less likely to be flagged than one from a server. The one exception is a
+**browser node** (`docs/NODES.md`, added 16 Sep): the same extension, unchanged, in a
+Chromium container Flock hosts, which a paying seller opts into and signs in to each
+marketplace inside by hand. Nothing else in this repository drives a marketplace from a
+server, and a node never learns a password — it holds sessions the seller created. Do not
+add a second server-side path.
 
 **Identity fields take an exact match or nothing — and CATEGORY is one of them.**
 
@@ -265,6 +269,53 @@ silence on the dashboard. An error counts even when the timestamp is fresh: a
 node failing every half hour for six hours is recent and broken. Channels that
 have never synced are not reported — silence is only evidence once there was
 noise.
+
+## Browser nodes — filling is not publishing
+
+`docs/NODES.md` is the design; `ops/nodes/` is the host. The rules that hold it
+together, stated once so they are not relitigated at 2am:
+
+**A job is `published` only on the marketplace's word.** The posted route —
+fed by the filled tab navigating to a live listing URL — is the single path
+that sets it, and it closes any open job for that listing. A node reporting
+"I pressed submit" earns `filled`, never more. `needs_seller` is neither
+success nor failure: Facebook's second screen, Mercari's List button,
+Grailed's typed designer, and any field the filler could not settle. The
+dashboard never uses the word "live" for anything else (`lib/nodes.ts`, and
+a test that greps for it).
+
+**The server classifies; the node reports raw.** `/api/ext/jobs/[id]` takes
+the filler's own `{ok, filled, missing, blocked}` and runs
+`classifyOutcome()`. One classifier, where the tests are. Per-job
+`autoSubmit` is decided by `/api/ext/jobs` from `nodes.auto_submit` and is
+never true for Facebook or Mercari, whatever any storage flag on the node
+says.
+
+**A laptop is not a node.** The jobs route hands work only to a token that
+has a `nodes.token_id` behind it. The same extension polls the same route
+from a laptop, receives `[]`, and nothing about laptops changes. Zero-click
+pairing reads `extension/node.json`, which only the provisioner writes and
+which the store build excludes.
+
+**The claim is atomic and the listing is checked twice.** `claim_fill_jobs`
+uses `FOR UPDATE SKIP LOCKED` and joins on `listings.status = 'draft'`; the
+extension re-checks the payload's status before opening a tab. A fill run
+against a listing the seller already published by hand is the double-sale
+this product exists to prevent. `filled` counts as open in the unique index;
+a `running` job whose node went quiet for half an hour is reclaimed, up to
+the attempt cap, so nothing stays running forever.
+
+**The session asks; the server writes.** 0038 grants `authenticated` INSERT
+on three columns of `fill_jobs` and SELECT, and 0037 grants no write on
+`nodes.status`. Retry, cancel, pause and resume run under the service role,
+scoped by user_id, with the transition checked. A browser that could write
+`status` could call a filled form published, or mint containers by putting
+its node in 'error'.
+
+**Never run end to end as of 16 Sep 2026.** The code is here, the migrations
+apply against a Supabase-shaped local Postgres, the tests pass. No node has
+taken a real listing to live. `lib/plan.ts` carries the feature as `soon`
+until one has, and that is the bar for removing the flag.
 
 ## Deadlines and the calendar feed
 

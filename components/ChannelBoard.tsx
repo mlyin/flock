@@ -7,6 +7,7 @@ import { CHANNELS, CHANNEL_ACCESS, CHANNEL_LABEL, canFill, stockxSearchUrl, type
 import ChannelIcon from "./ChannelIcon";
 import { usd } from "@/lib/money";
 import { markListedWithUrl, recordSale, saveListingUrl, unmarkListed } from "@/app/actions";
+import { queueFills } from "@/app/node-actions";
 
 export type ChannelRow = {
   channel: Channel;
@@ -32,16 +33,39 @@ export default function ChannelBoard({
   item,
   rows,
   catalog,
+  hasNode = false,
 }: {
   item: string;
   rows: ChannelRow[];
   /** Just enough of the garment to look it up in StockX's catalog. */
   catalog?: { style_code?: string | null; brand?: string | null; title?: string | null };
+  /** The seller has an always-on browser that can take this fill (docs/NODES.md). */
+  hasNode?: boolean;
 }) {
   const [installed, setInstalled] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ channel: Channel; text: string; ok: boolean } | null>(null);
+  const [sending, startSending] = useTransition();
   const router = useRouter();
+
+  // Hand the fill to the node instead of this browser. The wording is
+  // "sent", never "posted": the dashboard's pending panel reports what the
+  // node did, and only the marketplace's own navigation makes it live.
+  const sendToNode = (listingId: string, channel: Channel) =>
+    startSending(async () => {
+      setNote(null);
+      const outcome = await queueFills([listingId]);
+      setNote({
+        channel,
+        ok: outcome.ok && outcome.queued > 0,
+        text: !outcome.ok
+          ? outcome.error ?? "That did not work."
+          : outcome.queued > 0
+            ? "Sent to your browser. Watch the dashboard for what it filled and what it left for you."
+            : "Already queued, or not a draft any more.",
+      });
+      router.refresh();
+    });
 
   useEffect(() => {
     const check = () =>
@@ -93,6 +117,11 @@ export default function ChannelBoard({
         const row = byChannel.get(channel);
         const live = row?.status === "live";
         const drafted = Boolean(row?.listingId);
+        // Only a draft is fillable. A sold or ended listing still shows its
+        // manual controls, but the extension now refuses to fill anything
+        // that is not a draft (a second listing for a sold garment is the
+        // double-sale), so the buttons must not offer it.
+        const fillable = row?.status === "draft";
         const isBusy = busy && busy === row?.listingId;
 
         return (
@@ -175,7 +204,7 @@ export default function ChannelBoard({
                     <Link href={`/post/${row!.listingId}`} className="button button-sm button-quiet">
                       Intake copy
                     </Link>
-                  ) : installed && canFill(channel) ? (
+                  ) : installed && canFill(channel) && fillable ? (
                     <button
                       type="button"
                       className="button button-sm"
@@ -188,6 +217,17 @@ export default function ChannelBoard({
                     <Link href={`/post/${row!.listingId}`} className="button button-sm button-quiet">
                       Post step by step
                     </Link>
+                  )}
+                  {hasNode && fillable && CHANNEL_ACCESS[channel] !== "manual" && canFill(channel) && (
+                    <button
+                      type="button"
+                      className="button button-sm button-quiet"
+                      onClick={() => sendToNode(row!.listingId!, channel)}
+                      disabled={sending}
+                      title="Your always-on browser fills this form. It publishes only where auto-submit is on and the marketplace allows it."
+                    >
+                      {sending ? "Sending…" : "Fill in my browser"}
+                    </button>
                   )}
                   {/* Fallback only. The extension watches the tab it filled and
                       records the URL the moment the marketplace navigates to the

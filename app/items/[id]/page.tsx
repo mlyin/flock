@@ -16,6 +16,7 @@ import { usd, shortDate, daysSince } from "@/lib/money";
 import { daysListedFor, fillReportsFor, getItem, signPhotos } from "@/lib/data";
 import { latestInference } from "@/lib/intake";
 import { supabaseServer } from "@/lib/supabase/server";
+import { getNode } from "@/app/node-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,10 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
   const unreviewed = item.review_state === "unreviewed";
   const inference = unreviewed ? await latestInference(item.id) : null;
   const reports = await fillReportsFor(item.id);
+  const node = await getNode();
+  const hasNode = Boolean(
+    node && (node.status === "ready" || node.status === "paused") && !node.tokenRevoked
+  );
   // Two searches: with the size and without. Size moves resale price but cuts
   // the result count hard, so the card tries the precise one and widens if it
   // comes back too thin to be evidence.
@@ -154,6 +159,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
           </div>
           <ChannelBoard
             item={item.id}
+            hasNode={hasNode}
             catalog={{ style_code: item.style_code, brand: item.brand, title: item.title }}
             rows={CHANNELS.map((channel) => {
               const listing = item.listings.find((l) => l.channel === channel);

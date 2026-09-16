@@ -13,7 +13,9 @@ import PriceDrift from "@/components/PriceDrift";
 import SaleQuestions from "@/components/SaleQuestions";
 import SyncHealth from "@/components/SyncHealth";
 import { getSaleCandidates } from "@/app/actions";
+import { getNode, openFillJobs } from "@/app/node-actions";
 import BulkController from "@/components/BulkController";
+import PendingFills from "@/components/PendingFills";
 
 export const dynamic = "force-dynamic";
 
@@ -85,12 +87,24 @@ export default async function Inventory({
   const drifts = await priceDrift();
   const unverifiedRates = unverifiedChannels();
   const health = await syncHealth();
+  // The seller's always-on browser, if they have one, and what it is doing.
+  const node = await getNode();
+  // Jobs outlive a node (a retired browser leaves its rows), so read them
+  // whenever the seller has ever had one rather than only while it is usable.
+  const fillJobs = node ? await openFillJobs() : [];
+  const hasNode = Boolean(
+    node && (node.status === "ready" || node.status === "paused") && !node.tokenRevoked
+  );
 
   return (
     <>
       {/* Above the queues: a queue you can't see because nothing is syncing is
           worse than an empty one. */}
       <SyncHealth health={health} />
+      {/* What the node filled, what it left for a person, and what failed.
+          Sits under sync health and above the delist queue: it is work in
+          flight, not a listing that is wrong right now. */}
+      <PendingFills jobs={fillJobs} node={node} />
       <SaleQuestions candidates={saleQuestions} />
       <DelistQueue tasks={delist} />
       <PriceDrift drifts={drifts} />
@@ -176,7 +190,7 @@ export default async function Inventory({
       </div>
 
       {/* Seven columns on a laptop, stacked cards on a phone. Same markup. */}
-      <BulkController>
+      <BulkController hasNode={hasNode}>
       <div className="tablewrap">
         <table className="grid grid-lean">
           <thead>

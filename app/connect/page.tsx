@@ -10,11 +10,17 @@ export const dynamic = "force-dynamic";
 
 export default async function ConnectPage() {
   const supabase = await supabaseServer();
-  const { data: tokens } = await supabase
+  const { data: allTokens } = await supabase
     .from("extension_tokens")
     .select("id, label, created_at, last_used_at")
     .is("revoked_at", null)
     .order("created_at", { ascending: false });
+
+  // The browser node's own pairing is not a device to revoke from here:
+  // revoking it silently kills the node, and its card in Settings owns its
+  // lifecycle. Hidden by the node's token id, not by label.
+  const { data: node } = await supabase.from("nodes").select("token_id").maybeSingle();
+  const tokens = (allTokens ?? []).filter((t) => t.id !== node?.token_id);
 
   return (
     <>
@@ -40,7 +46,7 @@ export default async function ConnectPage() {
 
       <ExtensionVersion current={EXTENSION_VERSION} />
 
-      <PairExtension existing={tokens?.length ?? 0} />
+      <PairExtension existing={tokens.length} />
 
       {/* Behaviour settings used to hide in the toolbar popup. They belong
           here, next to the pairing they depend on. Renders nothing until the
@@ -49,12 +55,12 @@ export default async function ConnectPage() {
 
       <ProbeForm />
 
-      {(tokens?.length ?? 0) > 0 && (
+      {tokens.length > 0 && (
         <>
           <div className="sectionhead">
             <h2>Paired devices</h2>
           </div>
-          <PairedDevices tokens={tokens!} />
+          <PairedDevices tokens={tokens} />
         </>
       )}
     </>

@@ -85,6 +85,10 @@ export const PLANS: Plan[] = [
       { text: "Bulk price drops across your inventory" },
       { text: "Bulk relist", soon: true },
       { text: "CSV export, any time" },
+      // `soon` until a real seller's node has taken a real listing from draft
+      // to live on the marketplace's own word. The code shipped 16 Sep; the
+      // proof has not. docs/NODES.md says what counts.
+      { text: "A browser that fills your listings while your laptop is shut", soon: true },
     ],
   },
   {
@@ -107,6 +111,7 @@ export const PLANS: Plan[] = [
       { text: "Consignment tracking — The RealReal" },
       { text: "Profit and sell-through by marketplace" },
       { text: "Email that reaches the person who builds Flock" },
+      { text: "A browser that fills your listings while your laptop is shut", soon: true },
     ],
   },
 ];

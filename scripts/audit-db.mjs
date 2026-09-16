@@ -129,6 +129,36 @@ await asSeller(seller, "channel connection metadata readable", "permitted",
 await asSeller(seller, "paired device metadata readable", "permitted",
   "select id, label from public.extension_tokens limit 1");
 
+console.log("\nBrowser nodes: the session sees, asks, and nothing more");
+// 0037 and 0038. The node's screen password is a credential; a job's status
+// is the difference between "filled" and "published"; and the claim is the
+// node's alone. Guarded so the audit still runs on a database that has not
+// taken those migrations yet.
+const { rows: nodeTables } = await client.query(
+  "select to_regclass('public.nodes') as nodes, to_regclass('public.fill_jobs') as jobs"
+);
+if (!nodeTables[0].nodes || !nodeTables[0].jobs) {
+  notes.push("nodes / fill_jobs not migrated yet — browser-node checks skipped");
+  console.log("  --   nodes / fill_jobs not migrated yet; skipped");
+} else {
+  await asSeller(seller, "node screen password unreadable", "denied",
+    "select password_enc from public.nodes limit 1");
+  await asSeller(seller, "node metadata readable", "permitted",
+    "select id, status, url from public.nodes where user_id = $1 limit 1", [seller]);
+  await asSeller(seller, "node status not writable from a session", "denied",
+    "update public.nodes set status = 'error' where user_id = $1 returning 1", [seller]);
+  await asSeller(seller, "node address not writable from a session", "denied",
+    "update public.nodes set url = 'https://x' where user_id = $1 returning 1", [seller]);
+  await asSeller(seller, "node auto-submit writable by its owner", "permitted",
+    "update public.nodes set auto_submit = auto_submit where user_id = $1 returning 1", [seller]);
+  await asSeller(seller, "seller cannot claim fill jobs", "denied",
+    "select * from public.claim_fill_jobs($1, null, 1, false, '{}'::channel[])", [seller]);
+  await asSeller(seller, "seller cannot mark a fill published", "denied",
+    "update public.fill_jobs set status = 'published' where user_id = $1 returning 1", [seller]);
+  await asSeller(seller, "seller reads their own fill jobs", "permitted",
+    "select id from public.fill_jobs where user_id = $1 limit 1", [seller]);
+}
+
 console.log("\nOrdinary inventory still works");
 await asSeller(seller, "seller reads their own items", "permitted",
   "select id from public.items where user_id = $1 limit 1", [seller]);
@@ -165,6 +195,38 @@ if (others.length === 0) {
     "select id from public.profiles where id = $1", [other]);
   await asSeller(seller, "cannot write into another seller's inventory", "filtered",
     "update public.items set title = title where user_id = $1 returning 1", [other]);
+  if (nodeTables[0].jobs) {
+    // The ownership trigger in 0038: a job may not name a listing that is
+    // not the caller's. Under RLS the stranger's listing is invisible, so
+    // the insert selects nothing — "filtered" — and if it ever became
+    // visible the trigger refuses it — "denied". Either is a pass.
+    const { rows: theirListings } = await client.query(
+      "select count(*)::int n from public.listings where user_id = $1", [other]
+    );
+    if (theirListings[0].n === 0) {
+      notes.push("the other seller owns no listings, so the cross-tenant fill-job check is vacuous");
+    }
+    await client.query("begin");
+    await client.query("set local role authenticated");
+    await client.query("select set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({ sub: seller, role: "authenticated" }),
+    ]);
+    let crossJob = "permitted";
+    try {
+      const r = await client.query(
+        `insert into public.fill_jobs (user_id, listing_id, channel)
+         select $1, id, channel from public.listings where user_id = $2 limit 1 returning 1`,
+        [seller, other]
+      );
+      crossJob = r.rowCount === 0 ? "filtered" : "permitted";
+    } catch {
+      crossJob = "denied";
+    }
+    await client.query("rollback");
+    const ok = crossJob !== "permitted";
+    console.log(`  ${ok ? "ok  " : "FAIL"} ${"cannot queue a fill on another seller's listing".padEnd(46)} ${crossJob}`);
+    if (!ok) violations.push("cannot queue a fill on another seller's listing: expected denied or filtered, got permitted");
+  }
 }
 
 console.log("\nA consigned garment cannot be listed elsewhere");

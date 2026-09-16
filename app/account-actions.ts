@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { BUCKET } from "@/lib/intake";
+import { retireNodeForUser } from "@/lib/nodes-server";
 import { stripe, stripeConfigured } from "@/lib/stripe";
 
 /**
@@ -23,10 +24,17 @@ import { stripe, stripeConfigured } from "@/lib/stripe";
  *      pointing at it goes on billing a person who believes they have left.
  *      That is the worst possible outcome of this flow, so it happens before
  *      anything is destroyed and a failure here stops the whole thing.
- *   2. DELETE THE PHOTOS. Storage objects have no foreign key and do not
+ *   2. SHUT DOWN THE BROWSER NODE. `nodes` cascades from auth.users like
+ *      everything else, but the container it describes — a Chromium holding
+ *      the seller's live marketplace sessions — lives on a host, not in
+ *      Postgres, and a cascade does not stop a process. It is retired first,
+ *      and a failure stops the whole thing for the same reason the
+ *      subscription does: a person who has left must not leave their
+ *      marketplace logins running on our machine.
+ *   3. DELETE THE PHOTOS. Storage objects have no foreign key and do not
  *      cascade. Miss this and the garments are gone while the photographs of
  *      them sit in a bucket indefinitely.
- *   3. DELETE THE AUTH USER, which cascades the nineteen tables.
+ *   4. DELETE THE AUTH USER, which cascades the tables.
  *
  * The order is deliberate: reversible-and-external first, irreversible last.
  */
@@ -80,7 +88,18 @@ export async function deleteAccount(confirmation: string): Promise<DeleteOutcome
     }
   }
 
-  // --- 2. The photos, which do not cascade -----------------------------------
+  // --- 2. The browser node, which is a process on a host, not a row ----------
+  const node = await retireNodeForUser(user.id);
+  if (!node.ok) {
+    return {
+      ok: false,
+      error:
+        "Couldn't shut down your Flock browser, so nothing was deleted. Try again in a moment. " +
+        `(${node.error})`,
+    };
+  }
+
+  // --- 3. The photos, which do not cascade -----------------------------------
   // Paginated: a seller with 200 garments has more objects than one list call
   // returns, and a partial delete leaves photographs behind silently.
   try {
@@ -94,7 +113,7 @@ export async function deleteAccount(confirmation: string): Promise<DeleteOutcome
     };
   }
 
-  // --- 3. The user, which cascades everything else ---------------------------
+  // --- 4. The user, which cascades everything else ---------------------------
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) return { ok: false, error: error.message };
 

@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { data: listing, error } = await admin
     .from("listings")
-    .select("id, channel, title, description, price, shipping_price, draft, item_id")
+    .select("id, channel, status, title, description, price, shipping_price, draft, item_id")
     .eq("id", id)
     .eq("user_id", userId) // bearer callers have no session; scope explicitly
     .maybeSingle();
@@ -79,6 +79,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return json({
     id: listing.id,
     channel: listing.channel,
+    // A node checks this before filling: a listing that went live by hand
+    // between queue and claim must not be filled a second time.
+    status: listing.status,
     title: listing.title,
     description: listing.description,
     // Fall back to the item's asking price. Listings are drafted the moment a

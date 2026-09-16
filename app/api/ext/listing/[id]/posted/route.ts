@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CORS, json, unauthorized, verifyToken } from "@/lib/exttoken";
+import { closeOpenJobsForListing } from "@/lib/nodes-server";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +126,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .eq("user_id", userId);
 
   if (error) return json({ error: error.message }, 500);
+
+  // The marketplace's word closes any open fill job for this listing. A node
+  // reporting "I pressed submit" gets `filled`; this route, fed by the tab
+  // navigating to the live listing, is what upgrades it (the seller's own
+  // markListed does the same, with a URL they pasted). Best-effort — a job
+  // that fails to close is a stale row on the dashboard, not a wrong listing
+  // state.
+  await closeOpenJobsForListing(userId, id, "published");
 
   // Anything with a live listing is no longer a draft garment.
   //

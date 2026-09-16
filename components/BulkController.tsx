@@ -15,7 +15,13 @@ import BulkBar from "./BulkBar";
  * trick and it is the right one here: the table stays a server component and
  * selection costs one client island.
  */
-export default function BulkController({ children }: { children: React.ReactNode }) {
+export default function BulkController({
+  children,
+  hasNode = false,
+}: {
+  children: React.ReactNode;
+  hasNode?: boolean;
+}) {
   const container = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -46,7 +52,7 @@ export default function BulkController({ children }: { children: React.ReactNode
   return (
     <div ref={container}>
       {children}
-      <BulkBar selected={selected} onClear={clear} />
+      <BulkBar selected={selected} onClear={clear} hasNode={hasNode} />
     </div>
   );
 }

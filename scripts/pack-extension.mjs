@@ -22,10 +22,13 @@ const ZIP = path.join(ROOT, "dist", `flock-extension-${manifest.version}.zip`);
 fs.rmSync(path.join(ROOT, "dist"), { recursive: true, force: true });
 fs.mkdirSync(BUILD, { recursive: true });
 
-// README is for us, not for Chrome.
+// README is for us, not for Chrome. node.json is written by the node
+// provisioner into a NODE's copy of this folder (ops/nodes/new-node.sh) and
+// must never ship: it carries a pairing token.
+const EXCLUDED = new Set(["README.md", "node.json"]);
 fs.cpSync(SRC, BUILD, {
   recursive: true,
-  filter: (src) => path.basename(src) !== "README.md",
+  filter: (src) => !EXCLUDED.has(path.basename(src)),
 });
 
 const stripped = manifest.host_permissions.filter((p) => !p.includes("localhost"));

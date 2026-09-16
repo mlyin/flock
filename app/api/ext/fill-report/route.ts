@@ -65,20 +65,26 @@ export async function POST(request: Request) {
   const strings = (v: unknown) =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 60) : [];
 
-  const { error } = await admin.from("fill_reports").insert({
-    user_id: userId,
-    listing_id: listing.id,
-    channel: listing.channel,
-    filled: strings(body.filled),
-    missing: strings(body.missing),
-    blocked: strings(body.blocked),
-    // Capped: a form with 400 controls is a bug, not a listing, and this
-    // shouldn't become a way to write unbounded JSON into the database.
-    controls: Array.isArray(body.controls) ? body.controls.slice(0, 120) : [],
-    errors: strings(body.errors),
-    url: typeof body.url === "string" ? body.url.slice(0, 500) : null,
-  });
+  const { data: inserted, error } = await admin
+    .from("fill_reports")
+    .insert({
+      user_id: userId,
+      listing_id: listing.id,
+      channel: listing.channel,
+      filled: strings(body.filled),
+      missing: strings(body.missing),
+      blocked: strings(body.blocked),
+      // Capped: a form with 400 controls is a bug, not a listing, and this
+      // shouldn't become a way to write unbounded JSON into the database.
+      controls: Array.isArray(body.controls) ? body.controls.slice(0, 120) : [],
+      errors: strings(body.errors),
+      url: typeof body.url === "string" ? body.url.slice(0, 500) : null,
+    })
+    .select("id")
+    .single();
 
   if (error) return json({ error: error.message }, 500);
-  return json({ ok: true });
+  // The id lets a node attach this report to its job as the evidence for
+  // what the form looked like (fill_jobs.report_id).
+  return json({ ok: true, id: inserted?.id ?? null });
 }

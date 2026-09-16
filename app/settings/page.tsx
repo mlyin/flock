@@ -5,6 +5,8 @@ import ListingDefaultsForm from "@/components/ListingDefaultsForm";
 import { getCalendarFeeds, getListingDefaults } from "@/app/actions";
 import CalendarFeed from "@/components/CalendarFeed";
 import DeleteAccount from "@/components/DeleteAccount";
+import NodeCard from "@/components/NodeCard";
+import { getNode, nodeEligibility } from "@/app/node-actions";
 import { standing } from "@/lib/plan";
 import { CHANNELS, unverifiedChannels } from "@/lib/fees";
 import type { AddressRow } from "@/app/actions";
@@ -24,6 +26,8 @@ export default async function SettingsPage() {
   const unverified = unverifiedChannels();
   const calendarFeeds = await getCalendarFeeds();
   const listingDefaults = await getListingDefaults();
+  const node = await getNode();
+  const eligibility = await nodeEligibility();
 
   return (
     <>
@@ -33,6 +37,15 @@ export default async function SettingsPage() {
       </div>
 
       {where && <BillingCard planLabel={where.plan.label} paid={where.plan.monthly > 0} />}
+
+      {/* The always-on browser (docs/NODES.md). Above the extension link
+          because, for a seller who has one, it replaces the laptop as the
+          place fills happen. */}
+      <div className="sectionhead">
+        <h2>Your Flock browser</h2>
+        <p>A browser Flock runs for you, signed in to your marketplaces, that fills forms while your laptop is shut</p>
+      </div>
+      <NodeCard node={node} eligibility={eligibility} />
 
       {/* Fees and the extension used to be top-level nav items. They're
           reference and one-time setup, so they live here now. */}

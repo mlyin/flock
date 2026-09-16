@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
+import { closeOpenJobsForListing } from "@/lib/nodes-server";
 import { issueFeedToken, revokeFeed } from "@/lib/calfeed";
 import { standing } from "@/lib/plan";
 import { CHANNEL_LABEL, type Channel } from "@/lib/fees";
@@ -429,11 +430,15 @@ export async function markListed(listingId: string) {
     .from("listings")
     .update({ status: "live", posted_at: new Date().toISOString(), posted_via: "manual" })
     .eq("id", listingId)
-    .select("item_id")
+    .select("item_id, user_id")
     .maybeSingle();
 
   if (listing) {
     await supabase.from("items").update({ status: "listed" }).eq("id", listing.item_id);
+    // The seller's word that it is live closes any fill the node had open
+    // for it — otherwise the dashboard keeps asking them to press publish
+    // on a listing they just published.
+    await closeOpenJobsForListing(listing.user_id as string, listingId, "published");
     revalidatePath(`/items/${listing.item_id}`);
   }
 
@@ -660,13 +665,16 @@ export async function markListedWithUrl(
       ...(clean ? { url: clean } : {}),
     })
     .eq("id", listingId)
-    .select("item_id")
+    .select("item_id, user_id")
     .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
   if (!listing) return { ok: false, error: "Couldn't find that listing." };
 
   await supabase.from("items").update({ status: "listed" }).eq("id", listing.item_id);
+  // Same as markListed: the listing going live, by the seller's own hand,
+  // closes any fill the node had open for it.
+  await closeOpenJobsForListing(listing.user_id as string, listingId, "published");
 
   revalidatePath(`/items/${listing.item_id}`);
   revalidatePath("/");
