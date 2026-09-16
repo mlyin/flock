@@ -110,13 +110,13 @@ Decisions worth knowing:
 
 - Flock holds **sessions, never passwords**. The seller types marketplace
   credentials into the node's Chromium; nothing in this repository sees them.
-- `nodes.password_enc` (the KasmVNC login) is AES-256-GCM under
+- `nodes.password_enc` (the Selkies web-screen login) is AES-256-GCM under
   `CHANNEL_TOKEN_KEY` via `lib/secrets.ts`, and revoked from the
   `authenticated` role (0037) the way `channel_accounts` is. Its owner can
   reveal it from the card, server-side.
 - The pairing token is hashed as always; the plaintext lives in `node.json`
   inside the node's profile on the host disk, root-only.
-- The node URL plus KasmVNC's basic auth is the gate in v1. A Flock-session-
+- The node URL plus Selkies' basic auth is the gate in v1. A Flock-session-
   aware gate (Caddy `forward_auth`) is v2; it removes the second password but
   not the need for one on the container.
 - The provisioner takes a bearer secret, validates every argument's shape

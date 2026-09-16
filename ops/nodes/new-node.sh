@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One browser node: a Chromium container with a persistent profile, the Flock
-# extension loaded from a path that never moves, and a web screen (KasmVNC)
+# extension loaded from a path that never moves, and a web screen (Selkies)
 # behind a password. Called by provisioner.py; runnable by hand.
 #
 #   new-node.sh SLUG [TZ] [PROXY|-] [TOKEN|-] [API_BASE]
@@ -85,12 +85,26 @@ chmod 700 "$base/$slug"
 # does not fail at `docker run`, and it runs before any side effect below.
 docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image" >&2
 
-# seccomp=unconfined is what linuxserver documents for its Chromium images:
-# Chromium's own sandbox needs syscalls Docker's default profile blocks on
-# some kernels. Keep it, and keep the container's exposure to loopback only.
+# Docker's default seccomp profile stays on. The image's wrapped-chromium
+# passes --no-sandbox unconditionally (linuxserver/docker-chromium master,
+# root/usr/bin/wrapped-chromium, read 16 Sep 2026), so the syscalls that
+# `seccomp=unconfined` would unblock are never asked for, and the profile is
+# the layer that keeps a root shell inside the container from reaching the
+# kernel surface most container escapes need.
+#
+# And there is a root shell to keep from it: the Selkies web UI ships a
+# terminal with passwordless sudo, so whoever holds the node URL and
+# password could otherwise become root on a host running other sellers'
+# marketplace sessions. HARDEN_DESKTOP removes sudo, the terminals and the
+# files/apps sidebar; HARDEN_OPENBOX keeps Chromium from being closed and
+# restarts it if it is (a closed Chromium is a node whose extension is gone);
+# SELKIES_ENABLE_SHARING stops the seller minting share links to their own
+# screen. All three verified against docker-baseimage-selkies/README.md
+# on 16 Sep 2026. The container listens on loopback only.
 docker run -d --name "node-$slug" --restart unless-stopped \
-  --security-opt seccomp=unconfined --shm-size=1g --memory 1500m --cpus 1 \
+  --shm-size=1g --memory 1500m --cpus 1 \
   -e PUID=1000 -e PGID=1000 -e TZ="$tz" \
+  -e HARDEN_DESKTOP=true -e HARDEN_OPENBOX=true -e SELKIES_ENABLE_SHARING=false \
   -e SUBFOLDER="/n/$slug/" -e CUSTOM_USER="$slug" -e PASSWORD="$password" \
   -e CHROME_CLI="$flags" \
   -v "$base/$slug/config:/config" \

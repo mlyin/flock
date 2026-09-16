@@ -22,7 +22,7 @@ nodes.sellonflock.com {
 	}
 
 	# One file per node: handle /n/<slug>/* { reverse_proxy 127.0.0.1:<port> }
-	# KasmVNC's websocket rides through reverse_proxy without configuration.
+	# Selkies' websocket rides through reverse_proxy without configuration.
 	import /etc/caddy/routes/*.caddy
 
 	respond "no such node" 404

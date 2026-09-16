@@ -8,7 +8,7 @@ The machine that runs a browser per seller. Design and rules are in
 | `host-setup.sh` | one-shot: Caddy, the provisioner service, cron, the secret, the image pull |
 | `Caddyfile` | the host site: `/provision`, `/nodes/*`, one route file per node |
 | `provisioner.py` | 127.0.0.1:9000, bearer-gated, shells out to `new-node.sh` and docker |
-| `new-node.sh` | one container: Chromium + persistent profile + extension + KasmVNC |
+| `new-node.sh` | one container: Chromium + persistent profile + extension + Selkies web screen |
 | `refresh-extension.sh` | copies a new extension build into every node, keeping each node's pairing |
 
 ## Order
@@ -35,7 +35,7 @@ it in 137. `node.json` next to the manifest carries the pairing token, so the
 extension pairs itself on first start.
 
 Each node is `127.0.0.1:<port>` on the host and `/n/<slug>/` on the site,
-behind KasmVNC's own login (user = slug, password = what the script printed).
+behind Selkies' own login (user = slug, password = what the script printed).
 
 ## Failure modes, and what they look like
 

@@ -902,19 +902,29 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 async function runQueuedJobs() {
+  // Taken before the first await. Chrome can deliver two alarm events to one
+  // worker back to back (after a suspend, or onInstalled and onStartup both
+  // scheduling); if both read storage before either set the flag, both saw
+  // the lock free and two fills ran at once, which is the one-tab-at-a-time
+  // contract PER_POLL=1 exists for.
   if (jobsInFlight) return;
-  const { token, node, jobsLockUntil, activeJob } = await chrome.storage.local.get([
-    "token",
-    "node",
-    "jobsLockUntil",
-    "activeJob",
-  ]);
-  if (!token || !node) return;
-  if (jobsLockUntil && Date.now() < jobsLockUntil) return;
   jobsInFlight = true;
-  await chrome.storage.local.set({ jobsLockUntil: Date.now() + JOBS_LOCK_MS });
+  // Only a run that took the persisted lock may release it: an early return
+  // because a previous worker still holds it must leave that lock alone.
+  let locked = false;
 
   try {
+    const { token, node, jobsLockUntil, activeJob } = await chrome.storage.local.get([
+      "token",
+      "node",
+      "jobsLockUntil",
+      "activeJob",
+    ]);
+    if (!token || !node) return;
+    if (jobsLockUntil && Date.now() < jobsLockUntil) return;
+    await chrome.storage.local.set({ jobsLockUntil: Date.now() + JOBS_LOCK_MS });
+    locked = true;
+
     // A job recorded as active when this worker started is one the previous
     // worker died on — killed at the five-minute cap, or Chromium restarted.
     // Say so, rather than leave it `running` until the server reclaims it.
@@ -946,7 +956,7 @@ async function runQueuedJobs() {
     });
   } finally {
     jobsInFlight = false;
-    await chrome.storage.local.set({ jobsLockUntil: 0 });
+    if (locked) await chrome.storage.local.set({ jobsLockUntil: 0 });
   }
 }
 
