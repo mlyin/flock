@@ -66,6 +66,11 @@ export async function middleware(request: NextRequest) {
     // cookie. Redirecting it to /login hands it an HTML page where it expects
     // JSON; these routes verify the token themselves.
     request.nextUrl.pathname.startsWith("/api/ext") ||
+    // The native app carries its Supabase access token as a bearer, not a
+    // cookie. These routes verify it with Supabase Auth themselves
+    // (lib/mobile-auth.ts); a redirect here would hand the phone an HTML
+    // login page where it expects JSON.
+    request.nextUrl.pathname.startsWith("/api/m/") ||
     // Stripe carries no session cookie and never follows redirects. Gating
     // this bounced every webhook to /login with a 307, so a paid subscription
     // would never have reached profiles.plan. The route verifies Stripe's own

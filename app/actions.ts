@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { BUCKET, createItemByHand, identifyAndDraft, type IdentifyOutcome } from "@/lib/intake";
+import { ITEM_FIELDS, type ItemField, type ItemFields } from "@/lib/item-fields";
 import { LISTABLE, draftListings } from "@/lib/listing";
 import { issueToken } from "@/lib/exttoken";
 import { closeOpenJobsForListing } from "@/lib/nodes-server";
@@ -310,54 +311,70 @@ export async function prepareListings(itemId: string): Promise<DraftOutcome> {
   }
 }
 
-/** Accept the draft, with whatever corrections the seller made. */
-export async function confirmItem(formData: FormData) {
+/**
+ * Save what the seller typed about a garment, and mark it reviewed.
+ *
+ * One function under both the web's review form (confirmItem, which sends
+ * every field) and the phone's edit screen (PATCH /api/m/items/[id], which
+ * sends the ones that changed). The rules live here and nowhere else: a
+ * blank title is "Untitled", not null; money is a number or null, never
+ * NaN; and a new asking price is pushed onto every draft AND live listing —
+ * a price drop on live stock is most of what a seller does after the first
+ * week, and a dashboard that changes while the marketplace form does not is
+ * the drift this product exists to catch. Sold and ended listings keep the
+ * price they actually went for.
+ */
+export async function saveItemFields(
+  id: string,
+  fields: ItemFields
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await supabaseServer();
-  const id = String(formData.get("id"));
 
-  const text = (key: string) => {
-    const raw = formData.get(key);
-    const value = typeof raw === "string" ? raw.trim() : "";
+  const has = (key: ItemField) => fields[key] !== undefined;
+  const text = (key: ItemField) => {
+    const raw = fields[key];
+    const value = typeof raw === "string" ? raw.trim() : raw == null ? "" : String(raw);
     return value === "" ? null : value;
   };
+  const money = (key: ItemField) => Number(fields[key] ?? 0) || null;
 
-  const flaws = String(formData.get("flaws") ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const patch: Record<string, unknown> = { review_state: "confirmed" };
+  if (has("sku")) patch.sku = text("sku");
+  if (has("title")) patch.title = text("title") ?? "Untitled";
+  if (has("brand")) patch.brand = text("brand");
+  if (has("category")) patch.category = text("category") ?? "Other";
+  if (has("size")) patch.size = text("size");
+  if (has("color")) patch.color = text("color");
+  if (has("material")) patch.material = text("material");
+  if (has("style_code")) patch.style_code = text("style_code");
+  if (has("condition")) patch.condition = text("condition") ?? "good";
+  if (has("cost_basis")) patch.cost_basis = Number(fields.cost_basis ?? 0) || 0;
+  if (has("list_price")) patch.list_price = money("list_price");
+  if (has("floor_price")) patch.floor_price = money("floor_price");
+  // Profit over cost, not a price. Zero and blank both mean "no target" —
+  // a seller who genuinely wants to break even sets a price, not a goal.
+  if (has("target_profit")) patch.target_profit = money("target_profit");
+  if (has("package_size")) patch.package_size = text("package_size");
+  if (has("source")) patch.source = text("source");
+  if (has("flaws")) {
+    patch.flaws = String(fields.flaws ?? "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+  if (has("notes")) patch.notes = text("notes");
 
-  const { error } = await supabase
-    .from("items")
-    .update({
-      sku: text("sku"),
-      title: text("title") ?? "Untitled",
-      brand: text("brand"),
-      category: text("category") ?? "Other",
-      size: text("size"),
-      color: text("color"),
-      material: text("material"),
-      style_code: text("style_code"),
-      condition: text("condition") ?? "good",
-      cost_basis: Number(formData.get("cost_basis") ?? 0) || 0,
-      list_price: Number(formData.get("list_price") ?? 0) || null,
-      floor_price: Number(formData.get("floor_price") ?? 0) || null,
-      // Profit over cost, not a price. Zero and blank both mean "no target" —
-      // a seller who genuinely wants to break even sets a price, not a goal.
-      target_profit: Number(formData.get("target_profit") ?? 0) || null,
-      package_size: text("package_size"),
-      source: text("source"),
-      flaws,
-      notes: text("notes"),
-      review_state: "confirmed",
-    })
-    .eq("id", id);
-
-  if (error) throw new Error(`Saving failed: ${error.message}`);
+  // RLS scopes the update to the owner. A wrong id updates nothing, and that
+  // has to be an error here rather than a silent redirect to a page that
+  // never changed.
+  const { data, error } = await supabase.from("items").update(patch).eq("id", id).select("id");
+  if (error) return { ok: false, error: `Saving failed: ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, error: "Couldn't find that garment." };
 
   // Push the new asking price onto every listing that hasn't gone live yet.
   // Without this the drafts keep whatever price they were created with — which
   // is 0, because they're generated at identification time, before pricing.
-  const listPrice = Number(formData.get("list_price") ?? 0) || null;
+  const listPrice = has("list_price") ? money("list_price") : null;
   if (listPrice) {
     // Draft AND live. Filtering to draft meant a price drop on something
     // already listed changed the number on Flock's dashboard and nothing on
@@ -373,6 +390,23 @@ export async function confirmItem(formData: FormData) {
 
   revalidatePath(`/items/${id}`);
   revalidatePath("/");
+  return { ok: true };
+}
+
+/** Accept the draft, with whatever corrections the seller made. */
+export async function confirmItem(formData: FormData) {
+  const id = String(formData.get("id"));
+
+  // The form sends every field, so every field is saved — a blank one clears.
+  const fields: ItemFields = {};
+  for (const key of ITEM_FIELDS) {
+    const raw = formData.get(key);
+    if (typeof raw === "string") fields[key] = raw;
+  }
+
+  const saved = await saveItemFields(id, fields);
+  if (!saved.ok) throw new Error(saved.error);
+
   redirect(`/items/${id}`);
 }
 

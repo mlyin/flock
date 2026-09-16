@@ -317,6 +317,36 @@ apply against a Supabase-shaped local Postgres, the tests pass. No node has
 taken a real listing to live. `lib/plan.ts` carries the feature as `soon`
 until one has, and that is the bar for removing the flag.
 
+## The mobile API — same rules, different credential
+
+`docs/MOBILE-API.md` is the contract. The native app (`mobile/`, being built
+natively on `codex/local-xcode-setup`) talks to `/api/m/*`, and those routes
+run the web's own server actions as the bearer's user: `withMobileSession`
+verifies the Supabase access token with Supabase Auth, then `withBearer`
+puts it where `supabaseServer()` looks before it looks for cookies
+(`lib/bearer-context.ts`, AsyncLocalStorage — request-scoped, no signature
+changes). Same functions, same RLS, same plan gates, same "filling is not
+publishing".
+
+**No route under `/api/m` carries a rule.** Each one validates the body's
+shape, calls the function the web calls, and returns what it returned with
+`ok: false` mapped to 422. If a rule seems to be missing for the phone, it
+is missing for the web too; add it in `app/actions.ts` or `lib/`, once.
+
+**The app writes garments, listing status and fill jobs through routes,
+never directly.** RLS would let a seller update their own `listings.status`
+or insert their own `fill_jobs` row; the plan cap and the job-closing that
+`markListed` does live in code, so a direct write skips them. That the
+database still refuses the worst cases (ownership triggers, the open-job
+index, draft-only at claim) is the backstop, not the design.
+
+**A bearer route that uses `supabaseAdmin()` scopes by `user_id` by hand,
+as `/api/ext` does.** None of the `/api/m` routes do today — they run under
+the session — and that is the point.
+
+**Not exercised from a phone as of 16 Sep 2026.** Typechecked, tested,
+built; the routes are in the build output. End-to-end needs a real sign-in.
+
 ## Deadlines and the calendar feed
 
 `lib/calendar.ts` serves a subscribable `.ics` from `/api/calendar/[token]`,
