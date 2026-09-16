@@ -109,7 +109,11 @@ Decisions worth knowing:
 ## Security
 
 - Flock holds **sessions, never passwords**. The seller types marketplace
-  credentials into the node's Chromium; nothing in this repository sees them.
+  credentials into the node's Chromium; nothing in this repository sees them,
+  and Chromium is not allowed to keep them either: `new-node.sh` mounts a
+  managed policy with `PasswordManagerEnabled: false`, so the profile on
+  Flock's disk never holds a saved password. The keystrokes still cross the
+  web screen on Flock's host; the consent paragraph says so.
 - `nodes.password_enc` (the Selkies web-screen login) is AES-256-GCM under
   `CHANNEL_TOKEN_KEY` via `lib/secrets.ts`, and revoked from the
   `authenticated` role (0037) the way `channel_accounts` is. Its owner can
@@ -130,18 +134,39 @@ a scripted click against the seller's real account). On a node both land in
 `needs_seller`, and the seller finishes in the node's screen. That is not a
 gap to close by pressing the button from a script.
 
-Meta and Mercari also score the IP. A datacenter address is the strongest bot
-signal there is, and a real Facebook account logging in from one commonly gets
-a checkpoint. Two honest options: keep those two channels on the seller's own
-laptop through the ordinary extension, or give the node a static residential
-exit geo-matched to the seller (`nodes.proxy`; `new-node.sh` passes it as
-`--proxy-server` with a bypass list for Flock and Supabase). Log in to Facebook
-through that exit from day one, never first from the datacenter address.
+The IP is scored by more than those two. `docs/SELLRAZE-MECHANISM.md` §4 has
+the evidence, graded: Vinted sits behind DataDome and refuses datacenter
+egress outright; Depop and Grailed sit behind Cloudflare Bot Management,
+which challenges a datacenter origin and has returned a flat 403 to a real
+Chromium on one; Mercari is Cloudflare too, and Meta rate-limits or blocks
+datacenter ranges. So a static residential exit geo-matched to the seller
+(`nodes.proxy`; `new-node.sh` passes it as `--proxy-server` with a bypass
+list for Flock and Supabase) is the node's normal configuration, not a
+Facebook-and-Mercari extra, and the bare host address is for the pilot's
+measurement arm only. The other honest option stands: keep a channel on the
+seller's own laptop through the ordinary extension. Whichever exit, log in
+through it from day one, never first from the datacenter address, because
+the trust a session earns is tied to where it was earned.
+
+Two more things the evidence says to expect, and to say in the UI rather
+than discover in support:
+
+- **The first sign-in is a new-device checkpoint.** Facebook treats a new
+  browser, device and IP as a new-device login and asks for approval from
+  the seller's phone or a code, before any bot signal is involved. That is
+  why the first sign-in on a node is by hand, on the node's screen.
+- **A GPU-less container has a tell no proxy hides.** WebGL renders through
+  llvmpipe or SwiftShader, which detection scripts weight as "no real GPU,
+  as on cloud hosts". Nothing cheap fixes it; the pilot measures whether it
+  matters.
 
 ## Plan and consent
 
 Nodes ride on Hogget and Mutton: a container, RAM and an IP are a real cost of
-goods (roughly $8–10 a seller a month on a shared host). The card carries a
+goods. With the residential exit needed for most channels (above), that is
+roughly $14–22 a seller a month on a shared host before support
+(`docs/SELLRAZE-MECHANISM.md` §6), not the $8–10 first assumed; price the
+node above that or push density. The card carries a
 consent paragraph: this browser runs on Flock's servers, holds your marketplace
 logins, and marketplaces may treat listings from it differently. Per
 `docs/CLOUD-BROWSER.md`, get a lawyer's read before a second paying seller is
