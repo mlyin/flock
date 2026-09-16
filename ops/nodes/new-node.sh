@@ -85,6 +85,19 @@ chmod 700 "$base/$slug"
 # does not fail at `docker run`, and it runs before any side effect below.
 docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image" >&2
 
+# Chromium may not keep what the seller types. The promise in docs/NODES.md
+# is "sessions, never passwords"; a profile on this disk that quietly saved
+# one would break it. Non-branded Chromium on Linux reads mandatory policies
+# from /etc/chromium/policies/managed/*.json (components/policy/core/common/
+# policy_paths.cc and config_dir_policy_loader.cc, read 16 Sep 2026). umask
+# is 077 above, and Chromium runs as PUID inside, so the file is made
+# world-readable on purpose: it holds no secret, and an unreadable policy is
+# silently no policy at all.
+mkdir -p "$base/$slug/policies"
+printf '{\n  "PasswordManagerEnabled": false\n}\n' > "$base/$slug/policies/flock.json"
+chmod 755 "$base/$slug/policies"
+chmod 644 "$base/$slug/policies/flock.json"
+
 # Docker's default seccomp profile stays on. The image's wrapped-chromium
 # passes --no-sandbox unconditionally (linuxserver/docker-chromium master,
 # root/usr/bin/wrapped-chromium, read 16 Sep 2026), so the syscalls that
@@ -108,6 +121,7 @@ docker run -d --name "node-$slug" --restart unless-stopped \
   -e SUBFOLDER="/n/$slug/" -e CUSTOM_USER="$slug" -e PASSWORD="$password" \
   -e CHROME_CLI="$flags" \
   -v "$base/$slug/config:/config" \
+  -v "$base/$slug/policies:/etc/chromium/policies/managed:ro" \
   -p "127.0.0.1:$port:3000" \
   "$image" >/dev/null
 

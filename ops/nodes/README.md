@@ -27,7 +27,8 @@ The machine that runs a browser per seller. Design and rules are in
 
 ## What a node is
 
-`lscr.io/linuxserver/chromium` with `/config` on the host disk, so the
+`lscr.io/linuxserver/chromium` with `/config` on the host disk (and a
+read-only managed policy that forbids saving passwords), so the
 profile — and every marketplace session in it — survives restarts. The
 extension is copied to `/config/flock-extension` and loaded with
 `--load-extension`; Chromium keeps that flag, Chrome-branded builds dropped
