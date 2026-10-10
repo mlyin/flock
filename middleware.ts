@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
   const asset = path === "/sw.js" || path === "/manifest.webmanifest" || atPath(path, "/brand") || atPath(path, "/icons") || atPath(path, "/channels");
   if (independent || asset) return NextResponse.next({ request });
 
-  const isPublic = path === "/" || ["/login", "/privacy", "/goodbye", "/offline", "/install", "/pricing"].some((root) => atPath(path, root));
+  const isPublic = path === "/" || ["/login", "/privacy", "/support", "/goodbye", "/offline", "/install", "/pricing"].some((root) => atPath(path, root));
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   // Missing configuration never grants access to a protected route.
