@@ -7,11 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "flock",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F7F8F1"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sellonflock.app",
@@ -37,7 +32,16 @@
           "color": "#C0E42A"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F8F1",
+          "imageWidth": 200
+        }
+      ]
     ]
   }
 }
