@@ -36,10 +36,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#C0E42A"
         }
-      ]
-    ],
-    "extra": {
-      "eas": { "projectId": "REPLACE_AFTER_EAS_INIT" }
-    }
+      ],
+      "expo-status-bar"
+    ]
   }
 }

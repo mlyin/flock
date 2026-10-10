@@ -1,0 +1,47 @@
+name: iOS Xcode build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/ios.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: node --test navigation.check.cjs
+      - name: Show Apple toolchain
+        run: xcodebuild -version
+      - name: Generate Xcode workspace and install pods
+        run: npx expo prebuild --platform ios
+      - name: Compile release app for iOS Simulator
+        run: >-
+          xcodebuild -workspace ios/Flock.xcworkspace -scheme Flock
+          -configuration Release -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flock-iOS-simulator
+          path: mobile/build/Build/Products/Release-iphonesimulator/Flock.app
+          if-no-files-found: error
