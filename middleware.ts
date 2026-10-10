@@ -1,99 +1,93 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { authFetch, hasAuthCookie, withAuthDeadline } from "./lib/supabase/auth-deadline";
 
-/**
- * Refreshes the auth session on every request and gates the app behind sign-in.
- *
- * Server components can't write cookies, so token refresh has to happen here or
- * sessions expire mid-use.
- */
+function atPath(path: string, root: string) {
+  return path === root || path.startsWith(`${root}/`);
+}
+
+function loginRedirect(request: NextRequest) {
+  const login = request.nextUrl.clone();
+  login.pathname = "/login";
+  login.search = "";
+  login.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+  return NextResponse.redirect(login);
+}
+
+function unavailable(request: NextRequest) {
+  const headers = { "cache-control": "no-store", "retry-after": "30" };
+  if (atPath(request.nextUrl.pathname, "/api")) {
+    return NextResponse.json({ error: "Sign-in is temporarily unavailable. Please try again shortly." }, { status: 503, headers });
+  }
+  return new NextResponse(
+    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flock — temporarily unavailable</title><style>body{font:18px system-ui;background:#f7f8f1;color:#171a12;max-width:36rem;margin:15vh auto;padding:24px}a{color:inherit}p{line-height:1.6}</style><h1>Flock will be back shortly</h1><p>We can't reach the sign-in service right now. Your account hasn't been signed out. Please try again in a moment.</p><p><a href="">Try again</a> · <a href="/">Back to Flock</a></p></html>`,
+    { status: 503, headers: { ...headers, "content-type": "text/html; charset=utf-8" } }
+  );
+}
+
+/** Refresh verified sessions without letting an auth outage stall every route. */
 export async function middleware(request: NextRequest) {
-  // Fail closed. This used to wave the request through so the old local SQLite
-  // mode kept working, but SQLite is gone and auth is now the only way in — so
-  // a missing or misspelt env var silently removed the gate from every page
-  // instead of breaking anything loudly enough to notice. A deploy that loses
-  // its Supabase config should serve nothing, not serve everything.
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-    return new NextResponse(
-      "Flock is misconfigured: Supabase environment variables are missing. See .env.example.",
-      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
-    );
+  const path = request.nextUrl.pathname;
+  // These routes verify their own bearer token/signature. A browser session is
+  // unrelated to their authorization and must not delay them.
+  const independent = ["/api/ext", "/api/stripe", "/api/calendar", "/auth"].some((root) => atPath(path, root));
+  const asset = path === "/sw.js" || path === "/manifest.webmanifest" || atPath(path, "/brand") || atPath(path, "/icons") || atPath(path, "/channels");
+  if (independent || asset) return NextResponse.next({ request });
+
+  const isPublic = path === "/" || ["/login", "/privacy", "/goodbye", "/offline", "/install", "/pricing"].some((root) => atPath(path, root));
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  // Missing configuration never grants access to a protected route.
+  if (!url || !key) return unavailable(request);
+
+  if (!hasAuthCookie(request.cookies.getAll(), url)) {
+    return isPublic ? NextResponse.next({ request }) : loginRedirect(request);
   }
 
   let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (list) => {
-          list.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          list.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  try {
+    const { data, error } = await withAuthDeadline(async (signal) => {
+      const supabase = createServerClient(url, key, {
+        global: { fetch: authFetch(signal) },
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (list) => {
+            // A late retry must not change cookies after the deadline response.
+            if (signal.aborted) return;
+            list.forEach(({ name, value }) => request.cookies.set(name, value));
+            response = NextResponse.next({ request });
+            list.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          },
         },
-      },
+      });
+      // Verify with Auth; never authorize from the unverified session cookie.
+      return supabase.auth.getUser();
+    });
+
+    if (error && (error.status === undefined || error.status >= 500 || error.name === "AuthRetryableFetchError")) {
+      return isPublic ? response : unavailable(request);
     }
-  );
 
-  // getUser() revalidates against Supabase — getSession() would trust a cookie
-  // the browser could have tampered with.
-  const { data } = await supabase.auth.getUser();
-
-  const isPublic =
-    // The root is the landing page when signed out and the inventory when
-    // signed in — app/page.tsx decides. Redirecting it away from strangers
-    // meant sellonflock.com showed a bare Google button and no explanation
-    // of what the product was.
-    request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/auth") ||
-    request.nextUrl.pathname.startsWith("/privacy") ||
-    // Where account deletion lands. By then there is no account, so gating it
-    // would bounce them to /login — which reads as the delete having failed.
-    request.nextUrl.pathname.startsWith("/goodbye") ||
-    // Shown by the service worker when a navigation fails. Someone with no
-    // connection cannot be authenticated either, so gating it would replace
-    // the offline page with a redirect that also cannot load.
-    request.nextUrl.pathname.startsWith("/offline") ||
-    // The extension install instructions are the link you send a friend who
-    // doesn't have an account yet.
-    request.nextUrl.pathname.startsWith("/install") ||
-    // Read before signing up, so it cannot require being signed in.
-    request.nextUrl.pathname.startsWith("/pricing") ||
-    // The extension authenticates with a bearer token and carries no session
-    // cookie. Redirecting it to /login hands it an HTML page where it expects
-    // JSON; these routes verify the token themselves.
-    request.nextUrl.pathname.startsWith("/api/ext") ||
-    // Stripe carries no session cookie and never follows redirects. Gating
-    // this bounced every webhook to /login with a 307, so a paid subscription
-    // would never have reached profiles.plan. The route verifies Stripe's own
-    // signature, which is a stronger check than a session would be.
-    request.nextUrl.pathname.startsWith("/api/stripe") ||
-    // The calendar feed. Calendar.app, Google Calendar and iOS have no login
-    // step when subscribing, so they carry no session and never will — the
-    // token in the path is the credential, and the route verifies it itself.
-    // Gating this would hand a calendar client an HTML redirect where it
-    // expects an .ics, which every client reports as "the URL is not a
-    // calendar" rather than as an auth problem.
-    request.nextUrl.pathname.startsWith("/api/calendar");
-
-  if (!data.user && !isPublic) {
-    const login = request.nextUrl.clone();
-    login.pathname = "/login";
-    login.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(login);
+    let redirect: NextResponse | null = null;
+    if (!data.user && !isPublic) redirect = loginRedirect(request);
+    if (data.user && path === "/login") {
+      const home = request.nextUrl.clone();
+      home.pathname = "/";
+      home.search = "";
+      redirect = NextResponse.redirect(home);
+    }
+    if (redirect) {
+      response.cookies.getAll().forEach((cookie) => redirect!.cookies.set(cookie));
+      redirect.headers.set("cache-control", "no-store");
+      return redirect;
+    }
+    response.headers.set("cache-control", "no-store");
+    return response;
+  } catch {
+    // Public pages can render signed out. Server-side currentUser has the same
+    // deadline, so the layout/page cannot reintroduce an unbounded auth wait.
+    return isPublic ? NextResponse.next({ request }) : unavailable(request);
   }
-
-  if (data.user && request.nextUrl.pathname === "/login") {
-    const home = request.nextUrl.clone();
-    home.pathname = "/";
-    home.search = "";
-    return NextResponse.redirect(home);
-  }
-
-  return response;
 }
 
 export const config = {

@@ -1,22 +1,26 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { cache } from "react";
+import { authFetch, hasAuthCookie, withAuthDeadline } from "./auth-deadline";
 
 /**
  * Request-scoped client for server components, route handlers, and server actions.
  * Carries the signed-in user's session, so every query runs under row-level
  * security — the database, not application code, decides what they can see.
  */
-export async function supabaseServer() {
+export async function supabaseServer(authSignal?: AbortSignal) {
   const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      ...(authSignal ? { global: { fetch: authFetch(authSignal) } } : {}),
       cookies: {
         getAll: () => cookieStore.getAll(),
         setAll: (list) => {
+          if (authSignal?.aborted) return;
           try {
             list.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
           } catch {
@@ -42,11 +46,18 @@ export function supabaseConfigured() {
 }
 
 /** The signed-in user, or null — including when Supabase isn't configured yet. */
-export async function currentUser() {
+export const currentUser = cache(async () => {
   if (!supabaseConfigured()) return null;
-  const { data } = await (await supabaseServer()).auth.getUser();
-  return data.user;
-}
+  if (!hasAuthCookie((await cookies()).getAll(), process.env.NEXT_PUBLIC_SUPABASE_URL!)) return null;
+  try {
+    const { data } = await withAuthDeadline(async (signal) =>
+      (await supabaseServer(signal)).auth.getUser()
+    );
+    return data.user;
+  } catch {
+    return null;
+  }
+});
 
 /**
  * Service-role client — bypasses row-level security entirely.
