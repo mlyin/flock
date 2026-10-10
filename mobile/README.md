@@ -2,7 +2,10 @@
 
 An Expo shell around www.sellonflock.com: one WKWebView pinned to the site, push
 registration, an offline screen, and an allow-list that pushes every non-Flock URL out to
-Safari. `SITE` at the top of `App.js` is the only place the domain appears.
+Safari. `SITE` and the trusted host sets live in `navigation.cjs`. Host checks use
+parsed HTTPS URLs rather than text prefixes; notification links may only navigate to
+Flock. The URL polyfill supplies the same parser on React Native as in the Node tests.
+Run `node --test mobile/navigation.check.cjs` from the repository root to check the policy.
 
 **Never built, never submitted.** Everything below is the path from this repo to
 TestFlight. The full submission checklist — guideline blockers, metadata, privacy labels,
@@ -270,3 +273,4 @@ here.
 `docs/APP_STORE.md` is the submission checklist: the 4.8 login-services blocker, account
 deletion, privacy nutrition labels, age rating, App Store name and metadata, EU trader
 status, and the enrollment decisions that are irreversible once made.
+

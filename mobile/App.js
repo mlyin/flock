@@ -1,3 +1,4 @@
+import "react-native-url-polyfill/auto";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Linking, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -6,6 +7,7 @@ import { WebView } from "react-native-webview";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
+import { SITE, navigationTarget, notificationTarget } from "./navigation.cjs";
 
 /**
  * Flock for iOS.
@@ -17,8 +19,6 @@ import Constants from "expo-constants";
  * Apple rejects apps that are only a repackaged website (Guideline 4.2), so
  * the native pieces here are load-bearing for review, not decoration.
  */
-
-const SITE = "https://www.sellonflock.com";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -76,7 +76,7 @@ export default function App() {
   // Tapping a notification should land on the thing it was about.
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const url = response.notification.request.content.data?.url;
+      const url = notificationTarget(response.notification.request.content.data?.url);
       if (url) webview.current?.injectJavaScript(`location.href=${JSON.stringify(url)};true;`);
     });
     return () => sub.remove();
@@ -127,22 +127,14 @@ export default function App() {
               <ActivityIndicator />
             </View>
           )}
-          // Anything that isn't Flock opens in the real browser: OAuth needs
-          // Safari's session, and Stripe checkout should never live inside an
-          // embedded view.
+          // Flock and the existing OAuth hosts stay embedded. Ordinary links
+          // (including Stripe) open externally; executable schemes are blocked.
           onShouldStartLoadWithRequest={(request) => {
-            const internal =
-              request.url.startsWith(SITE) ||
-              request.url.startsWith("https://sellonflock.com") ||
-              request.url.includes("supabase.co") ||
-              request.url.includes("accounts.google.com") ||
-              request.url.includes("appleid.apple.com");
-
-            if (!internal) {
-              Linking.openURL(request.url);
-              return false;
+            const target = navigationTarget(request.url);
+            if (target === "external") {
+              Linking.openURL(request.url).catch(() => {});
             }
-            return true;
+            return target === "internal";
           }}
         />
       </SafeAreaView>
@@ -156,3 +148,4 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: "#171A12" },
   body: { fontSize: 15, lineHeight: 22, textAlign: "center", color: "#545948" },
 });
+
