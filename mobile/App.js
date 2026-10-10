@@ -12,17 +12,14 @@ import { SITE, navigationTarget, notificationTarget } from "./navigation.cjs";
 /**
  * Flock for iOS.
  *
- * The screen is the web app; the value this shell adds over Safari is native:
- * push that survives the app being closed, and the camera reached through the
- * system picker rather than a browser prompt.
- *
- * Apple rejects apps that are only a repackaged website (Guideline 4.2), so
- * the native pieces here are load-bearing for review, not decoration.
+ * The screen is the web app. Native push delivery and a dedicated capture flow
+ * still need end-to-end integration before App Store submission.
  */
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -31,6 +28,10 @@ Notifications.setNotificationHandler({
 /** Registers for APNs and hands the token to Flock so the server can reach this device. */
 async function registerForPush(postToWebView) {
   if (!Device.isDevice) return; // simulators have no push token
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  // Do not request permission until the authenticated token receiver and sender
+  // are implemented and explicitly enabled in the app configuration.
+  if (!projectId || Constants.expoConfig?.extra?.nativePushEnabled !== true) return;
 
   const existing = await Notifications.getPermissionsAsync();
   let status = existing.status;
@@ -39,7 +40,6 @@ async function registerForPush(postToWebView) {
   }
   if (status !== "granted") return;
 
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
   // The web app owns the session, so it does the authenticated save rather than
@@ -94,8 +94,7 @@ export default function App() {
           >
             <Text style={styles.title}>No connection</Text>
             <Text style={styles.body}>
-              Photos you have already taken are safe. Pull down to try again once you are back in
-              range.
+              Flock could not load. Check your connection and pull down to try again.
             </Text>
           </ScrollView>
         </SafeAreaView>
