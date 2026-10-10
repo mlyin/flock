@@ -1,0 +1,58 @@
+Flock 1.0 — release handoff
+
+App Store Connect app: 6821401401
+Bundle identifier: com.sellonflock.app
+App Store Connect: https://appstoreconnect.apple.com/apps/6821401401
+Suggested primary category: Lifestyle
+Suggested secondary category: Productivity
+
+LISTING COPY
+The en-US metadata directory contains ready-to-paste App Store fields in
+fastlane-compatible filenames. The description deliberately covers inventory
+and draft preparation; it does not advertise automatic marketplace publishing,
+negotiation, background monitoring, or delisting as completed functionality.
+Validate these claims against the final device build before submitting.
+
+SCREENSHOTS
+The local codex/flock-app-store task reported uploading website-style native
+iPhone and iPad screenshots to this app's draft. Keep those existing screenshots.
+They are not available in this cloud checkout and have not been independently
+rechecked here. Do not replace them with website screenshots or generated mockups.
+Confirm the screenshots match the exact release build, and include signed-in
+inventory, garment detail, and listing-draft screens where available.
+
+RELEASE BUILD — USE THE LOCAL NATIVE WORKTREE
+The native implementation and latest simulator screenshots live in the local
+codex/flock-app-store worktree, not the cloud main branch. Do not build the older
+mobile shell on main or overwrite the local native work.
+
+Xcode path (no Expo cloud build required):
+1. Open the existing Flock workspace in Xcode on the Mac.
+2. Select the Flock scheme and Any iOS Device (arm64).
+3. Confirm the Apple Developer team, com.sellonflock.app, and an unused build number.
+4. Product > Archive.
+5. Organizer > Distribute App > App Store Connect > Upload.
+6. Wait for processing, test the build in TestFlight, then select it on version 1.0.
+
+Expo alternative, from the same final native app directory:
+1. npx eas-cli@latest login
+2. npx eas-cli@latest init
+3. Confirm eas.json build.production has distribution: "store" and
+   autoIncrement: true, with cli.appVersionSource: "remote".
+4. Set submit.production.ios.ascAppId to "6821401401". Retain real signing
+   configuration already present; do not copy placeholder team IDs or API keys.
+5. npx eas-cli@latest build --platform ios --profile production
+6. npx eas-cli@latest submit --platform ios --profile production --id BUILD_ID
+   Replace BUILD_ID with the exact completed production build ID from step 5.
+
+ACCOUNT-DEPENDENT FIELDS
+Complete review contact details, working reviewer sign-in, app privacy answers,
+age rating, rights/trader declarations where applicable, and distribution choices
+in the owner's account. Do not invent these declarations or put reviewer
+credentials in this public repository. Confirm authentication, photos, drafts,
+and account deletion on a physical device before submission.
+
+Uploading a build does not submit it for review or publish the app. This change
+does not upload metadata, screenshots, or an iOS binary to Apple. It prepares the
+metadata and adds the public support route; Apple/Expo authentication and the
+local final native source are still required for the signed release.
