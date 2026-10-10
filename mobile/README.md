@@ -5,7 +5,7 @@ registration, an offline screen, and an allow-list that pushes every non-Flock U
 Safari. `SITE` and the trusted host sets live in `navigation.cjs`. Host checks use
 parsed HTTPS URLs rather than text prefixes; notification links may only navigate to
 Flock. The URL polyfill supplies the same parser on React Native as in the Node tests.
-Run `node --test mobile/navigation.test.cjs` from the repository root to check the policy.
+Run `node --test mobile/navigation.check.cjs` from the repository root to check the policy.
 
 **Never built, never submitted.** Everything below is the path from this repo to
 TestFlight. The full submission checklist — guideline blockers, metadata, privacy labels,

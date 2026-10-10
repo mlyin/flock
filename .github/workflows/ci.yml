@@ -20,7 +20,7 @@ jobs:
       - name: Unit tests
         run: npm test
       - name: Mobile navigation tests
-        run: node --test mobile/navigation.test.cjs
+        run: node --test mobile/navigation.check.cjs
       - name: Money-math simulation
         # 400 synthetic garments through the fee engine on every push. This is
         # the sweep that caught the Vestiaire floor/cap solver bug — it stays.
