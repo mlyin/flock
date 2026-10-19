@@ -1,0 +1,42 @@
+appId: com.sellonflock.app
+---
+- launchApp
+- assertVisible: "Welcome back"
+- assertNotVisible: ".*KeyChainException.*"
+- takeScreenshot: screenshots/${FAMILY}-welcome
+- scrollUntilVisible:
+    element: "Explore a sample closet"
+- tapOn: "Explore a sample closet"
+- assertVisible: "SAMPLE CLOSET"
+- assertVisible: "Everyday linen shirt"
+- takeScreenshot: screenshots/${FAMILY}-closet
+- tapOn: "Everyday linen shirt"
+- scrollUntilVisible:
+    element: "Edit garment"
+- tapOn: "Edit garment"
+- assertVisible: "Edit garment."
+- tapOn:
+    id: "field-Title"
+- eraseText
+- inputText: "Reviewed linen shirt"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save garment"
+- tapOn: "Save garment"
+- scrollUntilVisible:
+    element: "Back to closet"
+    direction: UP
+- tapOn: "Back to closet"
+- assertVisible: "Reviewed linen shirt"
+- tapOn: "Drafts"
+- assertVisible: "Reviewed linen shirt"
+- takeScreenshot: screenshots/${FAMILY}-drafts
+- tapOn: "Account"
+- assertVisible: "Sample workspace"
+- scrollUntilVisible:
+    element: "Leave sample closet"
+- tapOn: "Leave sample closet"
+- scrollUntilVisible:
+    element: "Welcome back"
+    direction: UP
+- assertVisible: "Welcome back"

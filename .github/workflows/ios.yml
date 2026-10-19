@@ -1,0 +1,85 @@
+name: iOS Xcode build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/ios.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: node --test navigation.check.cjs src/model.check.cjs
+      - name: Show Apple toolchain
+        run: xcodebuild -version
+      - name: Generate Xcode workspace and install pods
+        run: npx expo prebuild --platform ios
+      - name: Compile release app for iOS Simulator
+        run: >-
+          xcodebuild -workspace ios/Flock.xcworkspace -scheme Flock
+          -configuration Release -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install Maestro and sign simulator app
+        run: |
+          curl -fsSL https://get.maestro.mobile.dev -o /tmp/install-maestro.sh
+          bash /tmp/install-maestro.sh
+          cat > /tmp/flock-simulator.entitlements <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>application-identifier</key><string>L4M5M5385G.com.sellonflock.app</string><key>keychain-access-groups</key><array><string>L4M5M5385G.com.sellonflock.app</string></array></dict></plist>
+          PLIST
+          codesign --force --sign - --entitlements /tmp/flock-simulator.entitlements build/Build/Products/Release-iphonesimulator/Flock.app
+      - name: Exercise native app and capture screenshots
+        run: |
+          mkdir -p screenshots
+          for FAMILY in iphone ipad; do
+            DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); family=sys.argv[1]; devices=[x for v in d["devices"].values() for x in v]; matches=[x for x in devices if "iPhone" in x["name"] and "Pro Max" in x["name"]] if family=="iphone" else [x for x in devices if "iPad Pro 13" in x["name"]]; print(matches[0]["udid"])' "$FAMILY")
+            xcrun simctl boot "$DEVICE" || true
+            xcrun simctl bootstatus "$DEVICE" -b
+            xcrun simctl status_bar "$DEVICE" override --time '9:41' --batteryState charged --batteryLevel 100
+            xcrun simctl install "$DEVICE" build/Build/Products/Release-iphonesimulator/Flock.app
+            xcrun simctl launch "$DEVICE" com.sellonflock.app || {
+              xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'eventMessage CONTAINS[c] "flock"' > "screenshots/${FAMILY}-launch.log" || true
+              exit 1
+            }
+            "$HOME/.maestro/bin/maestro" --device "$DEVICE" test -e FAMILY="$FAMILY" .maestro/release.yaml || {
+              xcrun simctl io "$DEVICE" screenshot "screenshots/${FAMILY}-failure.png" || true
+              xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'eventMessage CONTAINS[c] "flock"' > "screenshots/${FAMILY}-launch.log" || true
+              cp -R "$HOME/.maestro/tests" screenshots/maestro-debug || true
+              exit 1
+            }
+            xcrun simctl shutdown "$DEVICE"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Flock-iOS-simulator
+          path: |
+            mobile/build/Build/Products/Release-iphonesimulator/Flock.app
+            mobile/screenshots/
+          if-no-files-found: error
