@@ -21,6 +21,8 @@ jobs:
     env:
       CI: '1'
       EXPO_NO_TELEMETRY: '1'
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,21 +41,16 @@ jobs:
           xcodebuild -workspace ios/Flock.xcworkspace -scheme Flock
           -configuration Release -sdk iphonesimulator
           -destination 'generic/platform=iOS Simulator'
-          -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          -derivedDataPath build ARCHS=arm64 ONLY_ACTIVE_ARCH=YES
+          CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES build
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-      - name: Install Maestro and sign simulator app
+      - name: Install Maestro
         run: |
           curl -fsSL https://get.maestro.mobile.dev -o /tmp/install-maestro.sh
           bash /tmp/install-maestro.sh
-          cat > /tmp/flock-simulator.entitlements <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict><key>application-identifier</key><string>L4M5M5385G.com.sellonflock.app</string><key>keychain-access-groups</key><array><string>L4M5M5385G.com.sellonflock.app</string></array></dict></plist>
-          PLIST
-          codesign --force --sign - --entitlements /tmp/flock-simulator.entitlements build/Build/Products/Release-iphonesimulator/Flock.app
       - name: Exercise native app and capture screenshots
         run: |
           mkdir -p screenshots
