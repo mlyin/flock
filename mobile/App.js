@@ -73,6 +73,7 @@ function Field({
       <Text style={s.label}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
+        testID={`field-${label}`}
         style={[
           s.input,
           multiline && { height: 110, textAlignVertical: "top" },
@@ -644,7 +645,7 @@ export default function App() {
                       </Text>
                       {photo && (
                         <Image source={{ uri: photo }} style={s.artLarge} />
-                      )}{" "}
+                      )}
                       {!editor.id && (
                         <View style={s.row}>
                           <Button
