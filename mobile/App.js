@@ -164,6 +164,9 @@ export default function App() {
     if (!demo) {
       setItems([]);
       setSelected(null);
+      setEditor(null);
+      setPhoto(null);
+      setQuery("");
       if (session) refresh();
     }
   }, [session?.user.id, demo]);
