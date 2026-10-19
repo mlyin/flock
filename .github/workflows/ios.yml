@@ -1,0 +1,61 @@
+name: iOS Xcode build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/ios.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: node --test navigation.check.cjs src/model.test.cjs
+      - name: Show Apple toolchain
+        run: xcodebuild -version
+      - name: Generate Xcode workspace and install pods
+        run: npx expo prebuild --platform ios
+      - name: Compile release app for iOS Simulator
+        run: >-
+          xcodebuild -workspace ios/Flock.xcworkspace -scheme Flock
+          -configuration Release -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Launch native sample closet and capture screenshot
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for v in d["devices"].values() for x in v if "iPhone" in x["name"]))')
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" build/Build/Products/Release-iphonesimulator/Flock.app
+          xcrun simctl launch "$DEVICE" com.sellonflock.app
+          sleep 5
+          xcrun simctl openurl "$DEVICE" flock://sample
+          sleep 3
+          mkdir -p screenshots
+          xcrun simctl io "$DEVICE" screenshot screenshots/closet.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flock-iOS-simulator
+          path: |
+            mobile/build/Build/Products/Release-iphonesimulator/Flock.app
+            mobile/screenshots/*.png
+          if-no-files-found: error

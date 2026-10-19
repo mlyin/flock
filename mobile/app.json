@@ -6,12 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "flock",
-    "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F7F8F1"
-    },
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.sellonflock.app",
@@ -20,7 +15,8 @@
         "NSCameraUsageDescription": "Flock uses the camera to photograph garments you're listing.",
         "NSPhotoLibraryUsageDescription": "Flock uses your photo library to attach pictures of garments to a listing.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "L4M5M5385G"
     },
     "android": {
       "package": "com.sellonflock.app",
@@ -30,16 +26,25 @@
       }
     },
     "plugins": [
+      "expo-secure-store",
       [
-        "expo-notifications",
+        "expo-image-picker",
         {
-          "icon": "./assets/notification-icon.png",
-          "color": "#C0E42A"
+          "photosPermission": "Choose garment photos for your Flock inventory.",
+          "cameraPermission": "Photograph garments for your Flock inventory.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand-mark.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#12140D",
+          "imageWidth": 160
         }
       ]
-    ],
-    "extra": {
-      "eas": { "projectId": "REPLACE_AFTER_EAS_INIT" }
-    }
+    ]
   }
 }
