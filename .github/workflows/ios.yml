@@ -15,6 +15,10 @@ jobs:
   simulator:
     runs-on: macos-26
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [iphone, ipad]
     defaults:
       run:
         working-directory: mobile
@@ -54,7 +58,7 @@ jobs:
       - name: Exercise native app and capture screenshots
         run: |
           mkdir -p screenshots
-          for FAMILY in iphone ipad; do
+          for FAMILY in ${{ matrix.family }}; do
             DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); family=sys.argv[1]; devices=[x for v in d["devices"].values() for x in v]; matches=[x for x in devices if "iPhone" in x["name"] and "Pro Max" in x["name"]] if family=="iphone" else [x for x in devices if "iPad Pro 13" in x["name"]]; print(matches[0]["udid"])' "$FAMILY")
             xcrun simctl boot "$DEVICE" || true
             xcrun simctl bootstatus "$DEVICE" -b
@@ -70,12 +74,13 @@ jobs:
               cp -R "$HOME/.maestro/tests" screenshots/maestro-debug || true
               exit 1
             }
+            find "$HOME/.maestro/tests" -path "*/takeScreenshot/screenshots/${FAMILY}-*.png" -exec cp {} screenshots/ \;
             xcrun simctl shutdown "$DEVICE"
           done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Flock-iOS-simulator
+          name: Flock-iOS-simulator-${{ matrix.family }}
           path: |
             mobile/build/Build/Products/Release-iphonesimulator/Flock.app
             mobile/screenshots/
