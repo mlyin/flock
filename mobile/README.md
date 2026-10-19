@@ -11,7 +11,7 @@ existing secure website; deletion requires reauthentication there if necessary.
 Shared drafts exclude costs and minimum prices. Sharing never posts a marketplace
 listing. The app has no purchase flow or unimplemented push registration.
 
-From mobile: npm ci; node --test src/model.test.cjs; npm run export:ios.
+From mobile: npm ci; node --test src/model.check.cjs; npm run export:ios.
 Generate Xcode with npm run ios:generate; run on a simulator with npm run ios.
 GitHub iOS CI compiles the Release simulator app. Codemagic's flock-ios workflow
 uses the existing codemagic Apple integration and an App Store profile for

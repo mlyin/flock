@@ -19,7 +19,7 @@ workflows:
         script: |
           cd mobile
           npm ci
-          node --test src/model.test.cjs
+          node --test src/model.check.cjs
           npx expo export --platform ios
       - name: Generate native workspace
         script: |
