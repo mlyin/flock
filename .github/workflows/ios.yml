@@ -63,7 +63,16 @@ jobs:
             xcrun simctl bootstatus "$DEVICE" -b
             xcrun simctl status_bar "$DEVICE" override --time '9:41' --batteryState charged --batteryLevel 100
             xcrun simctl install "$DEVICE" build/Build/Products/Release-iphonesimulator/Flock.app
-            "$HOME/.maestro/bin/maestro" --device "$DEVICE" test -e FAMILY="$FAMILY" .maestro/release.yaml
+            xcrun simctl launch "$DEVICE" com.sellonflock.app || {
+              xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'eventMessage CONTAINS[c] "flock"' > "screenshots/${FAMILY}-launch.log" || true
+              exit 1
+            }
+            "$HOME/.maestro/bin/maestro" --device "$DEVICE" test -e FAMILY="$FAMILY" .maestro/release.yaml || {
+              xcrun simctl io "$DEVICE" screenshot "screenshots/${FAMILY}-failure.png" || true
+              xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'eventMessage CONTAINS[c] "flock"' > "screenshots/${FAMILY}-launch.log" || true
+              cp -R "$HOME/.maestro/tests" screenshots/maestro-debug || true
+              exit 1
+            }
             xcrun simctl shutdown "$DEVICE"
           done
       - uses: actions/upload-artifact@v4
@@ -72,5 +81,5 @@ jobs:
           name: Flock-iOS-simulator
           path: |
             mobile/build/Build/Products/Release-iphonesimulator/Flock.app
-            mobile/screenshots/*.png
+            mobile/screenshots/
           if-no-files-found: error

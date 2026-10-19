@@ -1,7 +1,6 @@
 appId: com.sellonflock.app
 ---
-- launchApp:
-    clearState: true
+- launchApp
 - assertVisible: "Welcome back"
 - assertNotVisible: ".*KeyChainException.*"
 - takeScreenshot: screenshots/${FAMILY}-welcome
