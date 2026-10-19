@@ -13,7 +13,9 @@ listing. The app has no purchase flow or unimplemented push registration.
 
 From mobile: npm ci; node --test src/model.check.cjs; npm run export:ios.
 Generate Xcode with npm run ios:generate; run on a simulator with npm run ios.
-GitHub iOS CI compiles the Release simulator app. Codemagic's flock-ios workflow
+GitHub iOS CI compiles and signs the Release simulator app, then uses Maestro to
+verify sample inventory editing and tab navigation on iPhone and iPad. Matching
+screenshots are stored in the simulator artifact. Codemagic's flock-ios workflow
 uses the existing codemagic Apple integration and an App Store profile for
 com.sellonflock.app. Build numbers start above 100.
 

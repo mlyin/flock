@@ -82,7 +82,7 @@ function Field({
         onChangeText={onChangeText}
         multiline={multiline}
         secureTextEntry={secure}
-        autoCapitalize={keyboardType === "email-address" ? "none" : "sentences"}
+        autoCapitalize={secure || keyboardType === "email-address" ? "none" : "sentences"}
         autoCorrect={!secure && keyboardType !== "email-address"}
         keyboardType={keyboardType}
         placeholderTextColor="#757B68"
