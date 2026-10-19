@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy — Flock",
-  description: "What Flock and its browser extension do with your data.",
+  description: "How Flock handles your account and inventory data.",
 };
 
 /**
@@ -17,7 +17,29 @@ export default function PrivacyPage() {
       <h1>Privacy</h1>
       <p className="prose-lead">
         Flock is a tool for listing your own clothing on marketplaces you already sell on.
-        This page covers both the website and the browser extension.
+        This page covers the website, iOS app, and browser extension.
+      </p>
+
+      <h2>What the iOS app stores and sends</h2>
+      <p>
+        The iOS app uses your email address and password to sign in through Supabase.
+        It stores a session credential in the device Keychain. Your account ID links your
+        garment details, photos, costs, asking prices, minimum prices, and notes to your account.
+        These records are stored by Supabase to provide inventory synchronization. Photos
+        are private and displayed through temporary signed links.
+      </p>
+      <p>
+        Camera access is requested only when you take a garment photo. You can also choose
+        a photo using the system photo picker. The app does not access your contacts,
+        location, microphone, or advertising identifier. It has no advertising or tracking SDK.
+        Our infrastructure providers process request information, including IP addresses
+        and technical logs, to operate and secure the service.
+      </p>
+      <p>
+        The sample closet stays in the current app session and is not uploaded. Sharing a
+        draft uses the system share sheet and sends the text to the destination you choose.
+        Shared drafts exclude your private cost and minimum price. The iOS app does not
+        send photos to an AI service or automatically publish marketplace listings.
       </p>
 
       <h2>What the extension does</h2>
@@ -49,7 +71,7 @@ export default function PrivacyPage() {
       <p>
         It requests your own listing data from Flock, and after you publish a listing it
         sends back the resulting marketplace URL so your inventory reflects what is live.
-        Nothing else leaves your browser, and nothing is sent to any third party.
+        These requests are handled by the service providers that operate Flock.
       </p>
 
       <h2>What the website stores</h2>
@@ -72,7 +94,7 @@ export default function PrivacyPage() {
 
       <h2>What we don&apos;t do</h2>
       <ul>
-        <li>We do not sell or share your data with third parties.</li>
+        <li>We do not sell your data. Service providers process the data needed to operate Flock, as described above.</li>
         <li>We do not use it for advertising, profiling, or credit decisions.</li>
         <li>We do not have access to your marketplace accounts.</li>
       </ul>
@@ -91,7 +113,7 @@ export default function PrivacyPage() {
         </a>
       </p>
 
-      <p className="prose-fine">Last updated 17 August 2026.</p>
+      <p className="prose-fine">Last updated 19 October 2026.</p>
     </div>
   );
 }

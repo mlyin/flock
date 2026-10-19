@@ -356,7 +356,7 @@ export default function App() {
             >
               <Text style={s.kicker}>LESS CLUTTER. MORE POSSIBILITY.</Text>
               <Text style={s.hero}>
-                Your closet,\nready for its\nnext chapter.
+                {"Your closet,\nready for its\nnext chapter."}
               </Text>
               <Text style={s.body}>
                 Photograph garments, organize your inventory, and prepare your

@@ -42,16 +42,21 @@ jobs:
           -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
       - name: Launch native sample closet and capture screenshot
         run: |
-          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for v in d["devices"].values() for x in v if "iPhone" in x["name"]))')
-          xcrun simctl boot "$DEVICE" || true
-          xcrun simctl bootstatus "$DEVICE" -b
-          xcrun simctl install "$DEVICE" build/Build/Products/Release-iphonesimulator/Flock.app
-          xcrun simctl launch "$DEVICE" com.sellonflock.app
-          sleep 5
-          xcrun simctl openurl "$DEVICE" flock://sample
-          sleep 3
           mkdir -p screenshots
-          xcrun simctl io "$DEVICE" screenshot screenshots/closet.png
+          for FAMILY in iphone ipad; do
+            DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); family=sys.argv[1]; devices=[x for v in d["devices"].values() for x in v]; matches=[x for x in devices if "iPhone" in x["name"] and "Pro Max" in x["name"]] if family=="iphone" else [x for x in devices if "iPad Pro 13" in x["name"]]; print(matches[0]["udid"])' "$FAMILY")
+            xcrun simctl boot "$DEVICE" || true
+            xcrun simctl bootstatus "$DEVICE" -b
+            xcrun simctl status_bar "$DEVICE" override --time '9:41' --batteryState charged --batteryLevel 100
+            xcrun simctl install "$DEVICE" build/Build/Products/Release-iphonesimulator/Flock.app
+            xcrun simctl launch "$DEVICE" com.sellonflock.app
+            sleep 5
+            xcrun simctl io "$DEVICE" screenshot "screenshots/$FAMILY-welcome.png"
+            xcrun simctl openurl "$DEVICE" flock://sample
+            sleep 3
+            xcrun simctl io "$DEVICE" screenshot "screenshots/$FAMILY-closet.png"
+            xcrun simctl shutdown "$DEVICE"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: Flock-iOS-simulator
